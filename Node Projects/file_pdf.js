@@ -15,19 +15,14 @@ let dirs = getDirectories('./TO SEND')
 
 // open files in folder and read files
 async function file_list() {
-    let file_tree = []
 
-    let res = async () => await dirs.then(async dir => {
-        let [...r] = (dir.map(async d => {
-            let files = (await fs.readdir(`./TO SEND/${d}`))
-            file_tree.push({ d, files })
-            return { d, files }
-        }))
-
-        console.log(r)
-        return await Promise.all(Array.from(r))
-    })
-    return await res()
+    return await dirs.then(async dir =>
+         Array.from(dir.map(async d => {
+            console.log(d);
+            let files = (await fs.readdir(`./${d}`))
+             return { d, files }
+         })))
+        .catch(e => console.log(e))
 }
 
 
