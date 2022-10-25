@@ -2,50 +2,61 @@ import * as playwright from 'playwright';
 import { Locator } from 'playwright';
 
 import * as fs from 'fs'
+import path from 'path';
+
+export async function globalSetup() {
+
+    let __dirname = path.dirname(process.argv[1])
+    let obj = (fs.readFileSync(__dirname + '/../storage/login.json')).toString('utf8').trim()
+
+    let user = JSON.parse(obj).user
+    let pass = JSON.parse(obj).pass
+
+    const browser = await playwright.chromium
+        .launchPersistentContext('./pinterest-download-data', {
+            headless: false, devtools: true,
+            // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        })
+
+    const page = await browser!.newPage();
+    await page.goto('https://pinterest.ca/login');
+    let cookies = await page.evaluate(() => document.cookie);
+
+    const closeModalBtnSelector = 'button[aria-label="close"]';
+    if (await page.locator(closeModalBtnSelector, { hasText: "close" }).count() > 0) {
+        // await page.getByLabel('Email').fill(user);
+        // await page.getByLabel('Password').fill(pass);
+        // await page.getByText('Log in').click();
+
+        // Save signed-in state to 'storageState.json'.
+        (await page.context()
+            .storageState({ path: '../storage/storageState.json' })
+            .then((s) => console.log("SAVED STORAGE STATE" + s))
+            .catch(err => console.error("FAILED TO SAVE STATE: " + err)));
+
+    }
+    await page.close();
+    await browser.close();
+
+}
 
 export async function link_downloader() {
-    playwright.chromium.launchPersistentContext('./pinterest-download-data', { headless: false, devtools: true, executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" }).then(async (browser) => {
-        // Pinterest Cookies
-        // "csrftoken=dc9668f0ca00bdf43f604fac15681313; g_state={\"i_l\":0}; cm_sub=allowed; sessionFunnelEventLogged=1"
+    await globalSetup().then(async () => {
 
-        // let cookies = [{
-        //     name: 'pinterest',
-        //     value: 'csrftoken=dc9668f0ca00bdf43f604fac15681313; g_state={\"i_l\":0}; cm_sub=allowed; sessionFunnelEventLogged=1',
-        //     url: 'https://www.pinterest.ca',
-        //     // domain: '.pinterest.com',
-        //     // path: '',
-        //     // expires: 0,
-        //     // httpOnly: true,
-        //     // secure: true,
-        //     // sameSite: 'None'
-        // }]
+        playwright.chromium.launchPersistentContext('./pinterest-download-data', {
+            headless: false, devtools: true,
+            //  executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        })
+            .then(async (browser) => {
+                const page = await browser.newPage()
 
-        async function globalSetup() {
-            const browser = await playwright.chromium.launch();
-            const page = await browser.newPage();
-            await page.goto('https://pinterest.ca/login');
-            await page.getByLabel('User Name').fill('user');
-            await page.getByLabel('Password').fill('password');
-            await page.getByText('Sign in').click();
-            // Save signed-in state to 'storageState.json'.
-            await page.context().storageState({ path: './pinterest-download-data/storageState.json' });
-            await browser.close();
-        }
+                // const dirname = path.dirname(process.argv[1])
 
-        const page = await browser.newPage();
-        // page.context().addCookies(cookies)
-        // addScriptTag and readFileSync
+                // let filePath = dirname + 'pin_ex.js'
 
-        // You can save the function to a seperate file and use the function using addScriptTag.
-        let dirname = '/Users/umit/Desktop/Github Test/Node Projects/pinterestCrawl/src/'
+                // // or evaluate with readFileSync.
+                // let script = fs.readFileSync(filePath, 'utf8')
 
-        let filePath = dirname + 'pin_ex.js'
-
-        // or evaluate with readFileSync.
-        let script = fs.readFileSync(filePath, 'utf8')
-
-        await globalSetup()
-            .then(async () => {
                 await page.goto("https://www.pinterest.ca/dracana96");
 
                 await page.waitForTimeout(1000)
@@ -243,11 +254,8 @@ export async function link_downloader() {
 
                 // });
 
-            });
-
-
-
-    })
+            }).catch((err) => console.error(err));
+    }).catch((err) => console.error(err));
 };
 
 async function* iterateLocator(locator: Locator): AsyncGenerator<Locator> {

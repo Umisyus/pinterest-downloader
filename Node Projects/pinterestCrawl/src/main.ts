@@ -1,9 +1,11 @@
-import * as pw from "playwright";
-import { link_downloader } from "./link_downloader.js";
+import { globalSetup, link_downloader } from "./link_downloader.js";
 
 const closeModalBtnSelector = 'button[aria-label="close"]';
 // import { crawl, parse } from "./pinextractor";
-await link_downloader()
+
+await globalSetup().then(async () => {
+    await link_downloader()
+})
 
 // pw.chromium.launch({ headless: false }).then(async (browser) => {
 // const page = await browser.newPage();
