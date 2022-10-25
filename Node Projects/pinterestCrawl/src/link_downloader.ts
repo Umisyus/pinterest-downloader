@@ -71,24 +71,20 @@ export async function link_downloader() {
                                 .map(x => x.srcset)
                                 // @ts-ignore
                                 // Filter out the urls that are not valid
+                                .filter(i => /\s|undefined|null/.exec(i)))
                                 // @ts-ignore
                                 // Split the srcset attribute into an array of urls
                                 .map(i => i.split(' ')[6])
                                 // Filter out the urls that are not valid
-                                .filter(i => i !== undefined)
-                                .filter(i => i !== ""))
-                                .filter(i => /\s|undefined|null/.exec(i)))
+                                .filter(i => i !== undefined || i !== ""))
 
                             // Scroll down
                             window.scrollBy(0, 250)
-                            setTimeout(() => { }, 1000)
+
                             // Filter duplicates
 
                             // Credits: https://stackoverflow.com/a/32122760
                             pins = pins.filter((e, i, a) => a.indexOf(e) == i)
-                                .filter(i => i !== "")
-                                .filter(i => i !== undefined)
-                                .filter(i => /\s|undefined|null/.exec(i))
                             // and undefined values
                             // Not sure if needed or not lol
                             // .filter(i => i !== undefined)
