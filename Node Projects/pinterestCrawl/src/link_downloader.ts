@@ -351,24 +351,25 @@ export async function link_downloader() {
                         } else if (sectionLinks.length > 0) {
                             console.log(`Found ${sectionLinks.length} sections`);
 
-                            for await (const sec of sectionLinks as string[]) {
-                                console.log("Going to section: ", sec);
-                                await page.goto(sec);
-                                console.log("Getting pins of section: ", sec);
-                                await page.waitForLoadState('domcontentloaded');
-                                let section_pins = await page.evaluate(eval_pins);
-
-                                parsedSections.push({ sec, section_pins })
+                            for await (const section of sectionLinks as string[]) {
+                                let [a, b, c, d, section_pins] = await Promise.allSettled([
+                                    console.log("Going to section: ", section),
+                                    page.goto(section),
+                                    console.log("Getting pins of section: ", section),
+                                    page.waitForLoadState('domcontentloaded'),
+                                    page.waitForFunction(eval_pins),
+                                ])
+                                parsedSections.push({ section, section_pins })
                             }
                         }
                     }
 
                     /* Pins */
-                    console.log("Getting pins");
+                    console.log(`Getting pins from board ${boardName}`);
 
-                    let board_pins = await page.evaluate(eval_pins);
+                    let board_pins = await page.waitForFunction(eval_pins);
 
-                    console.log([boardName, parsedSections, board_pins])
+                    console.log({ boardName, parsedSections, board_pins })
 
                 }
 
