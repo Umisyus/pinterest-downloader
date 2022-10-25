@@ -1,5 +1,5 @@
 /* Use when logged in */
-function get_pins() {
+ function get_pins() {
 
     let pins = []
 

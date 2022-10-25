@@ -1,6 +1,6 @@
 import * as pw from "playwright";
 import { link_downloader } from "./link_downloader.js";
-import { crawl } from "./pinextractor";
+
 const closeModalBtnSelector = 'button[aria-label="close"]';
 // import { crawl, parse } from "./pinextractor";
 await link_downloader()
