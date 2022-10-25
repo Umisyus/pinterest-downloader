@@ -51,9 +51,7 @@ export async function link_downloader() {
                 const page = await browser.newPage()
 
                 // const dirname = path.dirname(process.argv[1])
-
                 // let filePath = dirname + 'pin_ex.js'
-
                 // // or evaluate with readFileSync.
                 // let script = fs.readFileSync(filePath, 'utf8')
 
@@ -127,28 +125,68 @@ export async function link_downloader() {
 
                     console.log(boards);
 
-                    return JSON.stringify(boards)
+                    return JSON.stringify({ boards })
                 });
 
                 console.log(boards);
 
                 let sections = await page.evaluate(() => {
+                    function get_sections() {
+                        // @ts-ignore
+                        let sections = $x('*//div[starts-with(@data-test-id,"section")]')
+                        // @ts-ignore
+                        return sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
+                    }
 
                     return get_sections()
 
                 });
+
                 console.log(sections.length);
 
-                await page.evaluate(() => {
-                    let i = 0;
-                    let pins = []
-                    while (i < 200) {
-                        pins.push(...get_pins())
+                let pins = await page.evaluate(() => {
+                    /* Use when logged in */
+                    function get_pins() {
+
+                        let pins = []
+
+                        let i = 0
+
+                        while (i < 5) {
+                            // @ts-ignore
+                            pins.push(...Array.from($$('img')
+                                // Get the srcset attribute of the image
+                                // @ts-ignore
+                                .map(x => x.srcset)
+                                // @ts-ignore
+                                // Filter out the urls that are not valid
+                                .filter(i => /\s|undefined|null/.exec(i)))
+                                // @ts-ignore
+                                // Split the srcset attribute into an array of urls
+                                .map(i => i.split(' ')[6])
+                                // Filter out the urls that are not valid
+                                .filter(i => i !== undefined || i !== ""))
+
+                            // Scroll down
+                            window.scrollBy(0, 250)
+
+                            // Filter duplicates
+
+                            // Credits: https://stackoverflow.com/a/32122760
+                            pins = pins.filter((e, i, a) => a.indexOf(e) == i)
+                            // and undefined values
+                            // Not sure if needed or not lol
+                            // .filter(i => i !== undefined)
+                            i++
+                        }
+                        // Return the array of urls
+                        return pins
                     }
-                    return pins
+
+                    return get_pins()
                 });
 
-
+                console.log(`# Of Pins: ${pins.length}`);
 
                 // await page.context().exposeFunction('crawl', crawl);
                 // await page.waitForLoadState('networkidle');
@@ -254,8 +292,11 @@ export async function link_downloader() {
 
                 // });
 
+                await browser.close();
             }).catch((err) => console.error(err));
     }).catch((err) => console.error(err));
+
+
 };
 
 async function* iterateLocator(locator: Locator): AsyncGenerator<Locator> {
