@@ -50,7 +50,12 @@ export async function link_downloader() {
             .then(async (browser) => {
 
                 let eval_pins = () => {
-
+                    // @ts-ignore
+                    function $$(selector, context) {
+                        context = context || document;
+                        var elements = context.querySelectorAll(selector);
+                        return Array.prototype.slice.call(elements);
+                    }
                     /* Use when logged in */
                     function get_pins() {
 
@@ -66,20 +71,24 @@ export async function link_downloader() {
                                 .map(x => x.srcset)
                                 // @ts-ignore
                                 // Filter out the urls that are not valid
-                                .filter(i => /\s|undefined|null/.exec(i)))
                                 // @ts-ignore
                                 // Split the srcset attribute into an array of urls
                                 .map(i => i.split(' ')[6])
                                 // Filter out the urls that are not valid
-                                .filter(i => i !== undefined || i !== ""))
+                                .filter(i => i !== undefined)
+                                .filter(i => i !== ""))
+                                .filter(i => /\s|undefined|null/.exec(i)))
 
                             // Scroll down
                             window.scrollBy(0, 250)
-
+                            setTimeout(() => { }, 1000)
                             // Filter duplicates
 
                             // Credits: https://stackoverflow.com/a/32122760
                             pins = pins.filter((e, i, a) => a.indexOf(e) == i)
+                                .filter(i => i !== "")
+                                .filter(i => i !== undefined)
+                                .filter(i => /\s|undefined|null/.exec(i))
                             // and undefined values
                             // Not sure if needed or not lol
                             // .filter(i => i !== undefined)
@@ -350,7 +359,7 @@ export async function link_downloader() {
                                 console.log("Going to section: ", sec);
                                 await page.goto(sec);
                                 console.log("Getting pins of section: ", sec);
-                                await page.waitForLoadState('load');
+                                await page.waitForLoadState('domcontentloaded');
                                 let section_pins = await page.evaluate(eval_pins);
 
                                 parsedSections.push({ sec, section_pins })
