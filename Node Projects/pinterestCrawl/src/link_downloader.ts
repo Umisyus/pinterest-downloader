@@ -48,103 +48,9 @@ export async function link_downloader() {
             //  executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
         })
             .then(async (browser) => {
-                const page = await browser.newPage()
 
-                // const dirname = path.dirname(process.argv[1])
-                // let filePath = dirname + 'pin_ex.js'
-                // // or evaluate with readFileSync.
-                // let script = fs.readFileSync(filePath, 'utf8')
+                let eval_pins = () => {
 
-                await page.goto("https://www.pinterest.ca/dracana96");
-
-                await page.waitForTimeout(1000)
-
-                // const pins_selector = "div[id^='boardfeed'] > div > div > div > div > div > div > div > div > a"
-
-                // pick boards view
-                // const boards_locator = page.locator("//div[@role='list']").first().first();
-                // const boards_locator = page.locator("#profileBoardsFeed > div > div > div > div > a > div > div")
-
-                // const pins_locator = page.locator("#profileBoardsFeed > div:nth-child(2) > div:nth-child(1)");
-
-                // for await (const locator of iterateLocator(boards_locator)) {
-                //     locator.click({ button: 'middle' });
-
-                //     // switch to new tab
-                //     const [newPage] = await Promise.all([
-                //         page.context().waitForEvent('page'),
-                //         locator.click(), // Opens a new tab
-                //     ])
-
-
-                //     let links_list: string[] = []
-
-                //     /* !!!Exposing functions not working!!! */
-                //     // await newPage.context().exposeFunction('crawl', crawl);
-                //     await newPage.waitForLoadState('networkidle');
-
-                let boards = await page.evaluate(() => {
-                    // @ts-ignore
-                    const $x = xp => {
-                        const snapshot = document.evaluate(
-                            xp, document, null,
-                            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
-                        );
-                        return [...new Array(snapshot.snapshotLength)]
-                            .map((_, i) => snapshot.snapshotItem(i))
-                            ;
-                    };
-
-
-                    /* Use when logged in */
-                    function get_boards(boards_selector = "div[data-test-id='pwt-grid-item']") {
-
-
-                        // Check if null or empty
-                        if (boards_selector == null || boards_selector == "")
-                            boards_selector = "div[data-test-id='pwt-grid-item']"
-                        // @ts-ignore
-                        let boards = Array.from(document.querySelectorAll(boards_selector))
-                        // @ts-ignore
-                        let links = [];
-                        // @ts-ignore
-                        links.push(boards.map(i => i.querySelector('a')).map(i => i.href))
-
-                        // @ts-ignore
-                        console.log(links);
-
-                        // @ts-ignore
-                        return links
-                    }
-                    // let sections = $x('*//div[starts-with(@data-test-id,"section")]')
-
-                    let boards = get_boards()
-                    // // @ts-ignore
-                    // // @ts-ignore
-                    // let section_links = sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
-
-                    console.log(boards);
-
-                    return JSON.stringify({ boards })
-                });
-
-                console.log(boards);
-
-                let sections = await page.evaluate(() => {
-                    function get_sections() {
-                        // @ts-ignore
-                        let sections = $x('*//div[starts-with(@data-test-id,"section")]')
-                        // @ts-ignore
-                        return sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
-                    }
-
-                    return get_sections()
-
-                });
-
-                console.log(sections.length);
-
-                let pins = await page.evaluate(() => {
                     /* Use when logged in */
                     function get_pins() {
 
@@ -184,9 +90,282 @@ export async function link_downloader() {
                     }
 
                     return get_pins()
-                });
+                };
 
-                console.log(`# Of Pins: ${pins.length}`);
+                const page = await browser.newPage()
+
+                // const dirname = path.dirname(process.argv[1])
+                // let filePath = dirname + 'pin_ex.js'
+                // // or evaluate with readFileSync.
+                // let script = fs.readFileSync(filePath, 'utf8')
+
+                await page.goto("https://www.pinterest.ca/dracana96");
+
+                await page.waitForTimeout(1000)
+
+                // const pins_selector = "div[id^='boardfeed'] > div > div > div > div > div > div > div > div > a"
+
+                // pick boards view
+                // const boards_locator = page.locator("//div[@role='list']").first().first();
+                // const boards_locator = page.locator("#profileBoardsFeed > div > div > div > div > a > div > div")
+
+                // const pins_locator = page.locator("#profileBoardsFeed > div:nth-child(2) > div:nth-child(1)");
+
+                // for await (const locator of iterateLocator(boards_locator)) {
+                //     locator.click({ button: 'middle' });
+
+                //     // switch to new tab
+                //     const [newPage] = await Promise.all([
+                //         page.context().waitForEvent('page'),
+                //         locator.click(), // Opens a new tab
+                //     ])
+
+
+                //     let links_list: string[] = []
+
+                //     /* !!!Exposing functions not working!!! */
+                //     // await newPage.context().exposeFunction('crawl', crawl);
+                //     await newPage.waitForLoadState('networkidle');
+                let user_boards = () => {
+                    // @ts-ignore
+                    const $x = xp => {
+                        const snapshot = document.evaluate(
+                            xp, document, null,
+                            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+                        );
+                        return [...new Array(snapshot.snapshotLength)]
+                            .map((_, i) => snapshot.snapshotItem(i))
+                            ;
+                    };
+
+
+                    /* Use when logged in */
+                    function get_boards(boards_selector = "div[data-test-id='pwt-grid-item']") {
+                        // Check if null or empty
+                        if (boards_selector == null || boards_selector == "")
+                            boards_selector = "div[data-test-id='pwt-grid-item']"
+                        // @ts-ignore
+                        let boards = Array.from(document.querySelectorAll(boards_selector))
+                        // @ts-ignore
+                        let links = [];
+                        // @ts-ignore
+                        links.push(...boards.map(i => i.querySelector('a')).map(i => i.href))
+
+                        // @ts-ignore
+                        console.log(links);
+
+                        // @ts-ignore
+                        return links
+                    }
+
+                    let boards = get_boards()
+
+                    // // @ts-ignore
+                    console.log(boards);
+
+                    return JSON.stringify({ boards })
+                }
+
+                let board_sections = () => {
+                    function get_sections() {
+
+                        // @ts-ignore
+                        const $x = xp => {
+                            const snapshot = document.evaluate(
+                                xp, document, null,
+                                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+                            );
+                            return [...new Array(snapshot.snapshotLength)]
+                                .map((_, i) => snapshot.snapshotItem(i))
+                                ;
+                        };
+
+                        let sections = $x('*//div[starts-with(@data-test-id,"section")]')
+                        // @ts-ignore
+                        return sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
+                    }
+
+                    return JSON.stringify(get_sections())
+
+                }
+
+                let ops: any[] = [
+                    user_boards, board_sections
+                    /* Boards */
+                    // page.evaluate(() => {
+                    //     // @ts-ignore
+                    //     const $x = xp => {
+                    //         const snapshot = document.evaluate(
+                    //             xp, document, null,
+                    //             XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+                    //         );
+                    //         return [...new Array(snapshot.snapshotLength)]
+                    //             .map((_, i) => snapshot.snapshotItem(i))
+                    //             ;
+                    //     };
+
+
+                    //     /* Use when logged in */
+                    //     function get_boards(boards_selector = "div[data-test-id='pwt-grid-item']") {
+
+
+                    //         // Check if null or empty
+                    //         if (boards_selector == null || boards_selector == "")
+                    //             boards_selector = "div[data-test-id='pwt-grid-item']"
+                    //         // @ts-ignore
+                    //         let boards = Array.from(document.querySelectorAll(boards_selector))
+                    //         // @ts-ignore
+                    //         let links = [];
+                    //         // @ts-ignore
+                    //         links.push(boards.map(i => i.querySelector('a')).map(i => i.href))
+
+                    //         // @ts-ignore
+                    //         console.log(links);
+
+                    //         // @ts-ignore
+                    //         return links
+                    //     }
+                    //     // let sections = $x('*//div[starts-with(@data-test-id,"section")]')
+
+                    //     let boards = get_boards()
+                    //     // // @ts-ignore
+                    //     // // @ts-ignore
+                    //     // let section_links = sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
+
+                    //     console.log(boards);
+
+                    //     return JSON.stringify({ boards })
+                    // }),
+                    // /* Sections */
+                    // page.evaluate(() => {
+                    //     function get_sections() {
+
+                    //         // @ts-ignore
+                    //         const $x = xp => {
+                    //             const snapshot = document.evaluate(
+                    //                 xp, document, null,
+                    //                 XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+                    //             );
+                    //             return [...new Array(snapshot.snapshotLength)]
+                    //                 .map((_, i) => snapshot.snapshotItem(i))
+                    //                 ;
+                    //         };
+
+                    //         let sections = $x('*//div[starts-with(@data-test-id,"section")]')
+                    //         // @ts-ignore
+                    //         return sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
+                    //     }
+
+                    //     return get_sections()
+
+                    // }),
+                    // /* Pins */
+                    // page.evaluate(() => {
+                    //     /* Use when logged in */
+                    //     function get_pins() {
+
+                    //         let pins = []
+
+                    //         let i = 0
+
+                    //         while (i < 5) {
+                    //             // @ts-ignore
+                    //             pins.push(...Array.from($$('img')
+                    //                 // Get the srcset attribute of the image
+                    //                 // @ts-ignore
+                    //                 .map(x => x.srcset)
+                    //                 // @ts-ignore
+                    //                 // Filter out the urls that are not valid
+                    //                 .filter(i => /\s|undefined|null/.exec(i)))
+                    //                 // @ts-ignore
+                    //                 // Split the srcset attribute into an array of urls
+                    //                 .map(i => i.split(' ')[6])
+                    //                 // Filter out the urls that are not valid
+                    //                 .filter(i => i !== undefined || i !== ""))
+
+                    //             // Scroll down
+                    //             window.scrollBy(0, 250)
+
+                    //             // Filter duplicates
+
+                    //             // Credits: https://stackoverflow.com/a/32122760
+                    //             pins = pins.filter((e, i, a) => a.indexOf(e) == i)
+                    //             // and undefined values
+                    //             // Not sure if needed or not lol
+                    //             // .filter(i => i !== undefined)
+                    //             i++
+                    //         }
+                    //         // Return the array of urls
+                    //         return pins
+                    //     }
+
+                    //     return get_pins()
+                    // }),
+
+                ]
+                let eval_ops = ops.map(i => page.evaluate(i))
+
+                let [board_links, section_links]: any[] = await Promise.all([...eval_ops])
+                board_links = board_links as IBoard
+                interface IBoard {
+                    boards: string[]
+                }
+                console.log({ board_links, section_links });
+
+                const board = JSON.parse(board_links) as IBoard
+
+                for (let index = 0; index < board.boards.length; index++) {
+                    const boardName = board.boards[index] as string;
+
+                    if (boardName.includes("/pins")) {
+                        console.log(`Board ${boardName} skipped.`);
+
+                        continue
+                    }
+
+                    console.log("Going to board: ", boardName);
+
+                    await page.goto(boardName);
+                    console.log("Went to board: ", boardName);
+
+                    await page.waitForLoadState('load');
+
+                    /* Sections */
+                    console.log("Getting sections...");
+
+                    let sections = await page.evaluate(board_sections)
+
+                    let sectionLinks: string[] = []
+                    let parsedSections = []
+
+                    if (sections) {
+                        sectionLinks = JSON.parse(sections);
+
+                        if (sectionLinks.length == 0) {
+                            console.log("No sections found.");
+                        } else if (sectionLinks.length > 0) {
+                            console.log(`Found ${sectionLinks.length} sections`);
+
+                            for await (const sec of sectionLinks as string[]) {
+                                console.log("Going to section: ", sec);
+                                await page.goto(sec);
+                                console.log("Getting pins of section: ", sec);
+                                await page.waitForLoadState('load');
+                                let section_pins = await page.evaluate(eval_pins);
+
+                                parsedSections.push({ sec, section_pins })
+                            }
+                        }
+                    }
+
+                    /* Pins */
+                    console.log("Getting pins");
+
+                    let board_pins = await page.evaluate(eval_pins);
+
+                    console.log([boardName, parsedSections, board_pins])
+
+                }
 
                 // await page.context().exposeFunction('crawl', crawl);
                 // await page.waitForLoadState('networkidle');
@@ -292,9 +471,14 @@ export async function link_downloader() {
 
                 // });
 
+                console.log("closing browser");
+
+
                 await browser.close();
             }).catch((err) => console.error(err));
     }).catch((err) => console.error(err));
+
+    console.log("Closed.");
 
 
 };
