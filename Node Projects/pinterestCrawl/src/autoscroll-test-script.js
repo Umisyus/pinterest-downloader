@@ -10,7 +10,7 @@ import * as puppeteer from 'puppeteer-core';
     });
 
     const page = await browser.newPage();
-    await page.goto('https://www.pinterest.ca/dracana96/cute-funny-animals/');
+    await page.goto('https://www.pinterest.ca/dracana96/cute-funny-animals/', { waitUntil: 'domcontentloaded' });
     await page.setViewport({
         width: 1200,
         height: 800
@@ -45,6 +45,7 @@ async function autoScroll(page, get_pins) {
                 .map((_, i) => snapshot.snapshotItem(i))
                 ;
         };
+
         /* Use when logged in */
         function get_pins() {
 
@@ -54,24 +55,32 @@ async function autoScroll(page, get_pins) {
 
             while (i < 5) {
                 // @ts-ignore
-                pins.push(...Array.from($$('img')
+
+                // get image from pin wrapper
+
+                // $$('div[data-test-id="deeplink-wrapper"]:nth-child(1) img')
+
+                // Get pins from first list of pins
+                // $$('div[role="list"]:nth-child(1) div[data-test-id="deeplink-wrapper"]:nth-child(1) img')
+                // Get element's position from page
+                // $x('//*/div/div/div[5]/div/div/div[2]/div/div[1]/div/h2').pop().getBoundingClientRect()
+                // Test if element is in viewport
+
+                let imgs = Array.from(document.querySelectorAll('img'))
+                    // @ts-ignore
+                    // Filter out the urls that are not valid
+                    .filter(i => /\s|undefined|null/.exec(i))
                     // Get the srcset attribute of the image
-                    // @ts-ignore
                     .map(x => x.srcset ? x.srcset.split(' ')[6] : x.src)
-                    // @ts-ignore
-                    // Filter out the urls that are not valid
-                    .filter(i => /\s|undefined|null/.exec(i)))
-                    // @ts-ignore
-                    // Split the srcset attribute into an array of urls
-                    .map(i => i.split(' ')[6])
-                    // Filter out the urls that are not valid
-                    .filter(i => i !== undefined || i !== ""))
+
+                pins.push(...imgs)
+
+                // .filter(i => i !== undefined || i !== ""))
 
                 // Scroll down
                 // window.scrollBy(0, 250)
 
                 // Filter duplicates
-
                 // Credits: https://stackoverflow.com/a/32122760
                 pins = pins.filter((e, i, a) => a.indexOf(e) == i)
                 // and undefined values
@@ -79,10 +88,12 @@ async function autoScroll(page, get_pins) {
                 // .filter(i => i !== undefined)
                 i++
             }
+            console.log(pins);
             // Return the array of urls
+
             return pins
         }
-        await new Promise((resolve) => {
+        let imgs = await new Promise((resolve) => {
             var totalHeight = 0;
             var distance = 100;
             let images = []
@@ -94,27 +105,39 @@ async function autoScroll(page, get_pins) {
                 console.log(images);
                 // if (typeof get_pins === "function") {
                 images.push(...get_pins())
-
+                debugger
                 // log the number of images
-                console.log(images.length)
+                console.log(`# of images: ${images.length}`)
                 console.log(images)
-                console.log(1)
                 // }
-                console.log(images.length);
 
                 // Find h2 with text "More like this"
-                let boardEnd = $x("//h2[contains(text(), 'More like this')]").length > 0 ? true : false;
-                if (totalHeight >= scrollHeight - window.innerHeight || boardEnd) {
+                // $x("//h2[contains(text(), 'More like this')]")
+
+                let more_text_element = $x("//h2[contains(text(), 'More like this')]")[0]
+                // If it exists, stop scrolling, we're done collecting images
+                let isVisible = (more) => more.getBoundingClientRect().top <= (window.innerHeight)
+
+                // Re-evaluate the element's visibility???
+
+                if (isVisible(more_text_element) === true
+                    // || totalHeight >= scrollHeight - window.innerHeight
+                ) {
                     clearInterval(timer);
                     const uniqueImages = images
-                        //FILTER EMPTY VALUES
+                        // FILTER EMPTY VALUES
                         .filter(i => i !== "")
+                        // FILTER DUPLICATES
                         .filter((e, i, a) => a.indexOf(e) == i)
-
-                    resolve(uniqueImages);
+                    // return the array of images
+                    debugger
+                    // resolve({ uniqueImages });
+                    resolve({ images: JSON.stringify(uniqueImages) });
                 }
             }, 100);
         });
+        debugger
+        return imgs;
     });
 }
 
