@@ -47,13 +47,15 @@ async function autoScroll(page, get_pins) {
         }
 
         let more_text_element =
-            $x("//h2[contains(text(), 'like') and contains(text(),'this')]")[0]
+            $x("//h2[contains(text(), 'Find some ideas for this board')]")[0]
+        // $x("//h2[contains(text(), 'like') and contains(text(),'this')]")[0]
 
-        // When not logged in, the "like this" text is not present
-        // $x("//h2[contains(text(), 'Find some ideas for this board')]")[0]
+        // When not logged in, the "More like this" text is not present
+        // intead this text is present:
 
         // let halt = () => $$("h2").find(h => h.textContent.includes('like this')).getBoundingClientRect().top <= window.innerHeight
-        let halt = $$("h2").find(h => h.textContent.includes('like this'))
+        let halt = $$("h2").find(h =>
+            h.textContent.includes('like this') || h.textContent.includes('ideas for this board'))
 
         debugger;
         let isVisible = (more) => more.getBoundingClientRect().top <= window.innerHeight
@@ -150,9 +152,10 @@ async function autoScroll(page, get_pins) {
             let vis = () => isVisible(more_text_element)
             console.log(vis());
             debugger
-
-            if (halt != undefined && isVisible(halt)) {
-                return { pins, mappedPins }
+            if (halt) {
+                if (isVisible(halt) || vis()) {
+                    return [...mappedPins]
+                }
             }
 
         }
