@@ -1,11 +1,11 @@
-import * as puppeteer from 'puppeteer-core';
+import * as puppeteer from 'playwright';
 import { selectors } from './logged-in/pinterest-selectors.js';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 
 // https://stackoverflow.com/a/53527984
 (async () => {
-    const browser = await puppeteer.launch({
+    const browser = await puppeteer.chromium.launch({
         headless: false,
         devtools: true,
         slowMo: 500,
@@ -14,11 +14,11 @@ import { randomUUID } from 'crypto';
 
     const page = await browser.newPage();
     await page.goto('https://www.pinterest.ca/dracana96/cute-funny-animals/', { waitUntil: 'domcontentloaded' });
-    await page.setViewport({
+    await page.setViewportSize({
         width: 1200,
         height: 800
     });
-    await page.waitForNetworkIdle()
+    await page.waitForLoadState('networkidle');
     let images = await autoScroll(page, get_pins, selectors);
 
     console.log(images);
@@ -95,11 +95,12 @@ async function autoScroll(page, get_pins, selectors) {
 
         /* Use when logged in */
         function get_pins() {
-
+            console.log(selectors);
             let pins = []
             let mappedPins = []
             let video_pins = []
-
+            let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
+            let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
             let i = 0
 
             while (i < 1) {
@@ -199,8 +200,6 @@ async function autoScroll(page, get_pins, selectors) {
             var distance = 100;
             let images = []
             /* SCROLLING MAY END */
-            let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
-            let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
 
             var timer = setInterval(() => {
                 // var scrollHeight = document.body.scrollHeight;
@@ -209,29 +208,28 @@ async function autoScroll(page, get_pins, selectors) {
 
                 console.log(images);
                 // stops
-                debugger
-                if (isVisible(halt_h2) || isVisible(halt_h3)) {
-                    clearInterval(timer);
-                    const uniqueImages = images
-                        // FILTER EMPTY VALUES
-                        .filter(i => i !== "")
-                        .filter(i => i !== undefined)
-                        // FILTER DUPLICATES
-                        .filter((e, i, a) => a.indexOf(e) == i)
-                    // return the array of images
-                    // resolve({ uniqueImages });
-                    resolve({ images: uniqueImages });
-                }
+                let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
+                let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
+                // if undefined, then it's not logged in
+                if (halt_h2 == undefined && halt_h3 == undefined)
 
+                    if (isVisible(halt_h2) || isVisible(halt_h3)) {
+                        clearInterval(timer);
+                        const uniqueImages = images
+                            // FILTER EMPTY VALUES
+                            .filter(i => i !== "")
+                            .filter(i => i !== undefined)
+                            // FILTER DUPLICATES
+                            .filter((e, i, a) => a.indexOf(e) == i)
+                        // return the array of images
+                        // resolve({ uniqueImages });
+                        resolve({ images: uniqueImages });
+                    }
+                let currentPins = get_pins()
                 // Get images from page
-                images.push(...[...get_pins().mappedPins, ...get_pins().video_pins])
+                if (currentPins)
+                    images.push(...[...currentPins.mappedPins, ...currentPins.video_pins])
 
-
-                // log the number of images
-                console.log(`# of images: ${images.length}`)
-                console.log(images)
-
-                debugger
                 if (isVisible(halt_h2) || isVisible(halt_h3)) {
                     clearInterval(timer);
                     const uniqueImages = images
@@ -242,6 +240,9 @@ async function autoScroll(page, get_pins, selectors) {
                         .filter((e, i, a) => a.indexOf(e) == i)
                     // return the array of images
                     // resolve({ uniqueImages });
+                    console.log({ uniqueImages });
+
+                    debugger
                     resolve({ images: uniqueImages });
                 }
             }, 3000);
