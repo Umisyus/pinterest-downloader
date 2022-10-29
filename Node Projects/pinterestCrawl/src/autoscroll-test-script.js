@@ -1,5 +1,7 @@
 import * as puppeteer from 'puppeteer-core';
 import { selectors } from './logged-in/pinterest-selectors.js';
+import fs from 'fs/promises';
+import { randomUUID } from 'crypto';
 
 // https://stackoverflow.com/a/53527984
 (async () => {
@@ -16,10 +18,24 @@ import { selectors } from './logged-in/pinterest-selectors.js';
         width: 1200,
         height: 800
     });
-
+    await page.waitForNetworkIdle()
     let images = await autoScroll(page, get_pins, selectors);
-    debugger
+
     console.log(images);
+
+    let todays_date = () => {
+        // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
+        var dateObj = new Date();
+        var month = dateObj.getUTCMonth() + 1; //months from 1-12
+        var day = dateObj.getUTCDate();
+        var year = dateObj.getUTCFullYear();
+
+        return year + "-" + month + "-" + day;
+    }
+
+
+    // write results to json file
+    await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify(images), console.err)
 
     // await page.screenshot({
     //     path: 'yoursite.png',
@@ -64,7 +80,7 @@ async function autoScroll(page, get_pins, selectors) {
         let isVisible = (el) => {
             console.log(el);
             if (!el || (el === null || el === undefined)) return false;
-            debugger;
+
             return el.getBoundingClientRect().top <= window.innerHeight;
         }
 
@@ -109,6 +125,7 @@ async function autoScroll(page, get_pins, selectors) {
 
                     let img = i.querySelector('img') ?? null
                     if (img == null) return;
+                    // If there's no srcset, then the image is probably from a video
                     let original_img_link = img.srcset ? img.srcset.split(' ')[6] : img.src
                     // is video?
                     // Look for PinTypeIdentifier attribute in pin
@@ -122,10 +139,10 @@ async function autoScroll(page, get_pins, selectors) {
                     let title = i.querySelector(`${selectors.pin_bottom_selector} a`) ?? ''
 
                     if (is_video) {
-                        return { image: (is_video ? '' : original_img_link), title, pin_link }
+                        return { is_video, title, pin_link }
                     }
 
-                    return { image: original_img_link, title, pin_link }
+                    return { image: original_img_link, title, pin_link, is_video }
 
                 })
                 // Grab parent element of image for name, pin link, and section / board link
@@ -182,7 +199,7 @@ async function autoScroll(page, get_pins, selectors) {
 
                 // Get images from page
                 images.push(...[...get_pins().mappedPins])
-                debugger
+
 
                 // log the number of images
                 console.log(`# of images: ${images.length}`)
@@ -193,18 +210,19 @@ async function autoScroll(page, get_pins, selectors) {
                 let halt_h3 = $x(selectors.find_more_like_this_text_h3_element_selector)[0]
 
                 if (isVisible(halt_h2) || isVisible(halt_h3)) {
-                    debugger;
+
+
 
                     clearInterval(timer);
                     const uniqueImages = images
                         // FILTER EMPTY VALUES
                         .filter(i => i !== "")
+                        .filter(i => i !== undefined)
                         // FILTER DUPLICATES
                         .filter((e, i, a) => a.indexOf(e) == i)
                     // return the array of images
-                    debugger
                     // resolve({ uniqueImages });
-                    resolve({ images: JSON.stringify(uniqueImages) });
+                    resolve({ images: uniqueImages });
                 }
             }, 100);
         });
