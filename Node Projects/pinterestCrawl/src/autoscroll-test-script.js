@@ -80,7 +80,6 @@ async function autoScroll(page, get_pins, selectors) {
         let isVisible = (el) => {
             console.log(el);
             if (!el || (el === null || el === undefined)) return false;
-
             return el.getBoundingClientRect().top <= window.innerHeight;
         }
 
@@ -99,6 +98,8 @@ async function autoScroll(page, get_pins, selectors) {
 
             let pins = []
             let mappedPins = []
+            let video_pins = []
+
             let i = 0
 
             while (i < 1) {
@@ -136,13 +137,20 @@ async function autoScroll(page, get_pins, selectors) {
                     // or $('div[data-test-id="PinTypeIdentifier"]')
 
                     let pin_link = i.querySelector('a').href
-                    let title = i.querySelector(`${selectors.pin_bottom_selector} a`) ?? ''
+                    let title = (i) => {
+                        let title = i.querySelector('a').textContent
+                        let pinAuthor = i.querySelector('span') == null ? "Unknown" : i.querySelector('span').textContent
+
+                        return title ? `${title} by ${pinAuthor}` : `Untitled Pin by ${pinAuthor}`
+                    }
+                    title = title(i)
 
                     if (is_video) {
-                        return { is_video, title, pin_link }
+                        debugger;
+                        video_pins.push({ is_video, title, pin_link })
                     }
 
-                    return { image: original_img_link, title, pin_link, is_video }
+                    return { image: original_img_link, title, pin_link }
 
                 })
                 // Grab parent element of image for name, pin link, and section / board link
@@ -156,7 +164,9 @@ async function autoScroll(page, get_pins, selectors) {
                 //     // Get the srcset attribute of the image
                 //     .map(x => x.srcset ? x.srcset.split(' ')[6] : x.src)
 
-                pins.push(...mappedPins)
+                // unique pins
+
+                pins.push(...mappedPins.concat(...video_pins))
                 // pins.push(...{ imgs, pin_links })
 
                 // .filter(i => i !== undefined || i !== ""))
@@ -178,8 +188,9 @@ async function autoScroll(page, get_pins, selectors) {
             let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
             let halt_h3 = $x(selectors.find_more_like_this_text_h3_element_selector)[0]
 
+
             if (isVisible(halt_h2) || isVisible(halt_h3)) {
-                return { pins, mappedPins }
+                return { mappedPins, video_pins }
             }
 
         }
@@ -198,7 +209,7 @@ async function autoScroll(page, get_pins, selectors) {
                 console.log(images);
 
                 // Get images from page
-                images.push(...[...get_pins().mappedPins])
+                images.push(...[...get_pins().mappedPins, ...get_pins().video_pins])
 
 
                 // log the number of images
@@ -209,22 +220,20 @@ async function autoScroll(page, get_pins, selectors) {
                 let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
                 let halt_h3 = $x(selectors.find_more_like_this_text_h3_element_selector)[0]
 
-                if (isVisible(halt_h2) || isVisible(halt_h3)) {
-
-
-
-                    clearInterval(timer);
-                    const uniqueImages = images
-                        // FILTER EMPTY VALUES
-                        .filter(i => i !== "")
-                        .filter(i => i !== undefined)
-                        // FILTER DUPLICATES
-                        .filter((e, i, a) => a.indexOf(e) == i)
-                    // return the array of images
-                    // resolve({ uniqueImages });
-                    resolve({ images: uniqueImages });
-                }
-            }, 100);
+                // debugger
+                // if (isVisible(halt_h2) || isVisible(halt_h3)) {
+                //     clearInterval(timer);
+                //     const uniqueImages = images
+                //         // FILTER EMPTY VALUES
+                //         .filter(i => i !== "")
+                //         .filter(i => i !== undefined)
+                //         // FILTER DUPLICATES
+                //         .filter((e, i, a) => a.indexOf(e) == i)
+                //     // return the array of images
+                //     // resolve({ uniqueImages });
+                //     resolve({ images: uniqueImages });
+                // }
+            }, 1000);
         });
 
     }, selectors);
