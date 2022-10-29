@@ -1,4 +1,5 @@
 import * as puppeteer from 'puppeteer-core';
+import { selectors } from './logged-in/pinterest-selectors.js';
 
 // https://stackoverflow.com/a/53527984
 (async () => {
@@ -16,8 +17,8 @@ import * as puppeteer from 'puppeteer-core';
         height: 800
     });
 
-    let images = await autoScroll(page, get_pins);
-
+    let images = await autoScroll(page, get_pins, selectors);
+    debugger
     console.log(images);
 
     // await page.screenshot({
@@ -28,9 +29,9 @@ import * as puppeteer from 'puppeteer-core';
     await browser.close();
 })();
 
-async function autoScroll(page, get_pins) {
+async function autoScroll(page, get_pins, selectors) {
 
-    return await page.evaluate(async (get_pins) => {
+    return await page.evaluate(async (selectors) => {
         function $$(selector, context) {
             context = context || document;
             var elements = context.querySelectorAll(selector);
@@ -46,17 +47,26 @@ async function autoScroll(page, get_pins) {
             return xpath(el.parentNode) + '/' + el.tagName.toLowerCase() + (sames.length > 1 ? '[' + ([].indexOf.call(sames, el) + 1) + ']' : '')
         }
 
-        let more_text_element =
-            $x("//h2[contains(text(), 'like') and contains(text(),'this')]")[0]
+        // console.log(selectors);
+        // debugger;
 
+        // Find h2 element with text like or this
+
+        // $x("//h2[contains(text(), 'like') and contains(text(),'this')]")[0]
+        // When logged in using Chrome
+        // $x("//h3[contains(text(), 'like') or contains(text(),'this')]")
         // When not logged in, the "like this" text is not present
         // $x("//h2[contains(text(), 'Find some ideas for this board')]")[0]
 
         // let halt = () => $$("h2").find(h => h.textContent.includes('like this')).getBoundingClientRect().top <= window.innerHeight
-        let halt = $$("h2").find(h => h.textContent.includes('like this'))
+        // let halt = $$("h2").find(h => h.textContent.includes('like this'))
 
-        debugger;
-        let isVisible = (more) => more.getBoundingClientRect().top <= window.innerHeight
+        let isVisible = (el) => {
+            console.log(el);
+            if (!el || (el === null || el === undefined)) return false;
+            debugger;
+            return el.getBoundingClientRect().top <= window.innerHeight;
+        }
 
         function $x(xp) {
             const snapshot = document.evaluate(
@@ -72,7 +82,7 @@ async function autoScroll(page, get_pins) {
         function get_pins() {
 
             let pins = []
-            let mappedPins
+            let mappedPins = []
             let i = 0
 
             while (i < 1) {
@@ -87,14 +97,16 @@ async function autoScroll(page, get_pins) {
                 // Get element's position from page
                 // $x('//*/div/div/div[5]/div/div/div[2]/div/div[1]/div/h2').pop().getBoundingClientRect()
                 // Test if element is in viewport
-                let pinWrappers = Array.from(document.querySelectorAll('div[data-test-id="pin"]'));
-                let pin_imgs = pinWrappers.map(i => i.querySelector('img').srcset.split(' ')[6])
-                let pin_links = pinWrappers.map(i => i.querySelector('a').href)
+                let pinWrappers = Array.from(document.querySelectorAll(selectors.pins_selector));
+
+                // let pin_imgs = pinWrappers.map(i => i.querySelector('img').srcset.split(' ')[6])
+                // let pin_links = pinWrappers.map(i => i.querySelector('a').href)
 
                 // Get link, pin link and title of images
                 mappedPins = pinWrappers.map(i => {
-                    console.log(i)
+
                     if (i == undefined || i == null) return
+
                     let img = i.querySelector('img') ?? null
                     if (img == null) return;
                     let original_img_link = img.srcset ? img.srcset.split(' ')[6] : img.src
@@ -103,12 +115,11 @@ async function autoScroll(page, get_pins) {
                     // XPath
                     // $x('//div[@data-test-id="PinTypeIdentifier"]')
                     // QuerySelector
-                    let is_video = i.querySelector('div[data-test-id="PinTypeIdentifier"]') ? true : false
+                    let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
                     // or $('div[data-test-id="PinTypeIdentifier"]')
 
                     let pin_link = i.querySelector('a').href
-                    let title = i.querySelector('div[data-test-id="pointer-events-wrapper"] a')
-                        ? i.querySelector('div[data-test-id="pointer-events-wrapper"] a').innerText : ''
+                    let title = i.querySelector(`${selectors.pin_bottom_selector} a`) ?? ''
 
                     if (is_video) {
                         return { image: (is_video ? '' : original_img_link), title, pin_link }
@@ -144,14 +155,13 @@ async function autoScroll(page, get_pins) {
                 // .filter(i => i !== undefined)
                 i++
             }
+
             console.log(pins, mappedPins);
-            // Return the array of urls
 
-            let vis = () => isVisible(more_text_element)
-            console.log(vis());
-            debugger
+            let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
+            let halt_h3 = $x(selectors.find_more_like_this_text_h3_element_selector)[0]
 
-            if (halt != undefined && isVisible(halt)) {
+            if (isVisible(halt_h2) || isVisible(halt_h3)) {
                 return { pins, mappedPins }
             }
 
@@ -171,7 +181,7 @@ async function autoScroll(page, get_pins) {
                 console.log(images);
 
                 // Get images from page
-                images.push(...get_pins())
+                images.push(...[...get_pins().mappedPins])
                 debugger
 
                 // log the number of images
@@ -179,21 +189,12 @@ async function autoScroll(page, get_pins) {
                 console.log(images)
 
                 /* SCROLLING MAY END */
-                // Find h2 with text "More like this"
-                // $x("//h2[contains(text(), 'More like this')]")
+                let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
+                let halt_h3 = $x(selectors.find_more_like_this_text_h3_element_selector)[0]
 
-                // Find more like this text element and stop scrolling when it is visible
+                if (isVisible(halt_h2) || isVisible(halt_h3)) {
+                    debugger;
 
-                // = $x("//h2[contains(text(), 'More like this')]")[0]
-
-                // If it exists, stop scrolling, we're done collecting images
-
-                // Re-evaluate the element's visibility???
-                let vis = () => isVisible(more_text_element)
-                debugger
-                if (vis() == true
-                    // || totalHeight >= scrollHeight - window.innerHeight
-                ) {
                     clearInterval(timer);
                     const uniqueImages = images
                         // FILTER EMPTY VALUES
@@ -208,7 +209,7 @@ async function autoScroll(page, get_pins) {
             }, 100);
         });
 
-    });
+    }, selectors);
 }
 
 let get_pins = `function $$(selector, context) {
