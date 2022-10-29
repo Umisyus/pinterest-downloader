@@ -1,53 +1,18 @@
-import * as puppeteer from 'puppeteer-core';
-import { selectors } from './logged-in/pinterest-selectors.js';
-import fs from 'fs/promises';
-import { randomUUID } from 'crypto';
+// Browser TEST CODE
+// selectors
+ const selectors = {
+    // h3 with text "like this" or "like this" or "Find some ideas for this board"
+    more_like_this_text_h2_element_selector: "//h2[contains(text(), 'More ideas like') or contains(text(),'this')]",
+    find_more_ideas_for_this_board_h3_text_element_selector: "//h3[contains(text(), 'Find more') or contains(text(),'this')]",
 
-// https://stackoverflow.com/a/53527984
-(async () => {
-    const browser = await puppeteer.launch({
-        headless: false,
-        devtools: true,
-        slowMo: 500,
-        executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    });
+    pins_xpath_selector: "//div[@data-test-id='pin']",
+    pins_selector: 'div[data-test-id="pin"]',
+    video_pin_selector: 'div[data-test-id="PinTypeIdentifier"]',
+    pin_bottom_selector: 'div[data-test-id="pointer-events-wrapper"]',
+    pin_title_selector: 'div[data-test-id="pointer-events-wrapper"] a',
+    pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
+}
 
-    const page = await browser.newPage();
-    await page.goto('https://www.pinterest.ca/dracana96/cute-funny-animals/', { waitUntil: 'domcontentloaded' });
-    await page.setViewport({
-        width: 1200,
-        height: 800
-    });
-    await page.waitForNetworkIdle()
-    let images = await autoScroll(page, get_pins, selectors);
-
-    console.log(images);
-
-    let todays_date = () => {
-        // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
-        var dateObj = new Date();
-        var month = dateObj.getUTCMonth() + 1; //months from 1-12
-        var day = dateObj.getUTCDate();
-        var year = dateObj.getUTCFullYear();
-
-        return year + "-" + month + "-" + day;
-    }
-
-
-    // write results to json file
-    await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify(images), console.err)
-
-    // await page.screenshot({
-    //     path: 'yoursite.png',
-    //     fullPage: true
-    // });
-
-    await browser.close();
-})();
-
-async function autoScroll(page, get_pins, selectors) {
-
-    return await page.evaluate(async (selectors) => {
         function $$(selector, context) {
             context = context || document;
             var elements = context.querySelectorAll(selector);
@@ -77,7 +42,7 @@ async function autoScroll(page, get_pins, selectors) {
         // let halt = () => $$("h2").find(h => h.textContent.includes('like this')).getBoundingClientRect().top <= window.innerHeight
         // let halt = $$("h2").find(h => h.textContent.includes('like this'))
 
-        let isVisible = (el) => {
+        function isVisible(el) {
             console.log(el);
             if (!el || (el === null || el === undefined)) return false;
             return el.getBoundingClientRect().top <= window.innerHeight;
@@ -100,9 +65,6 @@ async function autoScroll(page, get_pins, selectors) {
             let mappedPins = []
             let video_pins = []
 
-            let i = 0
-
-            while (i < 1) {
                 // @ts-ignore
 
                 // get image from pin wrapper
@@ -180,21 +142,15 @@ async function autoScroll(page, get_pins, selectors) {
                 // and undefined values
                 // Not sure if needed or not lol
                 // .filter(i => i !== undefined)
-                i++
-            }
 
             console.log(pins, mappedPins);
-
-
-            if (isVisible(halt_h2) || isVisible(halt_h3)) {
                 return { mappedPins, video_pins }
-            }
 
         }
 
 
         /* TODO: Make async callbacks for more data??? */
-        return await new Promise((resolve) => {
+         await new Promise((resolve) => {
             var totalHeight = 0;
             var distance = 100;
             let images = []
@@ -209,7 +165,7 @@ async function autoScroll(page, get_pins, selectors) {
 
                 console.log(images);
                 // stops
-                debugger
+
                 if (isVisible(halt_h2) || isVisible(halt_h3)) {
                     clearInterval(timer);
                     const uniqueImages = images
@@ -231,7 +187,7 @@ async function autoScroll(page, get_pins, selectors) {
                 console.log(`# of images: ${images.length}`)
                 console.log(images)
 
-                debugger
+
                 if (isVisible(halt_h2) || isVisible(halt_h3)) {
                     clearInterval(timer);
                     const uniqueImages = images
@@ -246,49 +202,3 @@ async function autoScroll(page, get_pins, selectors) {
                 }
             }, 3000);
         });
-
-    }, selectors);
-}
-
-let get_pins = `function $$(selector, context) {
-    context = context || document;
-    var elements = context.querySelectorAll(selector);
-    return Array.prototype.slice.call(elements);
-}
-/* Use when logged in */
-function get_pins() {
-
-    let pins = []
-
-    let i = 0
-
-    while (i < 5) {
-        // @ts-ignore
-        pins.push(...Array.from($$('img')
-            // Get the srcset attribute of the image
-            // @ts-ignore
-            .map(x => x.srcset)
-            // @ts-ignore
-            // Filter out the urls that are not valid
-            .filter(i => /\s|undefined|null/.exec(i)))
-            // @ts-ignore
-            // Split the srcset attribute into an array of urls
-            .map(i => i.split(' ')[6])
-            // Filter out the urls that are not valid
-            .filter(i => i !== undefined || i !== ""))
-
-        // Scroll down
-        // window.scrollBy(0, 250)
-
-        // Filter duplicates
-
-        // Credits: https://stackoverflow.com/a/32122760
-        pins = pins.filter((e, i, a) => a.indexOf(e) == i)
-        // and undefined values
-        // Not sure if needed or not lol
-        // .filter(i => i !== undefined)
-        i++
-    }
-    // Return the array of urls
-    return pins
-}`
