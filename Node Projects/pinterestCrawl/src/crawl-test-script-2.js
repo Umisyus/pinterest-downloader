@@ -11,7 +11,7 @@ let selectors = {
     pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
 }
 
-// script to run in browser #115.22
+// script to run in browser #115.25
 let imagesMap = new Map()
 let imagesArr = new Array()
 
@@ -37,12 +37,32 @@ function parsePins(...pins) {
             original_img_link = img.srcset ? img.srcset.split(' ')[6] : ""
         }
 
+        /*
+
+        // get all from pins
+        links = [...$x("//div[@data-test-id='pin']")].map(a=>$x('.//a', a)) // Get all links from each pin
+        // get links
+        links.filter(p=> p.length == 3 ).map(p=>p[2].text)
+        // get text
+        links.filter(a=>a.length > 2).map(a=>a[2].text)
+        // Get text from link, not the number of views
+        // links.filter(a=>a.length > 2).map(a=>{return parseInt(a[2].text) ? "" : a[2].text })
+
+        */
+
         let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
         let pin_link = i.querySelector('a').href
+
         let title = (i) => {
             let title = [...i.querySelectorAll('a')][1].innerText ?? null
-            let pinAuthor = i.querySelector('span') == null ?
-                "Unknown" : i.querySelector('span').textContent
+
+            let links = $x('.//a', i) // Get all links from each pin
+            // Get only pins with 3 links
+            let pinAuthor = links.filter(p => p.length > 3)
+                // Get the text from that link
+                .map(a => { return parseInt(a[2].text) ? "" : a[2].text }) ?? "Unknown"
+            // let pinAuthor = i.querySelector('span') == null ?
+            //     "Unknown" : i.querySelector('span').textContent
 
             return title ? `${title} by ${pinAuthor}` : `Untitled Pin by ${pinAuthor}`
         }
