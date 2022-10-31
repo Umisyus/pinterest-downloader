@@ -11,9 +11,9 @@ let selectors = {
     pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
 }
 
-// script to run in browser #115.9
+// script to run in browser #115.22
 let imagesMap = new Map()
-let imagesArr = new Map()
+let imagesArr = new Array()
 
 let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
 let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
@@ -116,22 +116,26 @@ function $x(xp) {
 /* Use when logged in */
 function get_pins() {
 
-    let pins = []
+
     let i = 0
 
     while (i < 1) {
 
         let pinWrappers = Array.from(document.querySelectorAll(selectors.pins_selector));
-        pins.push(...pinWrappers)
+
+        if (pinWrappers === undefined | pinWrappers.length == 0) {
+            console.log("No pins found")
+            return []
+        }
+        imagesArr.push(...pinWrappers)
 
         i++
+
+
     }
 
-    console.log(`# of pins: ${pins.length}`);
-
     if (isVisible(halt_h2) | isVisible(halt_h3)) {
-
-        return pins
+        return
     }
 
 }
@@ -151,26 +155,33 @@ let imgs = await new Promise((resolve) => {
         window.scrollBy(0, distance);
         totalHeight += distance;
 
-        let getpins = get_pins()
+        let getpins = get_pins() ?? []
 
-        if (!getpins) return;
+        if (getpins == undefined) console.log("No pins found");
+        if (getpins !== undefined) {
 
-        getpins = getpins.filter(t => t !== undefined)
-        imagesArr.push(...getpins)
+            // getpins.filter((pin) => pin !== undefined)
 
-        console.log(`Pins: ${images.length}`)
+            imagesArr.push(...getpins)
+
+            console.log(`Current Pins: ${getpins.length}`)
+
+            console.log(`Total Pins: ${imagesArr.length}`);
+        }
 
         let stop = checkStop();
 
         if (stop) {
             clearInterval(timer);
-            console.log("Images: ", images);
-            let parsedPins = parsePins(...images)
+
+            let parsedPins = parsePins(...imagesArr)
 
             console.log("Mapping pins")
-            let mappedPins = imagesArr.forEach(p => imagesMap.set(p.pin_link, p))
 
-            let json = JSON.stringify(mappedPins)
+            parsedPins.forEach(p => imagesMap.set(p.pin_link, p))
+
+            let values = [...imagesMap.values()]
+            let json = JSON.stringify(...values)
 
             debugger
             resolve(json);
