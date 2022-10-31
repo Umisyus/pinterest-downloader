@@ -66,7 +66,7 @@ async function autoScroll(page, get_pins, selectors) {
     // half working v2
     return await page.evaluate(async (selectors) => {
 
-        // script to run in browser #115.23
+        // script to run in browser #115.27
         let imagesMap = new Map()
         let imagesArr = new Array()
 
@@ -236,7 +236,7 @@ async function autoScroll(page, get_pins, selectors) {
                     parsedPins.forEach(p => imagesMap.set(p.pin_link, p))
 
                     let values = [...imagesMap.values()]
-                    let json = JSON.stringify(...values)
+                    let json = [...values]
 
                     debugger
                     resolve(json);
