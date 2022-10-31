@@ -11,8 +11,9 @@ let selectors = {
     pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
 }
 
-// script to run in browser #115.7
-let images = []
+// script to run in browser #115.9
+let imagesMap = new Map()
+let imagesArr = new Map()
 
 let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
 let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
@@ -155,7 +156,7 @@ let imgs = await new Promise((resolve) => {
         if (!getpins) return;
 
         getpins = getpins.filter(t => t !== undefined)
-        images.push(...getpins)
+        imagesArr.push(...getpins)
 
         console.log(`Pins: ${images.length}`)
 
@@ -166,7 +167,10 @@ let imgs = await new Promise((resolve) => {
             console.log("Images: ", images);
             let parsedPins = parsePins(...images)
 
-            let json = JSON.stringify(parsedPins)
+            console.log("Mapping pins")
+            let mappedPins = imagesArr.forEach(p => imagesMap.set(p.pin_link, p))
+
+            let json = JSON.stringify(mappedPins)
 
             debugger
             resolve(json);
