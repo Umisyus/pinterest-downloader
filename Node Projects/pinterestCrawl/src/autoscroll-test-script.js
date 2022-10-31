@@ -21,6 +21,8 @@ import { randomUUID } from 'crypto';
 
     await page.waitForLoadState('networkidle');
 
+
+    /* SELECTORS */
     let selectors = {
         // h3 with text "like this" or "like this" or "Find some ideas for this board"
         more_like_this_text_h2_element_selector: "//h2[contains(text(), 'More ideas like') or contains(text(),'this')]",
@@ -33,7 +35,7 @@ import { randomUUID } from 'crypto';
         pin_title_selector: 'div[data-test-id="pointer-events-wrapper"] a',
         pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
     }
-
+    /* MAIN SCRIPT */
     let images = await autoScroll(page, get_pins, selectors);
 
     console.log(images);
@@ -48,7 +50,7 @@ import { randomUUID } from 'crypto';
         return year + "-" + month + "-" + day;
     }
 
-
+    /* SAVE */
     // write results to json file
     await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify(images), console.err)
 
@@ -61,27 +63,59 @@ import { randomUUID } from 'crypto';
 })();
 
 async function autoScroll(page, get_pins, selectors) {
-    // half working
+    // half working v2
     return await page.evaluate(async (selectors) => {
-        if (!selectors) {
-            selectors = {
-                // h3 with text "like this" or "like this" or "Find some ideas for this board"
-                more_like_this_text_h2_element_selector: "//h2[contains(text(), 'More ideas like') or contains(text(),'this')]",
-                find_more_ideas_for_this_board_h3_text_element_selector: "//h3[contains(text(), 'Find more') or contains(text(),'this')]",
 
-                pins_xpath_selector: "//div[@data-test-id='pin']",
-                pins_selector: 'div[data-test-id="pin"]',
-                video_pin_selector: 'div[data-test-id="PinTypeIdentifier"]',
-                pin_bottom_selector: 'div[data-test-id="pointer-events-wrapper"]',
-                pin_title_selector: 'div[data-test-id="pointer-events-wrapper"] a',
-                pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
-            }
-        }
-
-        // script to run in browser #106
+        // script to run in browser #115.22
+        let imagesMap = new Map()
+        let imagesArr = new Array()
 
         let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
         let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
+
+        function filterDuplicates(...pins) {
+            return pins.filter((pin, index, self) =>
+                self.findIndex(p => p.pin_link === pin.pin_link) === index)
+        }
+
+
+        // V 102
+        function parsePins(...pins) {
+            return [...pins].map(i => {
+                if (i == undefined || i == null) throw Error("Failed to parse pin")
+
+                let img = i.querySelector('img') ?? null
+                let original_img_link = ""
+
+                if (img !== null) {
+                    // If there's no srcset, then the image is probably from a video
+                    original_img_link = img.srcset ? img.srcset.split(' ')[6] : ""
+                }
+
+                let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
+                let pin_link = i.querySelector('a').href
+                let title = (i) => {
+                    let title = [...i.querySelectorAll('a')][1].innerText ?? null
+                    let pinAuthor = i.querySelector('span') == null ?
+                        "Unknown" : i.querySelector('span').textContent
+
+                    return title ? `${title} by ${pinAuthor}` : `Untitled Pin by ${pinAuthor}`
+                }
+
+                title = title(i)
+
+                if (is_video) {
+                    // if video, return title, pin_link, is_video no image link
+                    return { title, pin_link, is_video, image: "" }
+                }
+
+
+                if (!is_video && original_img_link !== undefined) {
+                    return { title, pin_link, is_video, image: original_img_link }
+                    // console.log(`${title}, ${pin_link}, ${is_video}`)
+                }
+            })
+        }
 
         function checkStop(el, halt_selectors) {
 
@@ -99,9 +133,7 @@ async function autoScroll(page, get_pins, selectors) {
                 return halt_selectors.map(i => isVisible($x(i)[0])).map(Boolean).some(Boolean)
 
             }
-
             return exists()
-
         }
 
         function $$(selector, context) {
@@ -109,6 +141,7 @@ async function autoScroll(page, get_pins, selectors) {
             var elements = context.querySelectorAll(selector);
             return Array.prototype.slice.call(elements);
         }
+
         // https://stackoverflow.com/a/32623171
         // https://gist.github.com/iimos/e9e96f036a3c174d0bf4
         function xpath(el) {
@@ -137,98 +170,37 @@ async function autoScroll(page, get_pins, selectors) {
 
         /* Use when logged in */
         function get_pins() {
-            let filterUndefinedPins = (pins) => pins.filter((pin) => pin !== undefined)
 
-            let pins = []
-            let mappedPins = []
-            let video_pins = []
 
             let i = 0
 
             while (i < 1) {
-                // @ts-ignore
 
-                // get image from pin wrapper
-
-                // $$('div[data-test-id="deeplink-wrapper"]:nth-child(1) img')
-
-                // Get pins from first list of pins
-                // $$('div[role="list"]:nth-child(1) div[data-test-id="deeplink-wrapper"]:nth-child(1) img')
-                // Get element's position from page
-                // $x('//*/div/div/div[5]/div/div/div[2]/div/div[1]/div/h2').pop().getBoundingClientRect()
-                // Test if element is in viewport
                 let pinWrappers = Array.from(document.querySelectorAll(selectors.pins_selector));
 
-                // let pin_imgs = pinWrappers.map(i => i.querySelector('img').srcset.split(' ')[6])
-                // let pin_links = pinWrappers.map(i => i.querySelector('a').href)
+                if (pinWrappers === undefined | pinWrappers.length == 0) {
+                    console.log("No pins found")
+                    return []
+                }
+                imagesArr.push(...pinWrappers)
 
-                // Get link, pin link and title of images
-                mappedPins = pinWrappers.map(i => {
-
-                    if (i == undefined || i == null) return
-
-                    let img = i.querySelector('img') ?? null
-                    if (img == null) return;
-                    // If there's no srcset, then the image is probably from a video
-                    let original_img_link = img.srcset ? img.srcset.split(' ')[6] : img.src
-                    // is video?
-                    // Look for PinTypeIdentifier attribute in pin
-                    // XPath
-                    // $x('//div[@data-test-id="PinTypeIdentifier"]')
-                    // QuerySelector
-                    let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
-                    // or $('div[data-test-id="PinTypeIdentifier"]')
-
-                    let pin_link = i.querySelector('a').href
-                    let title = (i) => {
-                        let title = i.querySelector('a').textContent
-                        let pinAuthor = i.querySelector('span') == null ? "Unknown" : i.querySelector('span').textContent
-
-                        return title ? `${title} by ${pinAuthor}` : `Untitled Pin by ${pinAuthor}`
-                    }
-                    title = title(i)
-
-                    // if (is_video) {
-                    //     debugger;
-                    //     video_pins.push({ is_video, title, pin_link })
-                    // }
-
-                    return { image: original_img_link, title, pin_link, is_video }
-
-                })
-                // Grab parent element of image for name, pin link, and section / board link
-                // $x('//div[@data-test-id="deeplink-wrapper"][1]//img')
-
-                // get pin img xpath
-                // Get pin link xpath $x('//img/../../../../../../.././a[@aria-label]')
-
-                // Filter out the urls that are not valid
-                // imgs = imgs.filter(i => /\s|undefined|null/.exec(i))
-                //     // Get the srcset attribute of the image
-                //     .map(x => x.srcset ? x.srcset.split(' ')[6] : x.src)
-
-                // unique pins
-
-                pins.push(...mappedPins.concat(...video_pins))
                 i++
+
+
             }
 
-
-            console.log(pins);
-
-            return pins
+            if (isVisible(halt_h2) | isVisible(halt_h3)) {
+                return
+            }
 
         }
-
 
         /* TODO: Make async callbacks for more data??? */
         let imgs = await new Promise((resolve) => {
             var totalHeight = 0;
             var distance = 100;
-            let images = []
+
             /* SCROLLING MAY END */
-            let halt_h2 = $x(selectors.more_like_this_text_h2_element_selector)[0]
-            let halt_h3 = $x(selectors.find_more_ideas_for_this_board_h3_text_element_selector)[0]
 
             setTimeout(() => { }, 1000)
 
@@ -238,30 +210,40 @@ async function autoScroll(page, get_pins, selectors) {
                 window.scrollBy(0, distance);
                 totalHeight += distance;
 
-                let getpins = get_pins()
-                if (!getpins) return;
+                let getpins = get_pins() ?? []
 
-                getpins = getpins.filter(t => t !== undefined)
-                // getpins = getpins.filter((_, index, self) => index === self.findIndex((t) => (t === undefined)))
-                getpins = getpins.filter((pin, index, self) => index === self.findIndex((t) => (t.pin_link === pin.pin_link)))
+                if (getpins == undefined) console.log("No pins found");
+                if (getpins !== undefined) {
 
-                images.push(...getpins)
+                    // getpins.filter((pin) => pin !== undefined)
 
-                //    console.log(`Pins: ${images}`)
+                    imagesArr.push(...getpins)
 
-                console.log("Current pins: ", images.length);
-                //                console.log(JSON.stringify(images));
+                    console.log(`Current Pins: ${getpins.length}`)
 
-                if (checkStop()) {
+                    console.log(`Total Pins: ${imagesArr.length}`);
+                }
+
+                let stop = checkStop();
+
+                if (stop) {
                     clearInterval(timer);
 
-                    console.log("Images: ", images);
+                    let parsedPins = parsePins(...imagesArr)
 
-                    //               resolve(images);
+                    console.log("Mapping pins")
 
+                    parsedPins.forEach(p => imagesMap.set(p.pin_link, p))
+
+                    let values = [...imagesMap.values()]
+                    let json = JSON.stringify(...values)
+
+                    debugger
+                    resolve(json);
                 }
 
             }, 2000);
+
         });
 
     }, selectors);
