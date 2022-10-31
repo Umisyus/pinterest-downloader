@@ -1,4 +1,4 @@
-// V 102
+// V 103
 function parsePins(...pins) {
     return [...pins].map(i => {
         if (i == undefined || i == null) throw Error("Failed to parse pin")
@@ -23,13 +23,13 @@ function parsePins(...pins) {
 
         title = title(i)
 
-        if (is_video) {
+        if (is_video == true) {
             // if video, return title, pin_link, is_video no image link
             return { title, pin_link, is_video, image: "" }
         }
 
 
-        if (!is_video && original_img_link !== undefined) {
+        if ((is_video == false) && (original_img_link !== undefined)) {
             return { title, pin_link, is_video, image: original_img_link }
             // console.log(`${title}, ${pin_link}, ${is_video}`)
         }
