@@ -66,7 +66,7 @@ async function autoScroll(page, get_pins, selectors) {
     // half working v2
     return await page.evaluate(async (selectors) => {
 
-        // script to run in browser #115.22
+        // script to run in browser #115.23
         let imagesMap = new Map()
         let imagesArr = new Array()
 
@@ -196,7 +196,7 @@ async function autoScroll(page, get_pins, selectors) {
         }
 
         /* TODO: Make async callbacks for more data??? */
-        let imgs = await new Promise((resolve) => {
+        return await new Promise((resolve) => {
             var totalHeight = 0;
             var distance = 100;
 
@@ -231,7 +231,7 @@ async function autoScroll(page, get_pins, selectors) {
 
                     let parsedPins = parsePins(...imagesArr)
 
-                    console.log("Mapping pins")
+                    console.log(`Parsed Pins: ${parsedPins.length}`)
 
                     parsedPins.forEach(p => imagesMap.set(p.pin_link, p))
 
@@ -240,6 +240,7 @@ async function autoScroll(page, get_pins, selectors) {
 
                     debugger
                     resolve(json);
+                    return json
                 }
 
             }, 2000);
