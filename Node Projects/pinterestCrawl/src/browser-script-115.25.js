@@ -24,7 +24,7 @@ function filterDuplicates(...pins) {
 }
 
 
-// V 102
+// V 103
 function parsePins(...pins) {
     return [...pins].map(i => {
         if (i == undefined || i == null) throw Error("Failed to parse pin")
@@ -37,50 +37,31 @@ function parsePins(...pins) {
             original_img_link = img.srcset ? img.srcset.split(' ')[6] : ""
         }
 
-        /*
-
-        // get all from pins
-        links = [...$x("//div[@data-test-id='pin']")].map(a=>$x('.//a', a)) // Get all links from each pin
-        // get links
-        links.filter(p=> p.length == 3 ).map(p=>p[2].text)
-        // get text
-        links.filter(a=>a.length > 2).map(a=>a[2].text)
-        // Get text from link, not the number of views
-        // links.filter(a=>a.length > 2).map(a=>{return parseInt(a[2].text) ? "" : a[2].text })
-
-        */
-
         let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
         let pin_link = i.querySelector('a').href
-
         let title = (i) => {
             let title = [...i.querySelectorAll('a')][1].innerText ?? null
-
-            let links = $x('.//a', i) // Get all links from each pin
-            // Get only pins with 3 links
-            let pinAuthor = links.filter(p => p.length > 3)
-                // Get the text from that link
-                .map(a => { return parseInt(a[2].text) ? "" : a[2].text }) ?? "Unknown"
-            // let pinAuthor = i.querySelector('span') == null ?
-            //     "Unknown" : i.querySelector('span').textContent
+            let pinAuthor = i.querySelector('span') == null ?
+                "Unknown" : i.querySelector('span').textContent
 
             return title ? `${title} by ${pinAuthor}` : `Untitled Pin by ${pinAuthor}`
         }
 
         title = title(i)
 
-        if (is_video) {
+        if (is_video == true) {
             // if video, return title, pin_link, is_video no image link
             return { title, pin_link, is_video, image: "" }
         }
 
 
-        if (!is_video && original_img_link !== undefined) {
+        if ((is_video == false) && (original_img_link !== undefined)) {
             return { title, pin_link, is_video, image: original_img_link }
             // console.log(`${title}, ${pin_link}, ${is_video}`)
         }
     })
 }
+
 
 function checkStop(el, halt_selectors) {
 
