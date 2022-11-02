@@ -1,10 +1,10 @@
-import { launch_login, link_downloader } from "./link_downloader.js";
+import { launch_login, crawl_start } from "./crawler.js";
 
 const closeModalBtnSelector = 'button[aria-label="close"]';
 // import { crawl, parse } from "./pinextractor";
 
 await launch_login().then(async (page) => {
-    await link_downloader(page)
+    await crawl_start(page)
 })
 
 // pw.chromium.launch({ headless: false }).then(async (browser) => {

@@ -47,7 +47,7 @@ export async function launch_login() {
     // await browser.close();
 
 }
-export async function link_downloader(page: playwright.Page) {
+export async function crawl_start(page: playwright.Page) {
 
     await page.goto("https://www.pinterest.ca/dracana96");
 
@@ -189,7 +189,7 @@ export async function link_downloader(page: playwright.Page) {
                     let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
                     let section_name = section.split("/")[section.split("/").length - 2]
 
-                    await saveToFile({ section, section_pins }, { fileName: `${board_name}-${section_name}` }).then((fullFilePath) => console.log("Saved to file", fullFilePath))
+                    await save_to_file({ section, section_pins }, { fileName: `${board_name}-${section_name}` }).then((fullFilePath) => console.log("Saved to file", fullFilePath))
                 } catch (error) {
                     console.log("Error saving to file: ", error);
                 }
@@ -209,7 +209,7 @@ export async function link_downloader(page: playwright.Page) {
         console.log(data)
         console.log("Saving data to file...");
 
-        await saveToFile(data)
+        await save_to_file(data)
 
     }
 
@@ -222,58 +222,14 @@ export async function link_downloader(page: playwright.Page) {
 
 console.log("Closed.");
 
-async function* iterateLocator(locator: Locator): AsyncGenerator<Locator> {
+async function* iterate_locator(locator: Locator): AsyncGenerator<Locator> {
     for (let index = 0; index < await locator.count(); index++) {
         yield locator.nth(index)
     }
 }
 
-
-/* Use when not logged in */
-// export
-function crawl(THRESHOLD = 100) {
-    var chunks = new Set();
-    let ii = 0
-    // TODO: add username later.
-    if (!THRESHOLD) THRESHOLD = 100
-
-    // Crawl the page
-    let i = 0;
-    const pins_selector = "div[id^='boardfeed'] > div > div > div > div > div > div > div > div > a"
-
-    console.info("IN CRAWLER FUNCTION");
-
-    do {
-        do {
-            // Get current chunk of images
-            let chunks_before = Array.from(document.querySelectorAll(pins_selector))
-
-            // scroll down to load more images
-            window.scrollBy(0, 100)
-            //Add current chunk to set
-            chunks_before.forEach(chunks.add, chunks)
-            // Show progress
-            console.info(chunks.size)
-            i++
-        } while (i < 100)
-        ii++
-    }
-    while (ii < THRESHOLD)
-    // get srcset from imgs
-    // @ts-ignore
-    let srcset = Array.from(chunks).map(x => x.href)
-    return srcset
-}
-function startCrawl() {
-    // @ts-ignore
-    let pins = crawl(2000)
-
-    console.log(pins);
-
-    // @ts-ignore
-    return pins
-}
-async function saveToFile(data: any, options?: { fileName?: string, addDate?: Boolean, randomized?: Boolean, toDir?: string }) {
+/* SAVE */
+async function save_to_file(data: any, options?: { fileName?: string, addDate?: Boolean, randomized?: Boolean, toDir?: string }) {
     // let thisRandomUUID = randomUUID()
 
     let todays_date = () => {
@@ -286,7 +242,6 @@ async function saveToFile(data: any, options?: { fileName?: string, addDate?: Bo
         return year + "-" + month + "-" + day;
     }
 
-    /* SAVE */
     // write results to json file
     // check directory exists
 
@@ -306,7 +261,7 @@ async function saveToFile(data: any, options?: { fileName?: string, addDate?: Bo
 
     console.log(`Test if folder ${dirName} already exists...`);
 
-    if (await pathExists(dirName) == false) {
+    if (await path_exists(dirName) == false) {
         fs.mkdir(dirName, { recursive: true });
     }
 
@@ -315,7 +270,7 @@ async function saveToFile(data: any, options?: { fileName?: string, addDate?: Bo
     // Test if a file using the same name exists
     console.log(`Test if file ${fullFilePath} already exists...`);
 
-    if (await pathExists(fullFilePath) == true) {
+    if (await path_exists(fullFilePath) == true) {
         // Append to file
         console.log(`File ${fullFilePath} already exists, appending to file...`);
 
@@ -329,7 +284,7 @@ async function saveToFile(data: any, options?: { fileName?: string, addDate?: Bo
     // Return full file path
     return path.resolve(fullFilePath)
 }
-async function pathExists(dir: string) {
+async function path_exists(dir: string) {
     return existsSync(dir)
 }
 
