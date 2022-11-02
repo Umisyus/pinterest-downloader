@@ -136,18 +136,18 @@ export async function link_downloader(page: playwright.Page) {
     const boards = JSON.parse(board_links) as string[]
 
     for (let index = 0; index < boards.length; index++) {
-        const boardName = boards[index] as string;
+        const boardLink = boards[index] as string;
 
-        if (boardName.includes("/pins")) {
-            console.log(`Board ${boardName} skipped.`);
+        if (boardLink.includes("/pins")) {
+            console.log(`Board ${boardLink} skipped.`);
 
             continue
         }
 
-        console.log("Going to board: ", boardName);
+        console.log("Going to board: ", boardLink);
 
-        await page.goto(boardName);
-        console.log("Went to board: ", boardName);
+        await page.goto(boardLink);
+        console.log("Went to board: ", boardLink);
 
         await page.waitForLoadState('networkidle');
 
@@ -180,17 +180,31 @@ export async function link_downloader(page: playwright.Page) {
                     await crawler_page.close(),
                 ])
                 parsedSections.push({ section, section_pins })
+
+                // why not save after crawling each section?
+                try {
+                    // Get the latest section
+                    // let section_pins = parsedSections[parsedSections.length - 1] ?? []
+
+                    let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
+                    let section_name = section.split("/")[section.split("/").length - 2]
+
+                    await saveToFile({ section, section_pins }, { fileName: `${board_name}-${section_name}` }).then((fullFilePath) => console.log("Saved to file", fullFilePath))
+                } catch (error) {
+                    console.log("Error saving to file: ", error);
+                }
             }
+
 
         }
 
         /* Pins */
-        console.log(`Getting pins from board ${boardName}`);
+        console.log(`Getting pins from board ${boardLink}`);
 
         let board_pins = await autoScroll(page);
         // let board_pins: any[] = []
 
-        let data = { board: { boardName, sections: parsedSections, board_pins: board_pins } }
+        let data = { board: { boardName: boardLink, sections: parsedSections, board_pins: board_pins } }
 
         console.log(data)
         console.log("Saving data to file...");
@@ -259,7 +273,9 @@ function startCrawl() {
     // @ts-ignore
     return pins
 }
-async function saveToFile(data: any) {
+async function saveToFile(data: any, options?: { fileName?: string, addDate?: Boolean, randomized?: Boolean, toDir?: string }) {
+    let thisRandomUUID = randomUUID()
+
     let todays_date = () => {
         // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
         var dateObj = new Date();
@@ -273,15 +289,45 @@ async function saveToFile(data: any) {
     /* SAVE */
     // write results to json file
     // check directory exists
-    let dir = `./storage/pinterest-crawl-data/`
-    if (await pathExists(dir) == false) {
-        fs.mkdir(dir, { recursive: true });
+
+    let dirName = `./storage/pinterest-crawl-data/`
+    let file = ""
+    // .json
+    file = `pinterest-crawl-data-${todays_date()}_${randomUUID()}`
+
+    if (options) {
+        if (options?.fileName) file = options.fileName
+        if (options?.addDate) file = `${file}_${todays_date()}`
+        if (options?.randomized) file = `${file}_${randomUUID()}`
+        if (options?.toDir) dirName = options.toDir
     }
 
-    // write to file
-    let file = `${dir}pinterest.json`
-    await fs.writeFile(file, JSON.stringify(data, null, 2))
-    await fs.writeFile(`${dir}results-${todays_date()}_${randomUUID()}.json`, JSON.stringify(data))
+    file += `.json`
+
+    console.log(`Test if folder ${dirName} already exists...`);
+
+    if (await pathExists(dirName) == false) {
+        fs.mkdir(dirName, { recursive: true });
+    }
+
+    let fullFilePath = path.join(dirName, file) ?? `${dirName}${file}`
+    // write data to file, should append to container folder if it exists
+    // Test if a file using the same name exists
+    console.log(`Test if file ${fullFilePath} already exists...`);
+
+    if (await pathExists(fullFilePath) == true) {
+        // Append to file
+        console.log(`File ${fullFilePath} already exists, appending to file...`);
+
+      //  await fs.appendFile(fullFilePath, JSON.stringify(data))
+    }
+    else {
+        console.log(`File ${fullFilePath} does not exist, creating file...`);
+        await fs.writeFile(fullFilePath, JSON.stringify(data))
+    }
+
+    // Return full file path
+    return path.resolve(fullFilePath)
 }
 async function pathExists(dir: string) {
     return existsSync(dir)

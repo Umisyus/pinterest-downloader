@@ -70,8 +70,7 @@ export async function autoScroll(page: playwright.Page) {
 
                 // script to run in browser #117
 
-
-                // V 105
+                               // V 107
                 // @ts-ignore
                 function parsePins(...pins) {
                     // @ts-ignore
@@ -83,11 +82,16 @@ export async function autoScroll(page: playwright.Page) {
 
                         if (img !== null) {
                             // If there's no srcset, then the image is probably from a video
-                            original_img_link = img.srcset ? img.srcset.split(' ')[6] : ""
+                            if (img.srcset !== "") {
+                                // original_img_link = img.srcset ? img.srcset.split(' ')[6] : ""
+                                let srcset = img.srcset.split(' ')
+                                original_img_link = srcset[srcset.length - 2] ?? ""
+                            }
+
                         }
 
                         let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
-                        let pin_link = i.querySelector('a').href
+                        let pin_link = i.querySelector('a').href ?? ""
                         // @ts-ignore
                         let title = (i) => {
                             let title = [...i.querySelectorAll('a')][1].innerText ?? null
@@ -111,6 +115,7 @@ export async function autoScroll(page: playwright.Page) {
                         }
                     })
                 }
+
 
                 // @ts-ignore
                 function $$(selector, context) {
@@ -174,7 +179,19 @@ export async function autoScroll(page: playwright.Page) {
                             let parsedPins = parsePins(...pins)
                             // @ts-ignore
                             // Add them to a Map to make them unique by pin_link
+                            // check if pin_link is empty, add them to another array and add them to the map later
+
+                            // @ts-ignore
+                            let loners = parsedPins.filter(p => p.pin_link == undefined || p.pin_link == null || p.pin_link == "")
+                            parsedPins = parsedPins
+                                // @ts-ignore
+                                .filter(p => p.pin_link !== undefined && p.pin_link !== null && p.pin_link !== "")
+
+                            // @ts-ignore
                             parsedPins.forEach(p => pinsMap.set(p.pin_link, p))
+
+                            if (loners.length > 0)
+                                pinsMap.set("loners", { ...loners })
 
                             console.log(pinsMap)
 
