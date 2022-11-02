@@ -1,5 +1,4 @@
 import * as puppeteer from 'playwright';
-import { selectors } from './logged-in/pinterest-selectors.js';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 

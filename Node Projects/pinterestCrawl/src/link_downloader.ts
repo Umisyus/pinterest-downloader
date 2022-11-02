@@ -319,7 +319,7 @@ async function saveToFile(data: any, options?: { fileName?: string, addDate?: Bo
         // Append to file
         console.log(`File ${fullFilePath} already exists, appending to file...`);
 
-      //  await fs.appendFile(fullFilePath, JSON.stringify(data))
+        //  await fs.appendFile(fullFilePath, JSON.stringify(data))
     }
     else {
         console.log(`File ${fullFilePath} does not exist, creating file...`);
