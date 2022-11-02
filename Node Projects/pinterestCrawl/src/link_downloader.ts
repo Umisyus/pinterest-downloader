@@ -176,7 +176,7 @@ export async function link_downloader(page: playwright.Page) {
                     await crawler_page.goto(section),
                     console.log("Getting pins of section: ", section),
                     await crawler_page.waitForLoadState('domcontentloaded'),
-                    // await autoScroll(crawler_page),
+                    await autoScroll(crawler_page),
                     await crawler_page.close(),
                 ])
                 parsedSections.push({ section, section_pins })
@@ -187,10 +187,10 @@ export async function link_downloader(page: playwright.Page) {
         /* Pins */
         console.log(`Getting pins from board ${boardName}`);
 
-        // let board_pins = await autoScroll(page);
-        let board_pins: any[] = []
+        let board_pins = await autoScroll(page);
+        // let board_pins: any[] = []
 
-        let data = { board: {boardName, sections: parsedSections, board_pins: board_pins } }
+        let data = { board: { boardName, sections: parsedSections, board_pins: board_pins } }
 
         console.log(data)
         console.log("Saving data to file...");
