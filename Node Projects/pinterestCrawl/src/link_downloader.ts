@@ -274,7 +274,7 @@ function startCrawl() {
     return pins
 }
 async function saveToFile(data: any, options?: { fileName?: string, addDate?: Boolean, randomized?: Boolean, toDir?: string }) {
-    let thisRandomUUID = randomUUID()
+    // let thisRandomUUID = randomUUID()
 
     let todays_date = () => {
         // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object

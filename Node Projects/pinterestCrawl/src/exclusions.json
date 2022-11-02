@@ -1,0 +1,9 @@
+// Exclude any board or section names that you do not want to be included in the crawl
+{
+    "exclude": [
+        "board1",
+        "board2",
+        "board3/section1",
+        "board3/section2"
+    ]
+}
