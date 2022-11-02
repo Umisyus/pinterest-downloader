@@ -146,14 +146,18 @@ export async function autoScroll(page: playwright.Page) {
                     setTimeout(() => { }, 1000)
 
                     // Find the "More ideas like this" text element or the "Find more ideas for this board" text element
-                    let h3 = $x("//h3[contains(text(),'Find')]").pop() ?? null
-                    let h2 = $x("//h2[contains(text(),'like this')]").pop() ?? null
+                    // let h3 = $x("//h3[contains(text(),'Find')]")
+                    // let h2 = $x("//h2[contains(text(),'like this')]")
+                    let h3 = []
 
                     let timer = setInterval(() => {
+                        h3 = $x("//h3[contains(text(),'Find')] | //h2[contains(text(),'More')]")
                         // let vis =  h3.getBoundingClientRect().top <= window.innerHeight
                         // let vis2 = h2.getBoundingClientRect().top <= window.innerHeight
-                        let vis = isVisible(h3)
-                        let vis2 = isVisible(h2)
+                        // let vis = isVisible(h3)
+                        // let vis2 = isVisible(h2)
+
+                        let isVis = h3.some(i => isVisible(i))
 
                         // Scroll down
                         window.scrollBy(0, 200)
@@ -163,7 +167,7 @@ export async function autoScroll(page: playwright.Page) {
                         // @ts-ignore
                         // If we see the "More ideas like this" text element or the "Find more ideas for this board" text element
                         // we can stop scrolling
-                        if (vis | vis2) {
+                        if (isVis) {
                             clearInterval(timer)
 
                             // Parse results

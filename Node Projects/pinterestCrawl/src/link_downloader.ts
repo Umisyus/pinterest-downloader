@@ -1,12 +1,18 @@
 import * as playwright from 'playwright';
 import { Locator } from 'playwright';
+import { randomUUID } from 'crypto';
 
-import * as fs from 'fs'
+import * as fs from 'fs/promises'
+import { existsSync } from 'fs'
 import path from 'path';
+
 import { autoScroll } from './pinterest-crawler.js';
 
+// Get path of script
 let __dirname = path.dirname(process.argv[1])
-let obj = (fs.readFileSync(__dirname + '/../storage/login.json')).toString('utf8').trim()
+
+// Read login credentials from file
+let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
 
 let user = JSON.parse(obj).user
 let pass = JSON.parse(obj).pass
@@ -45,7 +51,7 @@ export async function link_downloader(page: playwright.Page) {
 
     await page.goto("https://www.pinterest.ca/dracana96");
 
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000)
 
     let user_boards = () => {
         // @ts-ignore
@@ -143,7 +149,7 @@ export async function link_downloader(page: playwright.Page) {
         await page.goto(boardName);
         console.log("Went to board: ", boardName);
 
-        await page.waitForLoadState('load');
+        await page.waitForLoadState('networkidle');
 
         /* Sections */
         console.log("Getting sections...");
@@ -161,16 +167,16 @@ export async function link_downloader(page: playwright.Page) {
         if (sectionLinks.length > 0) {
             console.log(`Found ${sectionLinks.length} sections`);
             // Start new page for each section
-            let crawler_page = await page.context().newPage();
-            await crawler_page.bringToFront()
 
             for await (const section of sectionLinks as string[]) {
+                let crawler_page = await page.context().newPage();
+                await crawler_page.bringToFront()
                 let [a, b, c, d, section_pins] = await Promise.all([
                     console.log("Going to section: ", section),
                     await crawler_page.goto(section),
                     console.log("Getting pins of section: ", section),
                     await crawler_page.waitForLoadState('domcontentloaded'),
-                    await autoScroll(crawler_page),
+                    // await autoScroll(crawler_page),
                     await crawler_page.close(),
                 ])
                 parsedSections.push({ section, section_pins })
@@ -181,9 +187,15 @@ export async function link_downloader(page: playwright.Page) {
         /* Pins */
         console.log(`Getting pins from board ${boardName}`);
 
-        let board_pins = await autoScroll(page);
+        // let board_pins = await autoScroll(page);
+        let board_pins: any[] = []
 
-        console.log({ boardName, parsedSections, board_pins })
+        let data = { board: {boardName, sections: parsedSections, board_pins: board_pins } }
+
+        console.log(data)
+        console.log("Saving data to file...");
+
+        await saveToFile(data)
 
     }
 
@@ -247,3 +259,32 @@ function startCrawl() {
     // @ts-ignore
     return pins
 }
+async function saveToFile(data: any) {
+    let todays_date = () => {
+        // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
+        var dateObj = new Date();
+        var month = dateObj.getUTCMonth() + 1; //months from 1-12
+        var day = dateObj.getUTCDate();
+        var year = dateObj.getUTCFullYear();
+
+        return year + "-" + month + "-" + day;
+    }
+
+    /* SAVE */
+    // write results to json file
+    // check directory exists
+    let dir = `./storage/pinterest-crawl-data/`
+    if (await pathExists(dir) == false) {
+        fs.mkdir(dir, { recursive: true });
+    }
+
+    // write to file
+    let file = `${dir}pinterest.json`
+    await fs.writeFile(file, JSON.stringify(data, null, 2))
+    await fs.writeFile(`${dir}results-${todays_date()}_${randomUUID()}.json`, JSON.stringify(data))
+}
+async function pathExists(dir: string) {
+    return existsSync(dir)
+}
+
+
