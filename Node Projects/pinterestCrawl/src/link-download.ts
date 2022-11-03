@@ -56,15 +56,26 @@ JSON.stringify(pin_data_parsed)
 // let links = (requests[0]).board.board_pins.map(i => i[1])
 
 
-// let links = Convert.toPinterestData()
+let board_links = pin_data_parsed.map(i => i.board_pins)
+    .filter(i => i !== '' && i !== null && i !== undefined).flatMap(i => i)
+let section_links = pin_data_parsed.map(i => i.section_pins)
+    .filter(i => i !== '' && i !== null && i !== undefined).flatMap(i => i)
 
-links.map(i => i.toString())
+
+
+
+let links = board_links.concat(section_links)
+
+// links.map(i => i.toString())
 // Get image links from one board
 //  json.map(i=>i.board !== undefined ? i.board.board_pins[1] : null).filter(i=>i !== null && i !== undefined).map(i=>i[1].image)
-let crawler = new PlaywrightCrawler({ maxConcurrency: 10, persistCookiesPerSession: true });
-crawler.addRequests(links);
+let crawler = new PlaywrightCrawler(
+    // { useSessionPool: true, sessionPoolOptions: { maxPoolSize: 10 }, maxConcurrency: 10, persistCookiesPerSession: true }
+);
 
-let resp = crawler.run()
+// crawler.addRequests(links);
+
+let resp = await crawler.run(links)
 
 
 console.log(resp);
