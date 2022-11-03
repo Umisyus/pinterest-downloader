@@ -20,14 +20,14 @@ let [...pin_data] = fs.readdirSync(__dirname + '/' + "storage/pinterest-crawl-da
 let [...pin_data_parsed] = pin_data.map((data) => {
     if (data.board !== undefined) {
         return {
-            boardName: data.board.boardName, board_pins: {
-                pins: data.board.board_pins.flatMap((i: any) => i[1].image)
-            }
+            boardName: data.board.boardName,
+            board_pins: data.board.board_pins.flatMap((i: any) => i[1].image)
+
         }
     } else
 
         if (data.section !== undefined) {
-            return {section: data.section, section_pins: data.section_pins.flatMap((i: any) => i[1].image)}
+            return { section: data.section, section_pins: data.section_pins.flatMap((i: any) => i[1].image) }
             // .map((p: { section: string; section_pins: string[]; }) =>
             //     ({ section: p.section, section_pins: p.section_pins.flatMap((i: any) => i)[1].image }))
 
@@ -39,8 +39,8 @@ let [...pin_data_parsed] = pin_data.map((data) => {
 
     if (data.board) {
         // return all objects from array
-        return data.map((p: { section: string; section_pins: string[]; }) =>
-            ({ section: p.section, section_pins: p.section_pins.flatMap((i: string) => i) }))
+        return data.map((p: { boardName: string; board_pins: string[]; }) =>
+            ({ board: p.boardName, board_pins: p.board_pins.flatMap((i: string) => i[1]) }))
     }
 })
 
