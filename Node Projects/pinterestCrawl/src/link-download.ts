@@ -61,22 +61,54 @@ let board_links = pin_data_parsed.map(i => i.board_pins)
 let section_links = pin_data_parsed.map(i => i.section_pins)
     .filter(i => i !== '' && i !== null && i !== undefined).flatMap(i => i)
 
-
-
+// Map each section to a board
 
 let links = board_links.concat(section_links)
+    .filter(i => i !== '' && i !== null && i !== undefined)
 
 // links.map(i => i.toString())
 // Get image links from one board
 //  json.map(i=>i.board !== undefined ? i.board.board_pins[1] : null).filter(i=>i !== null && i !== undefined).map(i=>i[1].image)
 let crawler = new PlaywrightCrawler(
     // { useSessionPool: true, sessionPoolOptions: { maxPoolSize: 10 }, maxConcurrency: 10, persistCookiesPerSession: true }
-);
+    {
+        launchContext: {
+            userDataDir: "../pinterest-download-data",
+            launchOptions: {
+                headless: false,
+                downloadsPath: "../storage/pinterest-image-downloads"
+            }
+        },
+        requestHandler: async ({ request, response, page }) => {
+            console.log({ request, response, page });
+            console.log(`Processing: ${request.url}`)
+            await page.goto(request.url, { waitUntil: "networkidle" });
+
+            let [download] = await Promise.all([
+                page.waitForEvent('download'),
+                page.evaluate(() => {
+                    const url = window.location.href;
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    // the filename you want
+                    a.download = 'pinterest-board-image';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+            ]);
+
+            console.log(`Downloaded: ${request.url}`);
+            console.log(`Downloaded: ${await download.path()}`);
+
+            // page.on('download', () => { })
+        },
+    });
 
 // crawler.addRequests(links);
 
 let resp = await crawler.run(links)
-
 
 console.log(resp);
 
