@@ -14,7 +14,7 @@ const exclusion_file = await fs.readFile(dirname + '/../src/' + 'exclusions.json
 
 let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
-function checkExcluded(url: string, exclusions: string[]): boolean {
+export default function checkExcluded(url: string, exclusions: string[]): boolean {
     let excluded = false
 
     if (url === undefined) {
@@ -74,6 +74,7 @@ let links = [
 
     , "https://www.pinterest.ca/dracana96/clear-face-mask/",
     "https://www.pinterest.ca/dracana96/clear-face-mask/coronavirus/",
+    "https://www.pinterest.ca/dracana96/cute-funny-animals/"
 ]
 
 let boardNames = links.map((link) => {
@@ -113,3 +114,15 @@ links.forEach((link) => {
     console.log(link)
     console.log(checkExcluded(link, exclusions))
 })
+
+
+console.log("Filtering links NOT excluded");
+let links_not_excluded = links.filter((link) => {
+    return !checkExcluded(link, exclusions)
+})
+console.log("Links excluded:", links_not_excluded, links_not_excluded.length);
+
+let links_excluded = links.filter((link) => {
+    return checkExcluded(link, exclusions)
+})
+console.log("Filtering links excluded", links_excluded, links_excluded.length);

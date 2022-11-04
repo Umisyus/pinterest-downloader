@@ -47,12 +47,12 @@ export interface Section {
     sectionLink: string,
     boardLink: string,
     boardName: string,
-    section_pins: Pin[]
+    sectionPins: Pin[]
 }
 export interface Board {
     boardName: string,
     boardLink: string,
-    board_pins: Pin[],
+    boardPins: Pin[],
     sections: Section[] | []
 }
 export interface Pin {
@@ -66,7 +66,7 @@ function findImageBoard(img_link: string, pin_data: Board[]) {
     let board = pin_data
         .map((i: Board) => i);
     let found = board.find((i: Board) =>
-        i.board_pins.find(i => i.image_link === img_link));
+        i.boardPins.find(i => i.image_link === img_link));
 
     return found ?? null
 }
@@ -75,7 +75,7 @@ function findImageSection(img_link: string, pin_data: Section[]) {
     let section = pin_data
         .map((i: Section) => i);
     let found = section.find((i: Section) =>
-        i.section_pins.find(i => i.image_link === img_link));
+        i.sectionPins.find(i => i.image_link === img_link));
 
     return found ?? null
 }

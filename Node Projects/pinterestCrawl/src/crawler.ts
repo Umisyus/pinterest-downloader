@@ -5,7 +5,6 @@ import type { Section, Board, Pin } from './test-json-parse.js';
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path';
-
 import { autoScroll } from './pinterest-crawler.js';
 
 const PINTEREST_DATA_DIR = './storage/pinterest-crawl-data/'
@@ -23,11 +22,7 @@ interface Exclusion {
 }
 
 
-let exclusions = JSON.parse(exclusion_file ?? '[]')
-
-let my_exclusions = [...exclusions] as string[]
-
-exclusions.push(my_exclusions)
+let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
 // function checkExcluded(url, { boardLink, boardName, sectionLink, sectionName }: { boardLink?: string | URL, boardName?: string, sectionLink?: string | URL, sectionName?: string }) {
 //     let excluded = false
@@ -55,35 +50,11 @@ exclusions.push(my_exclusions)
 
 // }
 
-function checkExcluded(url: string, exclusions: string[]): boolean {
-    let excluded = false
-
-    if (url === undefined) {
-        return false
-    }
-
-    if (exclusions !== undefined &&
-        Array.isArray(exclusions) &&
-        exclusions.length === 0) {
-        return false
-    }
-
-    exclusions = filterUndefinedNullEmptyString(exclusions);
-
-    // return url in exclusions
-
-    return exclusions.map((e) => {
-        if (e !== undefined && url.includes(e) || url.endsWith(e) || url == e) {
-            excluded = true
-            console.log(`'${e}' IS IN ${url}`);
-        }
-        return excluded
-    })
-        // Get boolean value of excluded
-        .reduce((acc, curr) => acc || curr)
-}
 
 // Read login credentials from file
+
+
+
 let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
 
 let user = JSON.parse(obj).user
@@ -200,15 +171,21 @@ export async function crawl_start(page: playwright.Page) {
     // Remove as unnecessary
     let [board_links, section_links]: any[] = await Promise.all([...eval_ops])
 
-    console.log({ board_links, section_links });
+    // console.log({ board_links, section_links });
 
     let boards = JSON.parse(board_links) as string[]
 
+    console.log({ section_links, board_links });
+
     // If a baord is excluded, remove it from the list
-    boards = boards.filter(b => checkExcluded(b, exclusions))
+    boards = boards.filter(b => checkExcluded(b, exclusions) == false)
+
+    console.log({ boards });
 
     for (let index = 0; index < boards.length; index++) {
         const boardLink = boards[index] as string;
+
+        let boardName = getBoardOrSectionName(boardLink);
 
         if (boardLink.includes("/pins")) {
             console.log(`Board ${boardLink} skipped.`);
@@ -238,7 +215,7 @@ export async function crawl_start(page: playwright.Page) {
             console.log(`Found ${sectionLinks.length} sections`);
 
             // If an excluded section exists (exclude is true), skip
-            sectionLinks = sectionLinks.filter(sectionLink => checkExcluded(sectionLink, my_exclusions))
+            sectionLinks = sectionLinks.filter(sectionLink => checkExcluded(sectionLink, exclusions) == false)
 
             for await (const sectionLink of sectionLinks) {
                 // Start new page for each section
@@ -256,7 +233,7 @@ export async function crawl_start(page: playwright.Page) {
                 let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
                 let section_name = sectionLink.split("/")[sectionLink.split("/").length - 2]
 
-                parsedSections.push({ sectionName: section_name, boardLink, boardName: board_name, sectionLink, section_pins: section_pins as Pin[] } as Section)
+                parsedSections.push({ sectionName: section_name, boardLink, boardName: board_name, sectionLink, sectionPins: section_pins as Pin[] } as Section)
 
                 // why not save after crawling each section?
                 try {
@@ -292,10 +269,10 @@ export async function crawl_start(page: playwright.Page) {
         // let board_pins: any[] = []
 
         let board = {
-            boardName: boardLink,
-            boardLink,
+            boardName: boardName,
+            boardLink: boardLink,
             sections: parsedSections,
-            board_pins: board_pins,
+            boardPins: board_pins,
         } as Board
 
 
@@ -316,6 +293,11 @@ export async function crawl_start(page: playwright.Page) {
 }
 
 console.log("Closed.");
+
+function getBoardOrSectionName(boardLink: string) {
+    const boardNameSplit = boardLink.split('/');
+    return boardNameSplit[boardNameSplit.length - 2] ?? '';
+}
 
 async function* iterate_locator(locator: Locator): AsyncGenerator<Locator> {
     for (let index = 0; index < await locator.count(); index++) {
@@ -383,6 +365,37 @@ async function path_exists(dir: string) {
     return existsSync(dir)
 }
 
+export function checkExcluded(url: string, exclusions: string[]): boolean {
+    let excluded = false
+
+    if (url === undefined) {
+        return false
+    }
+
+    if (exclusions !== undefined &&
+        Array.isArray(exclusions) &&
+        exclusions.length === 0) {
+        return false
+    }
+    // Filter out undefined, null, and empty strings
+    exclusions = filterUndefinedNullEmptyString(exclusions);
+
+    // Compare all strings lowercased
+    url = url.toLocaleLowerCase()
+    return exclusions.map((e) => {
+        e = e.toLocaleLowerCase()
+        if (e !== undefined &&
+            url.includes(e)
+            || url.endsWith(e)
+            || url == e) {
+            excluded = true
+            // console.log(`'${e}' IS IN ${url}`);
+        }
+        return excluded
+    })
+        // Get boolean value of excluded
+        .reduce((acc, curr) => acc || curr)
+}
 
 function filterUndefinedNullEmptyString(exclusions: string[]) {
     return exclusions.filter((i: string) => i !== undefined || i !== '');
