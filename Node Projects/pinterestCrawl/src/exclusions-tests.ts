@@ -26,15 +26,19 @@ function checkExcluded(url: string, exclusions: string[]): boolean {
         exclusions.length === 0) {
         return false
     }
-
+    // Filter out undefined, null, and empty strings
     exclusions = filterUndefinedNullEmptyString(exclusions);
 
-    // return url in exclusions
-
+    // Compare all strings lowercased
+    url = url.toLocaleLowerCase()
     return exclusions.map((e) => {
-        if (e !== undefined && url.includes(e) || url.endsWith(e) || url == e) {
+        e = e.toLocaleLowerCase()
+        if (e !== undefined &&
+            url.includes(e)
+            || url.endsWith(e)
+            || url == e) {
             excluded = true
-            console.log(`'${e}' IS IN ${url}`);
+            // console.log(`'${e}' IS IN ${url}`);
         }
         return excluded
     })
