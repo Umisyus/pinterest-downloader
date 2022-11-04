@@ -36,8 +36,6 @@ function checkExcluded(url: string, exclusions: string[]): boolean {
             excluded = true
             console.log(`'${e}' IS IN ${url}`);
         }
-
-
         return excluded
     })
         // Get boolean value of excluded

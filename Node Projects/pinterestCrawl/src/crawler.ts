@@ -25,7 +25,7 @@ interface Exclusion {
 
 let exclusions = JSON.parse(exclusion_file ?? '[]')
 
-let my_exclusions = [...exclusions] as Exclusion[]
+let my_exclusions = [...exclusions] as string[]
 
 exclusions.push(my_exclusions)
 
@@ -55,35 +55,33 @@ exclusions.push(my_exclusions)
 
 // }
 
-function checkExcluded(url: string, exclusions: Exclusion[]): boolean {
+function checkExcluded(url: string, exclusions: string[]): boolean {
     let excluded = false
 
     if (url === undefined) {
         return false
     }
-    return exclusions.map(({ boardLink, boardName, sectionLink, sectionName }) => {
-        if (boardLink !== undefined && boardLink == url) {
-            excluded = true
-        }
-        // whoops, forgot to add the rest of the checks
-        if (boardName !== undefined && boardName == url) {
-            excluded = true
-        }
-        if (sectionLink !== undefined && sectionLink == url) {
-            excluded = true
-        }
-        if (sectionName !== undefined && sectionName == url) {
-            excluded = true
-        }
 
+    if (exclusions !== undefined &&
+        Array.isArray(exclusions) &&
+        exclusions.length === 0) {
+        return false
+    }
+
+    exclusions = filterUndefinedNullEmptyString(exclusions);
+
+    // return url in exclusions
+
+    return exclusions.map((e) => {
+        if (e !== undefined && url.includes(e) || url.endsWith(e) || url == e) {
+            excluded = true
+            console.log(`'${e}' IS IN ${url}`);
+        }
         return excluded
     })
         // Get boolean value of excluded
         .reduce((acc, curr) => acc || curr)
 }
-
-let url = 'https://www.pinterest.com/leahmccullough/food/'
-checkExcluded(url, my_exclusions)
 
 // Read login credentials from file
 let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
@@ -204,12 +202,15 @@ export async function crawl_start(page: playwright.Page) {
 
     console.log({ board_links, section_links });
 
-    const boards = JSON.parse(board_links) as string[]
+    let boards = JSON.parse(board_links) as string[]
+
+    // If a baord is excluded, remove it from the list
+    boards = boards.filter(b => checkExcluded(b, exclusions))
 
     for (let index = 0; index < boards.length; index++) {
         const boardLink = boards[index] as string;
 
-        if (boardLink.includes("/pins") || checkExcluded(boardLink, my_exclusions)) {
+        if (boardLink.includes("/pins")) {
             console.log(`Board ${boardLink} skipped.`);
             continue
         }
@@ -233,12 +234,14 @@ export async function crawl_start(page: playwright.Page) {
             console.log("No sections found.");
         }
 
-
         if (sectionLinks.length > 0) {
             console.log(`Found ${sectionLinks.length} sections`);
-            // Start new page for each section
+
+            // If an excluded section exists (exclude is true), skip
+            sectionLinks = sectionLinks.filter(sectionLink => checkExcluded(sectionLink, my_exclusions))
 
             for await (const sectionLink of sectionLinks) {
+                // Start new page for each section
                 let crawler_page = await page.context().newPage();
                 await crawler_page.bringToFront()
                 let [a, b, c, d, section_pins] = await Promise.all([
@@ -381,3 +384,6 @@ async function path_exists(dir: string) {
 }
 
 
+function filterUndefinedNullEmptyString(exclusions: string[]) {
+    return exclusions.filter((i: string) => i !== undefined || i !== '');
+}
