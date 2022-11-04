@@ -25,18 +25,9 @@ interface Exclusion {
 
 let exclusions = JSON.parse(exclusion_file ?? '[]')
 
-if (exclusions == undefined || exclusions == null || exclusions.length == 0) {
-    exclusions as Exclusion[]
-}
+let my_exclusions = [...exclusions] as Exclusion[]
 
-let exclude = [...exclusions]
-let my_exclusions = {
-    boardLink: 'https://www.pinterest.com/leahmccullough/food/',
-} as Exclusion
-
-exclude.push(my_exclusions)
-
-console.log(exclude);
+exclusions.push(my_exclusions)
 
 // function checkExcluded(url, { boardLink, boardName, sectionLink, sectionName }: { boardLink?: string | URL, boardName?: string, sectionLink?: string | URL, sectionName?: string }) {
 //     let excluded = false
@@ -64,28 +55,31 @@ console.log(exclude);
 
 // }
 
-function checkExcluded(url: string, { boardLink, boardName, sectionLink, sectionName }:
-    { boardLink?: string, boardName?: string, sectionLink?: string, sectionName?: string }) {
+function checkExcluded(url: string, exclusions: Exclusion[]): boolean {
     let excluded = false
+
     if (url === undefined) {
         return false
     }
+    return exclusions.map(({ boardLink, boardName, sectionLink, sectionName }) => {
+        if (boardLink !== undefined && boardLink == url) {
+            excluded = true
+        }
+        // whoops, forgot to add the rest of the checks
+        if (boardName !== undefined && boardName == url) {
+            excluded = true
+        }
+        if (sectionLink !== undefined && sectionLink == url) {
+            excluded = true
+        }
+        if (sectionName !== undefined && sectionName == url) {
+            excluded = true
+        }
 
-    if (boardLink !== undefined && boardLink == url) {
-        excluded = true
-    }
-    // whoops, forgot to add the rest of the checks
-    if (boardName !== undefined && boardName == url) {
-        excluded = true
-    }
-    if (sectionLink !== undefined && sectionLink == url) {
-        excluded = true
-    }
-    if (sectionName !== undefined && sectionName == url) {
-        excluded = true
-    }
-
-    return excluded
+        return excluded
+    })
+        // Get boolean value of excluded
+        .reduce((acc, curr) => acc || curr)
 }
 
 let url = 'https://www.pinterest.com/leahmccullough/food/'
