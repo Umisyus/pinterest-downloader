@@ -1,15 +1,95 @@
 import * as playwright from 'playwright';
 import { Locator } from 'playwright';
 import { randomUUID } from 'crypto';
-
+import type { Section, Board, Pin } from './test-json-parse.js';
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path';
 
 import { autoScroll } from './pinterest-crawler.js';
 
+const PINTEREST_DATA_DIR = './storage/pinterest-crawl-data/'
 // Get path of script
 let __dirname = path.dirname(process.argv[1])
+
+const exclusion_file = await fs.readFile(__dirname + '/../src/' + 'exclusions.json', 'utf8').catch((err) => {
+    console.error('Could not read exclusions', err)
+})
+interface Exclusion {
+    boardLink?: string,
+    boardName?: string,
+    sectionName?: string,
+    sectionLink?: string
+}
+
+
+let exclusions = JSON.parse(exclusion_file ?? '[]')
+
+if (exclusions == undefined || exclusions == null || exclusions.length == 0) {
+    exclusions as Exclusion[]
+}
+
+let exclude = [...exclusions]
+let my_exclusions = {
+    boardLink: 'https://www.pinterest.com/leahmccullough/food/',
+} as Exclusion
+
+exclude.push(my_exclusions)
+
+console.log(exclude);
+
+// function checkExcluded(url, { boardLink, boardName, sectionLink, sectionName }: { boardLink?: string | URL, boardName?: string, sectionLink?: string | URL, sectionName?: string }) {
+//     let excluded = false
+//     for (let index = 0; index < exclude.length; index++) {
+//         const exclusion = exclude[index];
+//         if (exclusion.boardLink == boardLink) {
+//             excluded = true
+//             break
+//         }
+//         if (exclusion.boardName == boardName) {
+//             excluded = true
+//             break
+//         }
+//         if (exclusion.sectionLink == sectionLink) {
+//             excluded = true
+//             break
+//         }
+//         if (exclusion.sectionName == sectionName) {
+//             excluded = true
+//             break
+//         }
+//     }
+//     return excluded
+
+
+// }
+
+function checkExcluded(url: string, { boardLink, boardName, sectionLink, sectionName }:
+    { boardLink?: string, boardName?: string, sectionLink?: string, sectionName?: string }) {
+    let excluded = false
+    if (url === undefined) {
+        return false
+    }
+
+    if (boardLink !== undefined && boardLink == url) {
+        excluded = true
+    }
+    // whoops, forgot to add the rest of the checks
+    if (boardName !== undefined && boardName == url) {
+        excluded = true
+    }
+    if (sectionLink !== undefined && sectionLink == url) {
+        excluded = true
+    }
+    if (sectionName !== undefined && sectionName == url) {
+        excluded = true
+    }
+
+    return excluded
+}
+
+let url = 'https://www.pinterest.com/leahmccullough/food/'
+checkExcluded(url, my_exclusions)
 
 // Read login credentials from file
 let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
@@ -122,15 +202,12 @@ export async function crawl_start(page: playwright.Page) {
 
     let ops: any[] = [
         user_boards, board_sections
-
     ]
+
     let eval_ops = ops.map(i => page.evaluate(i))
     // Remove as unnecessary
     let [board_links, section_links]: any[] = await Promise.all([...eval_ops])
-    board_links = board_links as IBoard
-    interface IBoard {
-        boards: string[]
-    }
+
     console.log({ board_links, section_links });
 
     const boards = JSON.parse(board_links) as string[]
@@ -138,9 +215,8 @@ export async function crawl_start(page: playwright.Page) {
     for (let index = 0; index < boards.length; index++) {
         const boardLink = boards[index] as string;
 
-        if (boardLink.includes("/pins")) {
+        if (boardLink.includes("/pins") || checkExcluded(boardLink, my_exclusions)) {
             console.log(`Board ${boardLink} skipped.`);
-
             continue
         }
 
@@ -157,7 +233,7 @@ export async function crawl_start(page: playwright.Page) {
         let sections_json = await page.evaluate(board_sections)
         let sectionLinks: string[] = JSON.parse(sections_json)
 
-        let parsedSections = []
+        let parsedSections: Section[] = []
 
         if (!sectionLinks || sectionLinks.length == 0) {
             console.log("No sections found.");
@@ -168,28 +244,42 @@ export async function crawl_start(page: playwright.Page) {
             console.log(`Found ${sectionLinks.length} sections`);
             // Start new page for each section
 
-            for await (const section of sectionLinks as string[]) {
+            for await (const sectionLink of sectionLinks) {
                 let crawler_page = await page.context().newPage();
                 await crawler_page.bringToFront()
                 let [a, b, c, d, section_pins] = await Promise.all([
-                    console.log("Going to section: ", section),
-                    await crawler_page.goto(section),
-                    console.log("Getting pins of section: ", section),
+                    console.log("Going to section: ", sectionLink),
+                    await crawler_page.goto(sectionLink),
+                    console.log("Getting pins of section: ", sectionLink),
                     await crawler_page.waitForLoadState('domcontentloaded'),
                     await autoScroll(crawler_page),
                     await crawler_page.close(),
                 ])
-                parsedSections.push({ section, section_pins })
+
+                let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
+                let section_name = sectionLink.split("/")[sectionLink.split("/").length - 2]
+
+                parsedSections.push({ sectionName: section_name, boardLink, boardName: board_name, sectionLink, section_pins: section_pins as Pin[] } as Section)
 
                 // why not save after crawling each section?
                 try {
                     // Get the latest section
                     // let section_pins = parsedSections[parsedSections.length - 1] ?? []
 
-                    let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
-                    let section_name = section.split("/")[section.split("/").length - 2]
+                    // let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
+                    // let section_name = sectionLink.split("/")[sectionLink.split("/").length - 2]
 
-                    await save_to_file({ section, section_pins }, { fileName: `${board_name}-${section_name}` }).then((fullFilePath) => console.log("Saved to file", fullFilePath))
+                    // Stop saving sections on their own for now
+
+                    // await save_to_file({
+                    //     section: sectionLink,
+                    //     boardLink,
+                    //     sectionName: section_name,
+                    //     sectionLink, section_pins
+                    // } as Section,
+                    //     { fileName: `${board_name}-${section_name}`, toDir: PINTEREST_DATA_DIR })
+                    //     .then((fullFilePath) => console.log("Saved to file", fullFilePath))
+
                 } catch (error) {
                     console.log("Error saving to file: ", error);
                 }
@@ -204,12 +294,20 @@ export async function crawl_start(page: playwright.Page) {
         let board_pins = await autoScroll(page);
         // let board_pins: any[] = []
 
-        let data = { board: { boardName: boardLink, sections: parsedSections, board_pins: board_pins } }
+        let board = {
+            boardName: boardLink,
+            boardLink,
+            sections: parsedSections,
+            board_pins: board_pins,
+        } as Board
 
-        console.log(data)
+
+        console.log(board)
         console.log("Saving data to file...");
 
-        await save_to_file(data)
+        await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR })
+            .then((fullFilePath) => console.log("Saved to file", fullFilePath))
+            .catch(console.error)
 
     }
 
