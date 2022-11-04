@@ -1,20 +1,6 @@
 [
-    {
-        "boardLink": "https://www.pinterest.ca/dracana96/concept-art/",
-        "boardName": "concept-art",
-        "sectionName": "",
-        "sectionLink": "creatures"
-    },
-    {
-        "boardLink": "",
-        "boardName": "",
-        "sectionName": "coronavirus",
-        "sectionLink": ""
-    },
-    {
-        "boardLink": "",
-        "boardName": "",
-        "sectionName": "creatures",
-        "sectionLink": ""
-    }
+    "characters",
+    "creatures",
+    "clear-face-mask",
+    "https://www.pinterest.ca/dracana96/concept-art/"
 ]

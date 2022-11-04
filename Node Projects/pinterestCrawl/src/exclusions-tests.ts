@@ -4,45 +4,39 @@ import path from 'path';
 
 let dirname = path.dirname(process.argv[1])
 
-const exclusion_file = await fs.readFile(dirname + '/../src/' + 'exclusions.json', 'utf8').catch((err) => {
-    console.error('Could not read exclusions', err)
-})
-interface Exclusion {
-    boardLink?: string,
-    boardName?: string,
-    sectionName?: string,
-    sectionLink?: string
-}
+const exclusion_file = await fs.readFile(dirname + '/../src/' + 'exclusions.json', 'utf8')
+    .catch((err) => {
+        console.error('Could not read exclusions', err)
+    })
+// interface Exclusion {
+//     exclude: string
+// }
 
+let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
-let exclusions = JSON.parse(exclusion_file ?? '[]')
-
-let my_exclusions = [...exclusions
-] as Exclusion[]
-
-exclusions.push(my_exclusions)
-
-function checkExcluded(url: string, exclusions: Exclusion[]): boolean {
+function checkExcluded(url: string, exclusions: string[]): boolean {
     let excluded = false
 
     if (url === undefined) {
         return false
     }
-    return exclusions.map(({ boardLink, boardName, sectionLink, sectionName
-    }) => {
-        if (boardLink !== undefined && boardLink == url) {
+
+    if (exclusions !== undefined &&
+        Array.isArray(exclusions) &&
+        exclusions.length === 0) {
+        return false
+    }
+
+    exclusions = filterUndefinedNullEmptyString(exclusions);
+
+    // return url in exclusions
+
+    return exclusions.map((e) => {
+        if (e !== undefined && url.includes(e) || url.endsWith(e) || url == e) {
             excluded = true
+            console.log(`'${e}' IS IN ${url}`);
         }
-        // whoops, forgot to add the rest of the checks
-        if (boardName !== undefined && boardName == url) {
-            excluded = true
-        }
-        if (sectionLink !== undefined && sectionLink == url) {
-            excluded = true
-        }
-        if (sectionName !== undefined && sectionName == url) {
-            excluded = true
-        }
+
 
         return excluded
     })
@@ -87,6 +81,9 @@ let boardNames = links.map((link) => {
 
 let isExcluded = checkExcluded(links[1], exclusions)
 
+
+
+console.log("Test exclusions: ", exclusions);
 console.log("Test board names: ", boardNames);
 
 boardNames.forEach((boardName) => {
@@ -103,4 +100,14 @@ console.log("Test section names:", sectionNames);
 sectionNames.forEach((sectionName) => {
     console.log(sectionName)
     console.log(checkExcluded(sectionName, exclusions))
+})
+
+function filterUndefinedNullEmptyString(exclusions: string[]) {
+    return exclusions.filter((i: string) => i !== undefined || i !== '');
+}
+
+console.log("Test links:", links);
+links.forEach((link) => {
+    console.log(link)
+    console.log(checkExcluded(link, exclusions))
 })
