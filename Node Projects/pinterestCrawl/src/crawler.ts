@@ -142,7 +142,17 @@ export async function crawl_start(page: playwright.Page) {
     console.log({ section_links, board_links });
 
     // If a baord is excluded, remove it from the list
+    console.log("Checking exclusions");
+
+    let boards_before = boards.length
     boards = boards.filter(b => checkExcluded(b, exclusions) == false)
+    let boards_now = boards.length
+    let delta = boards_before - boards_now
+
+
+    if (delta > 0) {
+        console.log(`Removed ${delta} boards from list`);
+    }
 
     console.log({ boards });
     console.log(`Processing ${boards.length} boards`);
@@ -180,9 +190,14 @@ export async function crawl_start(page: playwright.Page) {
             console.log(`Found ${sectionLinks.length} sections`);
 
             // If an excluded section exists (exclude is true), skip
-            console.log("Checking exclusions...");
-
+            console.log("Checking section exclusions...");
+            let section_before = sectionLinks
             sectionLinks = sectionLinks.filter(sectionLink => checkExcluded(sectionLink, exclusions) == false)
+            let delta = section_before.length - sectionLinks.length
+            if (delta > 0) {
+                // differernce between arrays
+                console.log(`Excluded ${delta} sections`);
+            }
 
             for (const sectionLink of sectionLinks) {
                 // Start new page for each section
@@ -222,11 +237,17 @@ export async function crawl_start(page: playwright.Page) {
             boardPins: board_pins,
         } as Board
 
+        let board_pins_total = board.boardPins.length
+        let section_pins_total = parsedSections
+            //get total number of pins in sections
+            .map(i => i.sectionPins.length)
+            //sum
+            .reduce((a, b) => a + b, 0)
 
         console.log(board)
         console.log("Saving data to file...");
-        console.log(`Saving ${board.boardPins.length} board pins`);
-        console.log(`Saving ${parsedSections.length} section pins`);
+        console.log(`Saving ${board_pins_total} board pins`);
+        console.log(`Saving ${section_pins_total} section pins`);
 
         // await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
 
@@ -236,8 +257,6 @@ export async function crawl_start(page: playwright.Page) {
 
     await page.close();
     await browser.close();
-
-
 
     console.log("Closed.");
 
