@@ -14,13 +14,6 @@ let __dirname = path.dirname(process.argv[1])
 const exclusion_file = await fs.readFile(__dirname + '/../src/' + 'exclusions.json', 'utf8').catch((err) => {
     console.error('Could not read exclusions', err)
 })
-interface Exclusion {
-    boardLink?: string,
-    boardName?: string,
-    sectionName?: string,
-    sectionLink?: string
-}
-
 
 let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
@@ -52,7 +45,6 @@ let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
 
 // Read login credentials from file
-
 
 
 let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
@@ -94,6 +86,7 @@ export async function crawl_start(page: playwright.Page) {
 
     await page.goto("https://www.pinterest.ca/dracana96");
 
+    // Wait for boards to load
     await page.waitForTimeout(2000)
 
     let user_boards = () => {
@@ -181,10 +174,12 @@ export async function crawl_start(page: playwright.Page) {
     boards = boards.filter(b => checkExcluded(b, exclusions) == false)
 
     console.log({ boards });
+    console.log(`Processing ${boards.length} boards`);
 
-    for (let index = 0; index < boards.length; index++) {
-        const boardLink = boards[index] as string;
-
+    for await (const boardL of boards) {
+        // new page for each board
+        const boardPage = await page.context().newPage();
+        let boardLink = boardL
         let boardName = getBoardOrSectionName(boardLink);
 
         if (boardLink.includes("/pins")) {
@@ -194,15 +189,15 @@ export async function crawl_start(page: playwright.Page) {
 
         console.log("Going to board: ", boardLink);
 
-        await page.goto(boardLink);
+        await boardPage.goto(boardLink);
         console.log("Went to board: ", boardLink);
 
-        await page.waitForLoadState('networkidle');
+        await boardPage.waitForLoadState('networkidle');
 
         /* Sections */
         console.log("Getting sections...");
 
-        let sections_json = await page.evaluate(board_sections)
+        let sections_json = await boardPage.evaluate(board_sections)
         let sectionLinks: string[] = JSON.parse(sections_json)
 
         let parsedSections: Section[] = []
@@ -219,14 +214,14 @@ export async function crawl_start(page: playwright.Page) {
 
             for await (const sectionLink of sectionLinks) {
                 // Start new page for each section
-                let crawler_page = await page.context().newPage();
+                let crawler_page = await boardPage.context().newPage();
                 await crawler_page.bringToFront()
                 let [a, b, c, d, section_pins] = await Promise.all([
                     console.log("Going to section: ", sectionLink),
                     await crawler_page.goto(sectionLink),
                     console.log("Getting pins of section: ", sectionLink),
                     await crawler_page.waitForLoadState('domcontentloaded'),
-                    await autoScroll(crawler_page),
+                    [], // await autoScroll(crawler_page),
                     await crawler_page.close(),
                 ])
 
@@ -235,28 +230,28 @@ export async function crawl_start(page: playwright.Page) {
 
                 parsedSections.push({ sectionName: section_name, boardLink, boardName: board_name, sectionLink, sectionPins: section_pins as Pin[] } as Section)
 
-                // why not save after crawling each section?
-                try {
-                    // Get the latest section
-                    // let section_pins = parsedSections[parsedSections.length - 1] ?? []
+                // // why not save after crawling each section?
+                // try {
+                //     // Get the latest section
+                //     // let section_pins = parsedSections[parsedSections.length - 1] ?? []
 
-                    // let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
-                    // let section_name = sectionLink.split("/")[sectionLink.split("/").length - 2]
+                //     // let board_name = boardLink.split("/")[boardLink.split("/").length - 2]
+                //     // let section_name = sectionLink.split("/")[sectionLink.split("/").length - 2]
 
-                    // Stop saving sections on their own for now
+                //     // Stop saving sections on their own for now
 
-                    // await save_to_file({
-                    //     section: sectionLink,
-                    //     boardLink,
-                    //     sectionName: section_name,
-                    //     sectionLink, section_pins
-                    // } as Section,
-                    //     { fileName: `${board_name}-${section_name}`, toDir: PINTEREST_DATA_DIR })
-                    //     .then((fullFilePath) => console.log("Saved to file", fullFilePath))
+                //     // await save_to_file({
+                //     //     section: sectionLink,
+                //     //     boardLink,
+                //     //     sectionName: section_name,
+                //     //     sectionLink, section_pins
+                //     // } as Section,
+                //     //     { fileName: `${board_name}-${section_name}`, toDir: PINTEREST_DATA_DIR })
+                //     //     .then((fullFilePath) => console.log("Saved to file", fullFilePath))
 
-                } catch (error) {
-                    console.log("Error saving to file: ", error);
-                }
+                // } catch (error) {
+                //     console.log("Error saving to file: ", error);
+                // }
             }
 
 
@@ -265,7 +260,8 @@ export async function crawl_start(page: playwright.Page) {
         /* Pins */
         console.log(`Getting pins from board ${boardLink}`);
 
-        let board_pins = await autoScroll(page);
+        // let board_pins = await autoScroll(boardPage);
+        let board_pins = [] ?? await autoScroll(boardPage);
         // let board_pins: any[] = []
 
         let board = {
@@ -279,9 +275,7 @@ export async function crawl_start(page: playwright.Page) {
         console.log(board)
         console.log("Saving data to file...");
 
-        await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR })
-            .then((fullFilePath) => console.log("Saved to file", fullFilePath))
-            .catch(console.error)
+        await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
 
     }
 
