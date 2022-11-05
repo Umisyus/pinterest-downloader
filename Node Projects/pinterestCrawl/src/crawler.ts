@@ -274,6 +274,8 @@ export async function crawl_start(page: playwright.Page) {
 
         console.log(board)
         console.log("Saving data to file...");
+        console.log(`Saving ${board.boardPins.length} board pins`);
+        console.log(`Saving ${parsedSections.length} section pins`);
 
         await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
 
