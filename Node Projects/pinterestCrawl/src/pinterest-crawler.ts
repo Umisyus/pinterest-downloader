@@ -3,6 +3,7 @@ import * as playwright from 'playwright';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import { Pin } from './test-json-parse';
 
 // https://stackoverflow.com/a/53527984
 (async () => {
@@ -14,7 +15,7 @@ import path from 'path';
     const browser = await playwright.chromium.launch({
         headless: false,
         devtools: true,
-        slowMo: 500,
+        // slowMo: 500,
         executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     });
 
@@ -30,9 +31,9 @@ import path from 'path';
 
 
     /* MAIN SCRIPT */
-    let images = await autoScroll(page);
+    let images: Pin[] = await autoScroll(page);
 
-    console.log(images);
+    console.log({ images });
     let todays_date = () => {
         // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
         var dateObj = new Date();
@@ -45,14 +46,15 @@ import path from 'path';
 
     /* SAVE */
     // write results to json file
-    await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify(images))
+    await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify({ images }))
 
     await browser.close();
 })();
 
-export async function autoScroll(page: playwright.Page) {
+export async function autoScroll(page: playwright.Page): Promise<Pin[]> {
     return await page.evaluate(async () => {
         return await new Promise(async resolve => {
+
             async function crawl_function() {
 
                 let selectors = {
@@ -62,7 +64,9 @@ export async function autoScroll(page: playwright.Page) {
 
                     pins_xpath_selector: "//div[@data-test-id='pin']",
                     pins_selector: 'div[data-test-id="pin"]',
-                    video_pin_selector: 'div[data-test-id="PinTypeIdentifier"]',
+                    video_pin_selector_1: 'div[data-test-id="pinrep-video"]',
+                    video_pin_selector_2: 'div[data-test-id="PinTypeIdentifier"]',
+                    video_pin_selector_3: 'div[data-test-id="pincard-video-without-link"]',
                     pin_bottom_selector: 'div[data-test-id="pointer-events-wrapper"]',
                     pin_title_selector: 'div[data-test-id="pointer-events-wrapper"] a',
                     pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
@@ -70,7 +74,7 @@ export async function autoScroll(page: playwright.Page) {
 
                 // script to run in browser #117
 
-                               // V 107
+                // V 109
                 // @ts-ignore
                 function parsePins(...pins) {
                     // @ts-ignore
@@ -87,10 +91,15 @@ export async function autoScroll(page: playwright.Page) {
                                 let srcset = img.srcset.split(' ')
                                 original_img_link = srcset[srcset.length - 2] ?? ""
                             }
-
                         }
+                        // @ts-ignore
+                        let is_video = (() => [
+                            selectors.video_pin_selector_1,
+                            selectors.video_pin_selector_2,
+                            selectors.video_pin_selector_3
+                        ]
+                            .some(s => i.querySelector(s) ? true : false))()
 
-                        let is_video = i.querySelector(selectors.video_pin_selector) ? true : false
                         let pin_link = i.querySelector('a').href ?? ""
                         // @ts-ignore
                         let title = (i) => {
@@ -102,17 +111,19 @@ export async function autoScroll(page: playwright.Page) {
                         }
                         // @ts-ignore
                         title = title(i)
+                        is_video = is_video
 
-                        if (is_video == true) {
+                        if (original_img_link == "") {
                             // if video, return title, pin_link, is_video no image link
-                            return { title, pin_link, is_video, image: "" }
+                            return { title, pin_link, is_video: true, image: "" }
                         }
 
 
                         if ((is_video == false) && (original_img_link !== undefined)) {
-                            return { title, pin_link, is_video, image: original_img_link }
+                            return { title, pin_link, is_video: false, image: original_img_link }
                             // console.log(`${ title }, ${ pin_link }, ${ is_video } `)
                         }
+                        return { title, pin_link, is_video, image: original_img_link }
                     })
                 }
 
@@ -131,12 +142,22 @@ export async function autoScroll(page: playwright.Page) {
                     return el.getBoundingClientRect().top <= window.innerHeight;
                 }
                 // @ts-ignore
-                function $x(xp) {
-                    const snapshot = document.evaluate(
+                function $x(xp, el = document) {
+                    // @ts-ignore
+                    let snapshot = null
+                    if (el !== undefined && el !== null) {
+                        snapshot = document.evaluate(
+                            xp, el, null,
+                            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+                        );
+                    }
+                    snapshot = document.evaluate(
                         xp, document, null,
                         XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
                     );
+
                     return [...new Array(snapshot.snapshotLength)]
+                        // @ts-ignore
                         .map((_, i) => snapshot.snapshotItem(i))
                         ;
                 };
@@ -181,24 +202,21 @@ export async function autoScroll(page: playwright.Page) {
                             // Add them to a Map to make them unique by pin_link
                             // check if pin_link is empty, add them to another array and add them to the map later
 
-                            // @ts-ignore
-                            let loners = parsedPins.filter(p => p.pin_link == undefined || p.pin_link == null || p.pin_link == "")
                             parsedPins = parsedPins
                                 // @ts-ignore
+                                .filter(p => p !== undefined)
                                 .filter(p => p.pin_link !== undefined && p.pin_link !== null && p.pin_link !== "")
 
                             // @ts-ignore
                             parsedPins.forEach(p => pinsMap.set(p.pin_link, p))
 
-                            if (loners.length > 0)
-                                pinsMap.set("loners", { ...loners })
-
                             console.log(pinsMap)
 
                             // return pins data
-                            resolve(pinsMap)
+                            debugger
+                            resolve([...pinsMap.values()])
                         }
-                    }, 1000)
+                    }, 2000)
 
                 });
 
@@ -208,5 +226,5 @@ export async function autoScroll(page: playwright.Page) {
             // @ts-ignore
             resolve([...res])
         })
-    });
+    }) as Pin[];
 }
