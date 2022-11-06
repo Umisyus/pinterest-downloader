@@ -40,11 +40,11 @@
 //         pins: Array.from(i.section_pins.map(i => ({ data: i[1] }))) // extract data from json, GOOD!
 //     }))
 // }
-interface Board {
-    boardName: string,
-    board_pins: Array<Object>
+// interface Board {
+//     boardName: string,
+//     board_pins: Array<Object>
 
-}
+// }
 
 // Parse json for array of section objects
 section_map = (arr) => {

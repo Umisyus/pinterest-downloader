@@ -1,12 +1,12 @@
 import * as playwright from 'playwright';
 import { Browser, Locator } from 'playwright';
 import { randomUUID } from 'crypto';
-import type { Section, Board, Pin } from './test-json-parse.js';
+import type { Section, Board, Pin } from './types';
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path';
 import { autoScroll } from './pinterest-crawler.js';
-import { BrowserContext } from 'puppeteer-core';
+
 
 const PINTEREST_DATA_DIR = './storage/pinterest-crawl-data/'
 // Get path of script
