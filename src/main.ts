@@ -3,8 +3,9 @@ import { launch_login, crawl_start } from "./crawler.js";
 const closeModalBtnSelector = 'button[aria-label="close"]';
 // import { crawl, parse } from "./pinextractor";
 
-await launch_login().then(async (page) =>
-    await crawl_start(page))
+await launch_login()
+    .then(async (page) => await crawl_start(page))
+    .then(() => process.exit(0))
 
 // pw.chromium.launch({ headless: false }).then(async (browser) => {
 // const page = await browser.newPage();

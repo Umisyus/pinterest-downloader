@@ -259,7 +259,9 @@ export async function crawl_start(page: playwright.Page) {
 
     }
 
-    console.log("closing browser");
+    console.log("All processes finished.");
+
+    console.log("Closing browser");
 
     await page.close();
     await browser.close();
