@@ -1,6 +1,7 @@
 import { PlaywrightCrawler } from "crawlee";
 import fs from "fs";
 import path from "path";
+import { Section, Board } from "./types";
 
 
 let __dirname = path.resolve(`${path.dirname(process.argv[1])}/../`)
@@ -44,33 +45,23 @@ JSON.stringify(pin_data_parsed)
 let all_sections: Section[] = pin_data_parsed.filter((i: any) => i.section !== undefined)
 let all_boards: Board[] = pin_data_parsed.filter((i: any) => i.board !== undefined)
 
-interface Section {
-    section: string,
-    section_pins: string[]
-}
-interface Board {
-    boardName: string,
-    board_pins: string[]
-}
-
-function findImageBoard(img_link: string, pin_data: Board[]) {
+export function findImageBoard(img_link: string, pin_data: Board[]) {
     let board = pin_data
         .map((i: Board) => i);
     let found = board.find((i: Board) =>
-        i.board_pins.find(i => i === img_link));
+        i.boardPins.find(i => i.image_link === img_link));
 
     return found ?? null
 }
 
-function findImageSection(img_link: string, pin_data: Section[]) {
+export function findImageSection(img_link: string, pin_data: Section[]) {
     let section = pin_data
         .map((i: Section) => i);
     let found = section.find((i: Section) =>
-        i.section_pins.find(i => i === img_link));
+        i.sectionPins.find(i => i.image_link === img_link));
 
     return found ?? null
 }
-
 
 let board_links = pin_data_parsed.map(i => i.board_pins)
     .filter(i => i !== '' && i !== null && i !== undefined).flatMap(i => i)
@@ -81,13 +72,6 @@ let section_links = pin_data_parsed.map(i => i.section_pins)
 
 let links: string[] = board_links.concat(section_links)
     .filter(i => i !== '' && i !== null && i !== undefined)
-
-// let arr = links.map((i) =>
-// ({
-//     data: findImageBoard(i, all_boards)
-//         ?? findImageSection(i, all_sections)
-//         ?? "Not Found"
-// }))
 
 const browser_downloads_folder = "./storage/pinterest-image-downloads";
 const browser_data_folder = "../pinterest-download-data";
@@ -119,7 +103,7 @@ let crawler = new PlaywrightCrawler(
             let fileName = ""
             let board_section_name = ""
             let board = findImageBoard(request.url, all_boards)?.boardName
-            let section = findImageSection(request.url, all_sections)?.section
+            let section = findImageSection(request.url, all_sections)?.sectionName
 
             if (board !== undefined) {
                 // Extract board name from url
