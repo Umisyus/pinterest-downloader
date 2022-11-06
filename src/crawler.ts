@@ -8,9 +8,16 @@ import path from 'path';
 import { autoScroll } from './pinterest-crawler.js';
 
 
-const PINTEREST_DATA_DIR = './storage/pinterest-crawl-data/'
+let PINTEREST_DATA_DIR = 'storage/pinterest-boards/'
 // Get path of script
 let __dirname = path.dirname(process.argv[1])
+
+console.log(__dirname);
+
+PINTEREST_DATA_DIR = path.resolve(`${__dirname + '/' + '..' + '/' + 'src' + '/' + PINTEREST_DATA_DIR}`)
+console.log(PINTEREST_DATA_DIR);
+
+console.log('Starting Pinterest Crawler...');
 
 const exclusion_file = await fs.readFile(__dirname + '/../src/' + 'exclusions.json', 'utf8').catch((err) => {
     console.error('Could not read exclusions', err)
@@ -25,7 +32,7 @@ let pass = JSON.parse(obj).pass
 
 const browser = await playwright.chromium
     .launchPersistentContext('./pinterest-download-data', {
-        headless: false, devtools: true,
+        headless: true, devtools: true,
         // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     })
 
@@ -208,7 +215,7 @@ export async function crawl_start(page: playwright.Page) {
                     await crawler_page.goto(sectionLink),
                     console.log("Getting pins of section: ", sectionLink),
                     await crawler_page.waitForLoadState('domcontentloaded'),
-                    [], // await autoScroll(crawler_page),
+                    await autoScroll(crawler_page),
                     await crawler_page.close(),
                 ])
 
@@ -226,8 +233,7 @@ export async function crawl_start(page: playwright.Page) {
         /* Pins */
         console.log(`Getting pins from board ${boardLink}`);
 
-        // let board_pins = await autoScroll(boardPage);
-        let board_pins: Pin[] = [] //await autoScroll(boardPage);
+        let board_pins: Pin[] = await autoScroll(page);
         // let board_pins: any[] = []
 
         let board = {
@@ -249,7 +255,7 @@ export async function crawl_start(page: playwright.Page) {
         console.log(`Saving ${board_pins_total} board pins`);
         console.log(`Saving ${section_pins_total} section pins`);
 
-        // await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
+        await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
 
     }
 

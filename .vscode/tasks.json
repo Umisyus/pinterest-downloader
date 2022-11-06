@@ -9,6 +9,18 @@
 			"problemMatcher": [],
 			"label": "npm: build - pinterestCrawl",
 			"detail": "tsc"
+		},
+		{
+			"label": "tsc-build",
+			"type": "typescript",
+			"tsconfig": "tsconfig.json",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
 		}
 	]
 }
