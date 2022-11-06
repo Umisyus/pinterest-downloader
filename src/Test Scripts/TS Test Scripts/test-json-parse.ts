@@ -1,5 +1,6 @@
 import path from "path"
 import fs from "fs"
+import { Section, Board } from "../../types"
 let __dirname = path.resolve(`${path.dirname(process.argv[1])}/../`)
 // Test in console
 // json.map(i=>i.board !== undefined ? i.board : null).filter(i=>i !== null && i !== undefined).map(i => i.section_pins ? ({ board: i.boardName, section_pins: [i.section_pins], pins: i.board_pins }) : null).filter(i => i !== null && i !== undefined)
@@ -41,26 +42,6 @@ JSON.stringify(pin_data_parsed)
 
 let all_sections: Section[] = pin_data_parsed.filter((i: any) => i.section !== undefined)
 let all_boards: Board[] = pin_data_parsed.filter((i: any) => i.board !== undefined)
-
-export interface Section {
-    sectionName: string,
-    sectionLink: string,
-    boardLink: string,
-    boardName: string,
-    sectionPins: Pin[]
-}
-export interface Board {
-    boardName: string,
-    boardLink: string,
-    boardPins: Pin[],
-    sections: Section[] | []
-}
-export interface Pin {
-    title: string,
-    is_video: boolean,
-    image_link: string,
-    pin_link: string,
-}
 
 function findImageBoard(img_link: string, pin_data: Board[]) {
     let board = pin_data

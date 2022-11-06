@@ -3,7 +3,7 @@ import * as playwright from 'playwright';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import path from 'path';
-import { Pin } from './test-json-parse';
+import { Pin } from './types';
 
 // https://stackoverflow.com/a/53527984
 (async () => {
