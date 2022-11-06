@@ -11,18 +11,24 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "preLaunchTask": "npm: build - pinterestCrawl",
-            "program": "${workspaceFolder}/pinterestCrawl/src/main.ts",
+            "program": "${workspaceFolder}/src/main.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
             "outFiles": [
-                "${workspaceFolder}/**/*.js"
+                "${workspaceFolder}/dist/**/*.js"
             ]
-
         },
         {
             "type": "node",
-            "request": "attach",
-            "name": "Attach to Process",
-            "processId": "${command:PickProcess}"
-        }
+            "request": "launch",
+            "name": "Launch Downloader",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/src/link-download.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": [
+                "${workspaceFolder}/dist/**/*.js"
+            ]
+        },
     ]
 }
