@@ -2,14 +2,20 @@ import { launch_login } from "./crawler.js";
 import * as Playwright from "playwright";
 // import { findImageBoard, findImageSection } from "./link-download.js";
 import fs from "fs";
+import path from "path";
 import { dirname } from "path";
 import { Board, Section } from "./types.js";
+import { randomUUID } from 'crypto';
 
 (async () => {
     let __dirname = dirname(process.argv[1])
+    let PINTEREST_DATA_DIR = path.resolve(`${__dirname + '/' + '..' + '/' + 'src' + '/' + 'storage/pinterest-boards/'}`)
 
-    let [...pin_data]: Board[] = fs.readdirSync(__dirname + '/' + '../' + "storage/pinterest-crawl-data/", { withFileTypes: true })
-        .map((file) => fs.readFileSync(__dirname + '/' + '../' + "storage/pinterest-crawl-data/" + file.name))
+    let dir = path.resolve(`${PINTEREST_DATA_DIR}/`)
+    console.log(dir);
+
+    let [...pin_data]: Board[] = fs.readdirSync(dir, { withFileTypes: true })
+        .map((file) => fs.readFileSync(dir + "/" + file.name))
         .map((data) => JSON.parse(data.toString('utf-8')))
 
 
@@ -21,19 +27,34 @@ import { Board, Section } from "./types.js";
             console.log(board.boardLink);
 
             for await (const pin of boardPins) {
-                await page.goto(pin.image_link)
+                await page.goto(pin.image_link as string)
                 let img_name = pin.title
-                let img_path = __dirname + '/' + "storage/pinterest-crawl-data/" + board.boardName + '/' + img_name
+                // PinterestCrawl/dist/../src/storage/board-name/image_name.jpg
+                let img_path = __dirname + '/' + "../" + "src/" + "storage/pinterest-images/" + board.boardName + '/' + img_name + randomUUID()
                 let img_link = pin.image_link
 
                 // May or may not work
                 let [download] = await Promise.all([
                     page.waitForEvent('download'),
-                    page.evaluate(([img_link, img_name]) => downloadImage(img_link, img_name),
-                        [downloadImage, img_link, img_name]),
+                    page.evaluate(
+                        ([img_link, img_name]) => {
+                            // @ts-ignore
+                            function downloadImage(url, fileName) {
+                                let a = document.createElement("a");
+                                a.href = url ?? window.location.href;
+                                a.download = fileName;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            };
+                            // @ts-ignore
+                            return downloadImage(img_link, img_name)
+                        },
+                        [img_link, img_name]),
+
                 ])
 
-                console.log(`Downloaded to: ${download.path()}`);
+                console.log(`Downloaded to: ${await download.path()}`);
 
                 console.log(`Saving to: ${img_path}`);
                 await download.saveAs(img_path)
