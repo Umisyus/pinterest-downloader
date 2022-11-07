@@ -14,6 +14,13 @@ import { randomUUID } from 'crypto';
     let dir = path.resolve(`${PINTEREST_DATA_DIR}/`)
     console.log(dir);
 
+    interface DownloadRecord {
+        pin_link: string,
+        is_downloaded: boolean,
+    }
+
+    let downloadRecord: DownloadRecord[] = []
+
     let [...pin_data]: Board[] = fs.readdirSync(dir, { withFileTypes: true })
         .map((file) => fs.readFileSync(dir + "/" + file.name))
         .map((data) => JSON.parse(data.toString('utf-8')))
@@ -27,10 +34,21 @@ import { randomUUID } from 'crypto';
             console.log(board.boardLink);
 
             for await (const pin of boardPins) {
-                await page.goto(pin.image_link as string)
+                if (pin.image_link == undefined || pin.image_link == null || pin.image_link == '') {
+
+                    console.log(`Pin titled ${pin.title} @ ${pin.pin_link} has no image link `);
+                    if (pin.is_video == true) {
+                        console.log(`becuase it is a video`);
+                        continue
+                    }
+                    continue
+                }
+
+                await page.goto(pin.image_link)
                 let img_name = pin.title
+                let section_name = findImageSection(pin.image_link, board.sections)?.sectionName ?? ""
                 // PinterestCrawl/dist/../src/storage/board-name/image_name.jpg
-                let img_path = __dirname + '/' + "../" + "src/" + "storage/pinterest-images/" + board.boardName + '/' + img_name + randomUUID()
+                let img_path = __dirname + '/' + "../" + "src/" + "storage/pinterest-images/" + board.boardName + (section_name !== '' ? "/" + section_name : "") + '/' + img_name + randomUUID()
                 let img_link = pin.image_link
 
                 // May or may not work
@@ -56,35 +74,25 @@ import { randomUUID } from 'crypto';
 
                 console.log(`Downloaded to: ${await download.path()}`);
 
-                console.log(`Saving to: ${img_path}`);
+                console.log(`Saving ${pin.title} to: ${img_path}`);
                 await download.saveAs(img_path)
+                console.log(`Saved pin ${pin.title} to: ${img_path}`);
+                // downloadRecord.push({ pin_link: pin.pin_link, is_downloaded: true })
             }
         }
 
-        // let image_board = findImageBoard('', pin_data)
-        // const sections = [...pin_data.map(i => i.sections)].flat();
-        // let image_section = findImageSection('', sections)
-
-        // sections.forEach(async (section: Section) => {
-        //     let pinTitle = (section.sectionPins.find(i => i.image_link === ''))
-        //     if (pinTitle) {
-        //         console.log(pinTitle)
-        //     }
-
-        //     await Promise.all([
-        //         page.goto(""),
-        //         page.waitForLoadState(),
-        //         downloadImage(section.sectionLink, pinTitle?.title ?? "pinterest_pin_")
-        //     ]);
-        // });
     });
 })();
-// @ts-ignore
-function downloadImage(url, fileName) {
-    let a = document.createElement("a");
-    a.href = url ?? window.location.href;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-};
+
+function findImageBoard(img_link: string, pin_data: Board[]) {
+    let board = pin_data
+        .map((i) => i);
+    let found = board.find((i) => i.boardPins.find(i => i.image_link === img_link));
+    return found ?? null;
+}
+function findImageSection(img_link: string, pin_data: Section[]) {
+    let section = pin_data
+        .filter((i) => i !== undefined);
+    let found = section.find((i) => i.sectionPins.find(i => i.image_link === img_link));
+    return found ?? null;
+}
