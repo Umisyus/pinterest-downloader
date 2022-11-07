@@ -28,7 +28,7 @@ let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 const browser = await playwright.chromium
     .launchPersistentContext('./pinterest-download-data', {
         // headless: true, devtools: true,
-        headless: true, devtools: true,
+        headless: true, devtools: false,
         // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     })
 
