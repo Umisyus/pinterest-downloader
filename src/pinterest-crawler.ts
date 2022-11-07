@@ -123,7 +123,7 @@ export async function autoScroll(page: playwright.Page): Promise<Pin[]> {
                             return { title, pin_link, is_video: false, image: original_img_link }
                             // console.log(`${ title }, ${ pin_link }, ${ is_video } `)
                         }
-                        return { title, pin_link, is_video, image: original_img_link }
+                        return { title, pin_link, is_video, image_link: original_img_link }
                     })
                 }
 

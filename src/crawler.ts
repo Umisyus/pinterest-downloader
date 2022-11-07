@@ -25,21 +25,23 @@ const exclusion_file = await fs.readFile(__dirname + '/../src/' + 'exclusions.js
 
 let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
-let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
-
-let user = JSON.parse(obj).user
-let pass = JSON.parse(obj).pass
-
 const browser = await playwright.chromium
     .launchPersistentContext('./pinterest-download-data', {
+        // headless: true, devtools: true,
         headless: true, devtools: true,
         // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     })
 
-const page = await browser!.newPage();
-await page.goto('https://pinterest.ca/login');
-
+const STORAGE_STATE_PATH = './storage/storageState.json';
 export async function launch_login() {
+    let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
+
+    let user = JSON.parse(obj).user
+    let pass = JSON.parse(obj).pass
+
+
+    const page = await browser!.newPage();
+    await page.goto('https://pinterest.ca/login');
 
     // let cookies = await page.evaluate(() => document.cookie);
     // const closeModalBtnSelector = 'button[aria-label="close"]';
@@ -47,14 +49,15 @@ export async function launch_login() {
     if (await page.getByLabel('Email').count() > 0) {
         await page.getByLabel('Email').fill(user);
         await page.getByLabel('Password').fill(pass);
-        await page.getByText('Log in').click();
+        await page.getByText('Log in').last().click();
 
         // Save signed-in state to 'storageState.json'.
         (await page.context()
-            .storageState({ path: '../storage/storageState.json' })
-            .then((s) => console.log("SAVED STORAGE STATE" + JSON.stringify(s)))
+            .storageState({ path: STORAGE_STATE_PATH })
+            .then((s) => console.log("SAVED STORAGE STATE: " + JSON.stringify(s)))
             .catch(err => console.error("FAILED TO SAVE STATE: " + err)));
     }
+
     return page
     // await page.close();
     // await browser.close();
