@@ -1,55 +1,55 @@
-// Pinterest Crawler
+// // Pinterest Crawler
 import * as playwright from 'playwright';
-import fs from 'fs/promises';
-import { randomUUID } from 'crypto';
-import path from 'path';
+// import fs from 'fs/promises';
+// import { randomUUID } from 'crypto';
+// import path from 'path';
 import { Pin } from './types';
 
-// https://stackoverflow.com/a/53527984
-(async () => {
-    let __dirname = path.dirname(process.argv[1])
+// // https://stackoverflow.com/a/53527984
+// (async () => {
+//     let __dirname = path.dirname(process.argv[1])
 
-    let fileName = __dirname + '/' + "crawl-test-script.js";
-    let scriptString = fs.readFile(fileName, 'utf8')
+//     let fileName = __dirname + '/' + "crawl-test-script.js";
+//     let scriptString = fs.readFile(fileName, 'utf8')
 
-    const browser = await playwright.chromium.launch({
-        headless: false,
-        devtools: true,
-        // slowMo: 500,
-        executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    });
+//     const browser = await playwright.chromium.launch({
+//         headless: false,
+//         devtools: true,
+//         // slowMo: 500,
+//         executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+//     });
 
-    const page = await browser.newPage();
-    await page.goto('https://www.pinterest.ca/dracana96/cute-funny-animals/', { waitUntil: 'domcontentloaded' });
-    await page.setViewportSize({
-        width: 1200,
-        height: 800
-    });
+//     const page = await browser.newPage();
+//     await page.goto('https://www.pinterest.ca/dracana96/cute-funny-animals/', { waitUntil: 'domcontentloaded' });
+//     await page.setViewportSize({
+//         width: 1200,
+//         height: 800
+//     });
 
 
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+//     await page.waitForLoadState('networkidle');
+//     await page.waitForTimeout(2000);
 
-    /* MAIN SCRIPT */
-    let images: Pin[] = await autoScroll(page);
+//     /* MAIN SCRIPT */
+//     let images: Pin[] = await autoScroll(page);
 
-    console.log({ images });
-    let todays_date = () => {
-        // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
-        var dateObj = new Date();
-        var month = dateObj.getUTCMonth() + 1; //months from 1-12
-        var day = dateObj.getUTCDate();
-        var year = dateObj.getUTCFullYear();
+//     console.log({ images });
+//     let todays_date = () => {
+//         // https://stackoverflow.com/questions/2013255/how-to-get-year-month-day-from-a-date-object
+//         var dateObj = new Date();
+//         var month = dateObj.getUTCMonth() + 1; //months from 1-12
+//         var day = dateObj.getUTCDate();
+//         var year = dateObj.getUTCFullYear();
 
-        return year + "-" + month + "-" + day;
-    }
+//         return year + "-" + month + "-" + day;
+//     }
 
-    /* SAVE */
-    // write results to json file
-    // await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify({ images }))
+//     /* SAVE */
+//     // write results to json file
+//     // await fs.writeFile(`results-${todays_date()}_${randomUUID()}.json`, JSON.stringify({ images }))
 
-    await browser.close();
-})();
+//     await browser.close();
+// })();
 
 export async function autoScroll(page: playwright.Page): Promise<Pin[]> {
     return await page.evaluate(async () => {
