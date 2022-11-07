@@ -42,8 +42,8 @@ let [...pin_data_parsed] = pin_data.map((data) => {
 })
 
 JSON.stringify(pin_data_parsed)
-let all_sections: Section[] = pin_data_parsed.filter((i: any) => i.section !== undefined)
-let all_boards: Board[] = pin_data_parsed.filter((i: any) => i.board !== undefined)
+let all_boards: Board[] = pin_data_parsed.filter((i: any) => i !== undefined)
+let all_sections: Section[] = pin_data_parsed.filter((i: Board) => i.sections !== undefined)
 
 export function findImageBoard(img_link: string, pin_data: Board[]) {
     let board = pin_data
@@ -56,7 +56,7 @@ export function findImageBoard(img_link: string, pin_data: Board[]) {
 
 export function findImageSection(img_link: string, pin_data: Section[]) {
     let section = pin_data
-        .map((i: Section) => i);
+        .filter((i: Section) => i !== undefined);
     let found = section.find((i: Section) =>
         i.sectionPins.find(i => i.image_link === img_link));
 
