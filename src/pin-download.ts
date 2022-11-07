@@ -28,13 +28,13 @@ import { randomUUID } from 'crypto';
 
     await launch_login().then(async (page: Playwright.Page) => {
 
-        downloadAllSectionPins(pin_data.flatMap(i => i.sections), page, __dirname)
-        downloadAllBoardPins(pin_data, page, __dirname)
+        await downloadAllSectionPins(pin_data.flatMap(i => i.sections), page, __dirname)
+        await downloadAllBoardPins(pin_data, page, __dirname)
 
         console.log("Done downloading images");
 
-        await page.close()
-    });
+        return page;
+    }).then(async (page) => await page.close());
 })();
 
 async function downloadAllSectionPins(pin_data: Section[], page: Playwright.Page, __dirname: string) {
@@ -94,7 +94,7 @@ async function downloadAllSectionPins(pin_data: Section[], page: Playwright.Page
             console.log(`Downloaded to: ${await download.path()}`);
 
             console.log(`Saving ${sectionPin.title} to: ${img_path}`);
-            await download.saveAs(img_path);
+            // await download.saveAs(img_path);
             console.log(`Saved pin ${sectionPin.title} to: ${img_path}`);
             // downloadRecord.push({ pin_link: pin.pin_link, is_downloaded: true })
         }
@@ -226,7 +226,7 @@ async function downloadAllBoardPins(pin_data: Board[], page: Playwright.Page, __
             console.log(`Downloaded to: ${await download.path()}`);
 
             console.log(`Saving ${boardPin.title} to: ${img_path}`);
-            await download.saveAs(img_path);
+            // await download.saveAs(img_path);
             console.log(`Saved pin ${boardPin.title} to: ${img_path}`);
             // downloadRecord.push({ pin_link: pin.pin_link, is_downloaded: true })
         }
