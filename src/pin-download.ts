@@ -6,7 +6,11 @@ import path from "path";
 import { dirname } from "path";
 import { Board, Pin, Section } from "./types.js";
 import { randomUUID } from 'crypto';
+/*
+#TODO: Add a way to find pins already downloaded
+#TODO: Add a way to zip downloaded pins
 
+*/
 (async () => {
     let __dirname = dirname(process.argv[1])
     let PINTEREST_DATA_DIR = path.resolve(`${__dirname + '/' + '..' + '/' + 'src' + '/' + 'storage/pinterest-boards/'}`)
@@ -61,12 +65,15 @@ async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: s
 
         let total_pins = pin_data.length;
 
-        console.log(`Downloading pin: ${pin_data.indexOf(pin) + 1} / ${total_pins}`);
+        console.log(`Downloading pin: ${pin_data.indexOf(pin) + 1} / ${total_pins}` + ` (from ${section_name == "" ? board_name : board_name + "/" + section_name})`);
         console.log(`Downloading pin: ${pin.title} @ ${pin.image_link}`);
+
+        let pin_title = pin.title.trim()
 
         if (pin.image_link == undefined || pin.image_link == null || pin.image_link == '') {
 
-            console.warn(`Pin titled ${pin.title} @ ${pin.pin_link} has no image link `);
+
+            console.warn(`Pin titled ${pin_title} @ ${pin.pin_link} has no image link `);
             if (pin.is_video == true) {
                 console.warn(`becuase it is a video`);
                 continue;
@@ -74,10 +81,12 @@ async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: s
             continue;
         }
 
-        console.log("Downloading pin: " + pin.title.replace('\s{2,}', ' '));
+        console.log("Downloading pin: " + pin_title.replace('\s{2,}', ' '));
 
         await page.goto(pin.image_link);
-        let img_name = pin.title.substring(0, 69)
+
+        // Format the title so we can save without any issues
+        let img_name = (pin_title.substring(0, 69) + "_")
             .replace(/[^a-zA-Z0-9]/g, '_').replace('_{2,}', '_') + randomUUID();
 
         let bn: string = (board_name ?? "")
