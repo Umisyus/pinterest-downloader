@@ -94,7 +94,7 @@ async function dlPinBoard(board: Board, page: Playwright.Page) {
     for (let index = 0; index < board.boardPins.length; index++) {
         const pin = board.boardPins[index];
 
-        let { img_path, data,fileName,stream } = await dlPin(pin, page, board.boardName, "");
+        let { data, fileName, stream } = await dlPin(pin, page, board.boardName, "");
 
         // Add images to board folder
         // Board folder is the root folder
@@ -108,7 +108,7 @@ async function dlPinBoard(board: Board, page: Playwright.Page) {
         // zip = zip.folder(section.sectionName)!;
         for (let index = 0; index < section.sectionPins.length; index++) {
             const pin = section.sectionPins[index];
-            let { img_path, fileName, data, stream } = await dlPin(pin, page, board.boardName, section.sectionName);
+            let { fileName, data, stream } = await dlPin(pin, page, board.boardName, section.sectionName);
             // Add image to folder, board folder is the root folder
             let zipped_image_path = `${board.boardName}/${section.sectionName}/${fileName}`
             zip.file((zipped_image_path), (stream ?? data ?? ""));
@@ -136,16 +136,19 @@ async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, section
 
     console.log("Downloading pin: " + pin_title.replace('\s{2,}', ' '));
 
+    await page.waitForTimeout(3000);
     await page.goto(pin.image_link);
 
     // Format the title so we can save without any issues
-    let img_name = (pin_title.substring(0, 69) + "_")
-        .replace(/[^a-zA-Z0-9]/g, '_').replace('_{2,}', '_');
+    let img_name = (pin_title.substring(0, 69))
+        .replace(/[^a-zA-Z0-9]/g, '_').replace(/_{2,}/g, '_');
 
     let bn: string = boardName;
     let sn: string = sectionName;
     // PinterestCrawl/dist/../src/storage/board-name/[section-name]/image_name.png
-    let img_path = __dirname + '/' + bn + "/" + sn + img_name + '.png';
+    let rand = (img_name.toLocaleLowerCase().includes("unknown".toLocaleLowerCase()) ? randomUUID() : "") ?? "";
+    let img_fileName = `${img_name}_${rand}.png`;
+    let img_path = __dirname + '/' + bn + "/" + sn + img_fileName + '.png';
     let img_link = pin.image_link;
 
     let [download] = await Promise.all([
@@ -174,7 +177,7 @@ async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, section
     let fileName = img_name ?? download.suggestedFilename();
     let data = (await fs.promises.readFile(img_path));
     let stream = await download.createReadStream();
-    return { img_path, fileName, data, stream };
+    return { img_path, fileName: img_fileName, data, stream };
 }
 
 async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: string, board_name: string, section_name: string) {
