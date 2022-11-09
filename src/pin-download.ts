@@ -49,7 +49,9 @@ let __dirname = path.dirname(process.argv[1]);
         // // })
 
         const zip_name = 'imgs.zip';
-        for (let index = 0; index < pin_data.length; index++) {
+        // Filter pin_data to only include pins that are valid
+        let valid_pins = pin_data.filter(b => b.boardPins.filter(p => p.is_video == false))[0]
+        for (let index = 0; index < [valid_pins].length; index++) {
             const data = pin_data[index];
 
             await dlPinBoard(data, page)
@@ -70,7 +72,9 @@ let __dirname = path.dirname(process.argv[1]);
 
         return page;
 
-    }).then(async (page) => await page.close());
+    }).then(async (page) => {
+        await page.context().close();
+    });
 })();
 
 async function getBoardPins(board: Board[], page: Playwright.Page, __dirname: string) {
@@ -99,8 +103,10 @@ async function dlPinBoard(board: Board, page: Playwright.Page) {
         // Add images to board folder
         // Board folder is the root folder
         let zipped_image_path = `${board.boardName}/${fileName}`
-        zip.file((zipped_image_path), (stream ?? data ?? ""));
-
+        if (data !== "" || stream !== "") {
+            zip.file((zipped_image_path), (stream ?? data ?? ""));
+            console.log("Added file to zip");
+        }
     }
     for (let index = 0; index < board.sections.length; index++) {
         const section = board.sections[index];
@@ -111,7 +117,11 @@ async function dlPinBoard(board: Board, page: Playwright.Page) {
             let { fileName, data, stream } = await dlPin(pin, page, board.boardName, section.sectionName);
             // Add image to folder, board folder is the root folder
             let zipped_image_path = `${board.boardName}/${section.sectionName}/${fileName}`
-            zip.file((zipped_image_path), (stream ?? data ?? ""));
+
+            if (data !== "" || stream !== "") {
+                zip.file((zipped_image_path), (stream ?? data ?? ""));
+                console.log("Added file to zip");
+            }
         }
     }
     console.log("Done downloading entire board");
@@ -119,6 +129,11 @@ async function dlPinBoard(board: Board, page: Playwright.Page) {
 }
 
 async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, sectionName: string) {
+
+    if (pin.image_link == "" || pin.is_video == true) {
+        console.warn(`No Link for ${pin.title}`);
+        return { fileName: "", data: "", stream: "" };
+    }
     console.log(pin.image_link);
 
     console.log(`Downloading pin: ${pin.title} @ ${pin.image_link}`);
@@ -129,9 +144,7 @@ async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, section
 
 
         console.warn(`Pin titled ${pin_title} @ ${pin.pin_link} has no image link `);
-        if (pin.is_video == true) {
-            console.warn(`becuase it is a video`);
-        }
+        return { fileName: "", data: "", stream: "" };
     }
 
     console.log("Downloading pin: " + pin_title.replace('\s{2,}', ' '));
