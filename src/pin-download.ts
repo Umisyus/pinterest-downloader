@@ -6,13 +6,18 @@ import path from "path";
 import { dirname } from "path";
 import { Board, Pin, Section } from "./types.js";
 import { randomUUID } from 'crypto';
+import JSZip from 'jszip';
+
 /*
 #TODO: Add a way to find pins already downloaded
 #TODO: Add a way to zip downloaded pins
 
 */
+let zip = new JSZip();
+
+let __dirname = path.dirname(process.argv[1]);
+
 (async () => {
-    let __dirname = dirname(process.argv[1])
     let PINTEREST_DATA_DIR = path.resolve(`${__dirname + '/' + '..' + '/' + 'src' + '/' + 'storage/pinterest-boards/'}`)
 
     let dir = path.resolve(`${PINTEREST_DATA_DIR}/`)
@@ -29,12 +34,37 @@ import { randomUUID } from 'crypto';
         .map((file) => fs.readFileSync(dir + "/" + file.name))
         .map((data) => JSON.parse(data.toString('utf-8')))
 
+    const options = { zip: true }
 
     await launch_login().then(async (page: Playwright.Page) => {
 
-        await getBoardPins(pin_data, page, dir);
-        let s = pin_data.flatMap(b => b.sections)
-        await getSectionPins(s, page, dir);
+        // await getBoardPins(pin_data, page, dir);
+        // zip.folder("pinterest-boards");
+
+        // let s = pin_data.flatMap(b => b.sections)
+        // await getSectionPins(s, page, dir);
+
+        // // boards.forEach(async b => {
+        // //     let [mydownload, board_name, section_name, pin_title] = [(await b)?.value, (await b)?.value?.board_name, (await b)?.value?.section_name, (await b)?.value?.pin_title]
+        // // })
+
+        const zip_name = 'imgs.zip';
+        for (let index = 0; index < pin_data.length; index++) {
+            const data = pin_data[index];
+
+            await dlPinBoard(data, page)
+
+        }
+
+        console.log("Writing zip to file");
+        zip
+            .generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+            .pipe(fs.createWriteStream(zip_name))
+            .on('finish', function () {
+                // JSZip generates a readable stream with a "end" event,
+                // but is piped here in a writable stream which emits a "finish" event.
+                console.log(`${zip_name} written.`);
+            });
 
         console.log("Done downloading images");
 
@@ -45,18 +75,110 @@ import { randomUUID } from 'crypto';
 
 async function getBoardPins(board: Board[], page: Playwright.Page, __dirname: string) {
     for await (const b of board) {
-        await downloadPins(b.boardPins, page, __dirname, b.boardName, "")
+        downloadPins(b.boardPins, page, __dirname, b.boardName, "")
     }
 
 }
 
 async function getSectionPins(section: Section[], page: Playwright.Page, __dirname: string) {
+
     for await (const s of section) {
-        await downloadPins(s.sectionPins, page, __dirname, s.boardName, s.sectionName)
+        downloadPins(s.sectionPins, page, __dirname, s.boardName, s.sectionName)
     }
+
+}
+
+async function dlPinBoard(board: Board, page: Playwright.Page) {
+    zip.folder(board.boardName);
+
+    for (let index = 0; index < board.boardPins.length; index++) {
+        const pin = board.boardPins[index];
+
+        let { img_path, data,fileName,stream } = await dlPin(pin, page, board.boardName, "");
+
+        // Add images to board folder
+        // Board folder is the root folder
+        let zipped_image_path = `${board.boardName}/${fileName}`
+        zip.file((zipped_image_path), (stream ?? data ?? ""));
+
+    }
+    for (let index = 0; index < board.sections.length; index++) {
+        const section = board.sections[index];
+        // Create section folder
+        // zip = zip.folder(section.sectionName)!;
+        for (let index = 0; index < section.sectionPins.length; index++) {
+            const pin = section.sectionPins[index];
+            let { img_path, fileName, data, stream } = await dlPin(pin, page, board.boardName, section.sectionName);
+            // Add image to folder, board folder is the root folder
+            let zipped_image_path = `${board.boardName}/${section.sectionName}/${fileName}`
+            zip.file((zipped_image_path), (stream ?? data ?? ""));
+        }
+    }
+    console.log("Done downloading entire board");
+
+}
+
+async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, sectionName: string) {
+    console.log(pin.image_link);
+
+    console.log(`Downloading pin: ${pin.title} @ ${pin.image_link}`);
+
+    let pin_title = pin.title.trim();
+
+    if (pin.image_link == undefined || pin.image_link == null || pin.image_link == '') {
+
+
+        console.warn(`Pin titled ${pin_title} @ ${pin.pin_link} has no image link `);
+        if (pin.is_video == true) {
+            console.warn(`becuase it is a video`);
+        }
+    }
+
+    console.log("Downloading pin: " + pin_title.replace('\s{2,}', ' '));
+
+    await page.goto(pin.image_link);
+
+    // Format the title so we can save without any issues
+    let img_name = (pin_title.substring(0, 69) + "_")
+        .replace(/[^a-zA-Z0-9]/g, '_').replace('_{2,}', '_');
+
+    let bn: string = boardName;
+    let sn: string = sectionName;
+    // PinterestCrawl/dist/../src/storage/board-name/[section-name]/image_name.png
+    let img_path = __dirname + '/' + bn + "/" + sn + img_name + '.png';
+    let img_link = pin.image_link;
+
+    let [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.evaluate(
+            ([img_link, img_name]) => {
+                // @ts-ignore
+                function downloadImage(url, fileName) {
+                    let a = document.createElement("a");
+                    a.href = url ?? window.location.href;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+                // @ts-ignore
+                return downloadImage(img_link, img_name);
+            },
+            [img_link, img_name]),
+    ]);
+
+    console.log(`Downloaded to: ${await download.path()}`);
+
+    console.log(`Saved pin ${pin.title} to: ${img_path}`);
+    await download.saveAs(img_path);
+    let fileName = img_name ?? download.suggestedFilename();
+    let data = (await fs.promises.readFile(img_path));
+    let stream = await download.createReadStream();
+    return { img_path, fileName, data, stream };
 }
 
 async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: string, board_name: string, section_name: string) {
+
     for await (const pin of pin_data) {
 
         console.log(pin.image_link);
@@ -87,7 +209,7 @@ async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: s
 
         // Format the title so we can save without any issues
         let img_name = (pin_title.substring(0, 69) + "_")
-            .replace(/[^a-zA-Z0-9]/g, '_').replace('_{2,}', '_') + randomUUID();
+            .replace(/[^a-zA-Z0-9]/g, '_').replace('_{2,}', '_');
 
         let bn: string = (board_name ?? "")
         let sn: string = (section_name ?? "")
@@ -117,10 +239,68 @@ async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: s
         console.log(`Downloaded to: ${await download.path()}`);
 
         console.log(`Saved pin ${pin.title} to: ${img_path}`);
-        // await download.saveAs(img_path);
-        // downloadRecord.push({ pin_link: pin.pin_link, is_downloaded: true })
+        await download.saveAs(img_path);
+        let data = (await download.createReadStream())?.read()
+        zip.file((img_path), (data ?? ""));
+
     }
 }
+
+
+// let files = [
+//     { title: "IMG 1", data: randomUUID() },
+//     { title: "IMG 2", data: randomUUID() },
+//     { title: "IMG 3", data: randomUUID() },
+// ]
+// let section_name = "Section 1";
+
+// function zipData(boardName: string, sectionName: string, files: any[]) {
+//     var zip = new JSZip();
+
+//     // Create a folder for the board
+//     let imgs = zip.folder(boardName)!;
+//     // Add the files to the board folder
+//     files.forEach((file) => {
+//         imgs.file(file.title, file.data);
+//     })
+//     // Create a folder for the section
+//     if (sectionName) {
+//         imgs = imgs.folder(sectionName)!;
+//     }
+//     console.log("Adding files to zip");
+//     // Add files to the section folder
+//     files.forEach(file => {
+//         imgs.file(file.title, file.data);
+//     });
+
+//     const zip_name = 'imgs.zip';
+
+//     console.log("Writing zip to file");
+//     zip
+//         .generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+//         .pipe(fs.createWriteStream(zip_name))
+//         .on('finish', function () {
+//             // JSZip generates a readable stream with a "end" event,
+//             // but is piped here in a writable stream which emits a "finish" event.
+//             console.log(`${zip_name} written.`);
+//         });
+// }
+
+// var fs = require("fs");
+// var JSZip = require("jszip");
+
+// var zip = new JSZip();
+// // zip.file("file", content);
+// // ... and other manipulations
+
+// zip
+// .generateNodeStream({type:'nodebuffer',streamFiles:true})
+// .pipe(fs.createWriteStream('out.zip'))
+// .on('finish', function () {
+//     // JSZip generates a readable stream with a "end" event,
+//     // but is piped here in a writable stream which emits a "finish" event.
+//     console.log("out.zip written.");
+// });
 
 
 // async function downloadAllSectionPins(pin_data: Section[], page: Playwright.Page, __dirname: string) {
@@ -269,7 +449,6 @@ async function downloadPins(pin_data: Pin[], page: Playwright.Page, __dirname: s
 //     let found = section.find((i) => i.sectionPins.find(i => i.image_link === img_link));
 //     return found ?? null;
 // }
-
 /*
 for await (const pin of boardPins) {
     if (pin.image_link == undefined || pin.image_link == null || pin.image_link == '') {
@@ -319,3 +498,10 @@ for await (const pin of boardPins) {
     // downloadRecord.push({ pin_link: pin.pin_link, is_downloaded: true })
 }
  */
+
+
+
+
+
+
+
