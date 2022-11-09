@@ -37,27 +37,25 @@ let __dirname = path.dirname(process.argv[1]);
     const options = { zip: true }
 
     await launch_login().then(async (page: Playwright.Page) => {
-
-        // await getBoardPins(pin_data, page, dir);
-        // zip.folder("pinterest-boards");
-
-        // let s = pin_data.flatMap(b => b.sections)
-        // await getSectionPins(s, page, dir);
-
-        // // boards.forEach(async b => {
-        // //     let [mydownload, board_name, section_name, pin_title] = [(await b)?.value, (await b)?.value?.board_name, (await b)?.value?.section_name, (await b)?.value?.pin_title]
-        // // })
-
-        const zip_name = 'imgs.zip';
         // Filter pin_data to only include pins that are valid
-        let valid_pins = pin_data.filter(b => b.boardPins.filter(p => p.is_video == false))[0]
-        for (let index = 0; index < [valid_pins].length; index++) {
-            const data = pin_data[index];
-
-            await dlPinBoard(data, page)
-
+        if (pin_data.length == 0) {
+            console.log("No boards found");
+            return page
         }
 
+        // Doesn't work
+        let valid_pins = pin_data.filter(b => b.boardPins.filter(p => p.is_video == false))
+        // Get username from board link
+        let bl = valid_pins[0].boardLink
+
+        for (let index = 0; index < valid_pins.length; index++) {
+            const data = pin_data[index];
+
+            // await dlPinBoard(data, page)
+
+        }
+        const un = bl.split('/')[bl.split('/').length - 3] ?? "user";
+        const zip_name = `${un}-pins.zip`;
         console.log("Writing zip to file");
         zip
             .generateNodeStream({ type: 'nodebuffer', streamFiles: true })
@@ -73,8 +71,12 @@ let __dirname = path.dirname(process.argv[1]);
         return page;
 
     }).then(async (page) => {
+        console.log("Closing browser");
+
         await page.context().close();
     });
+    console.log("Exiting...");
+
 })();
 
 async function getBoardPins(board: Board[], page: Playwright.Page, __dirname: string) {
