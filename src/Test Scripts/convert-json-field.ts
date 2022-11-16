@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { Board } from "./types";
+import { Board } from "../types";
 // convert-json-field
 
 let __dirname = path.dirname(process.argv[1])
