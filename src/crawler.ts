@@ -6,19 +6,20 @@ import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path';
 import { SELECTORS, CONSTANTS } from "./selectors_constants.js"
-
-let PINTEREST_DATA_DIR = CONSTANTS.PINTEREST_DATA_DIR
-// Get path of script
 let __dirname = CONSTANTS.dirname
+let PINTEREST_DATA_DIR = CONSTANTS.PINTEREST_DATA_DIR
+PINTEREST_DATA_DIR = path.resolve(`${__dirname + '../' + 'src' + '/' + PINTEREST_DATA_DIR}`)
+
+// Get path of script
+const STORAGE_STATE_PATH = CONSTANTS.STORAGE_STATE_PATH;
 
 console.log(__dirname);
 
-PINTEREST_DATA_DIR = path.resolve(`${__dirname + '../' + 'src' + '/' + PINTEREST_DATA_DIR}`)
 console.log(PINTEREST_DATA_DIR);
 
 console.log('Starting Pinterest Crawler...');
 
-const excl_path = __dirname  + CONSTANTS.exclusion;
+const excl_path = __dirname + CONSTANTS.exclusion;
 
 const exclusion_file = await fs.readFile(excl_path, 'utf8').catch((err) => {
     console.error('Could not read exclusions', err)
@@ -26,15 +27,16 @@ const exclusion_file = await fs.readFile(excl_path, 'utf8').catch((err) => {
 
 let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
 
-const browser = await Playwright.chromium
-    .launchPersistentContext('./pinterest-download-data', {
-        // headless: true, devtools: true,
-        headless: false, devtools: false,
-        // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    })
+let browser: Playwright.BrowserContext;
 
-const STORAGE_STATE_PATH = CONSTANTS.STORAGE_STATE_PATH;
 export async function launch_login() {
+    browser = await Playwright.chromium
+        .launchPersistentContext('./pinterest-download-data', {
+            // headless: true, devtools: true,
+            headless: false, devtools: false,
+            // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        })
+
     let obj = (await fs.readFile(__dirname + CONSTANTS.LOGIN_CREDENTIALS_PATH)).toString('utf8').trim()
 
     let user = JSON.parse(obj).user
@@ -219,7 +221,7 @@ export async function crawl_start(page: Playwright.Page) {
                     await crawler_page.goto(sectionLink),
                     console.log("Getting pins of section: ", sectionLink),
                     await crawler_page.waitForLoadState('domcontentloaded'),
-                    await autoScroll(crawler_page),
+                    [], // await autoScroll(crawler_page),
                     await crawler_page.close(),
                 ])
 
@@ -237,7 +239,7 @@ export async function crawl_start(page: Playwright.Page) {
         /* Pins */
         console.log(`Getting pins from board ${boardLink}`);
 
-        let board_pins: Pin[] = await autoScroll(page);
+        let board_pins: Pin[] = []; // await autoScroll(page);
         // let board_pins: any[] = []
 
         let board = {
@@ -259,7 +261,7 @@ export async function crawl_start(page: Playwright.Page) {
         console.log(`Saving ${board_pins_total} board pins`);
         console.log(`Saving ${section_pins_total} section pins`);
 
-        await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: CONSTANTS.dirname + PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
+       // await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: CONSTANTS.dirname + PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
 
     }
 
