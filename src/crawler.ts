@@ -18,7 +18,7 @@ console.log(PINTEREST_DATA_DIR);
 
 console.log('Starting Pinterest Crawler...');
 
-const excl_path = __dirname + "../" + CONSTANTS.exclusion;
+const excl_path = __dirname  + CONSTANTS.exclusion;
 
 const exclusion_file = await fs.readFile(excl_path, 'utf8').catch((err) => {
     console.error('Could not read exclusions', err)
@@ -35,7 +35,7 @@ const browser = await Playwright.chromium
 
 const STORAGE_STATE_PATH = CONSTANTS.STORAGE_STATE_PATH;
 export async function launch_login() {
-    let obj = (await fs.readFile(__dirname + '/../storage/login.json')).toString('utf8').trim()
+    let obj = (await fs.readFile(__dirname + CONSTANTS.LOGIN_CREDENTIALS_PATH)).toString('utf8').trim()
 
     let user = JSON.parse(obj).user
     let pass = JSON.parse(obj).pass

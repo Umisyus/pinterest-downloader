@@ -16,9 +16,9 @@ export const SELECTORS = {
     pin_img_xpath: '//div[@data-test-id="pin"]//img', // or 'img'
 }
 export const CONSTANTS = {
-    PINTEREST_DATA_DIR: './storage/pinterest-boards/',
-    dirname: `${path.dirname(process.argv[1])}/`,
+    PINTEREST_DATA_DIR: 'storage/pinterest-boards/',
+    dirname: `${path.dirname(process.argv[1])}/../../`,
     exclusion: 'exclusions.json',
-    STORAGE_STATE_PATH: './storage/storageState.json',
-
+    STORAGE_STATE_PATH: 'storage/storageState.json',
+    LOGIN_CREDENTIALS_PATH: 'storage/login.json',
 }
