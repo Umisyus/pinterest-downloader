@@ -100,7 +100,8 @@ router.addHandler('login', async ({ log, request, page }) => {
 
 router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithCheerio }) => {
     let $ = await parseWithCheerio()
-    const title = ($(SELECTORS.board_title_selector)).text() || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+    let sel = SELECTORS.board_title_selector
+    const title = getTitleText($, sel) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
 
     log.info(`Board handler: ${title}`);
     // await infiniteScroll()
@@ -125,7 +126,8 @@ router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithC
 
 router.addHandler('section', async ({ request, page, log, parseWithCheerio }) => {
     let $ = await parseWithCheerio()
-    const title = $(SELECTORS.section_title_selector).text || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+    let sel = SELECTORS.section_title_selector
+    const title = getTitleText($, sel) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
     log.info(`Processing section: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
 
@@ -162,6 +164,10 @@ router.addHandler('downloadImage', async ({ request, page, log }) => {
     //     title,
     // });
 });
+
+function getTitleText($: CheerioAPI, sel: string) {
+    return $(sel).text();
+}
 
 function getLinksForSelector(selector: string, $: CheerioAPI): string[] {
     return $(`${selector}`).map((_, el) => {
