@@ -1,4 +1,4 @@
-import { Dataset, createPlaywrightRouter, Request, enqueueLinks } from 'crawlee';
+import { Dataset, createPlaywrightRouter, Request, enqueueLinks, Dictionary } from 'crawlee';
 // import { crawl_start, autoScroll } from '../../src/crawler.js';
 // import { dlPin } from '../../src/pin-download.js';
 import { randomUUID } from 'crypto'
@@ -8,12 +8,13 @@ import Playwright from 'playwright';
 import { Pin } from '../../src/types';
 import fs from 'fs'
 import { CRAWLEE_CONSTANTS } from './main.js';
+import { CheerioAPI } from 'cheerio';
 // import json data from file
 // import { data } from '../../storage/login.json';
 const login_data = JSON.parse(fs.readFileSync('/Users/umit/Desktop/Github Test/PinterestCrawl/storage/login.json', 'utf8'));
 
 export let router = createPlaywrightRouter();
-let ds = await Dataset.open()
+let ds = await Dataset.open('pinterest');
 
 // Scroll down page to load all pins
 router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithCheerio }) => {
@@ -55,15 +56,11 @@ router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithChe
     await page.waitForSelector(`${SELECTORS.board_selector}`).catch(() => { console.log("No boards found") });
     let $ = await parseWithCheerio()
     log.info(`Enqueueing boards`);
-    let links = $(`${SELECTORS.board_selector} a`).map((i, el) => {
-        let href = $(el).attr('href');
-        return href;
-    }).get();
+    let links = getLinksForSelector(SELECTORS.board_selector, $);
 
     log.info(`Links: ${links}`);
-    const req_url = request.url
-    const url = new URL(req_url);
-    let board_links = links.map(l => `${url.origin}${l}`)
+
+    let board_links = formatLinks(links, request)
 
     // Add board selector
     await enqueueLinks({
@@ -101,41 +98,47 @@ router.addHandler('login', async ({ log, request, page }) => {
     await page.waitForNavigation();
 })
 
-router.addHandler('board', async ({ enqueueLinks, request, page, log }) => {
-    const title = await page.title();
+router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithCheerio }) => {
+    let $ = await parseWithCheerio()
+    const title = ($(SELECTORS.board_title_selector)).text() || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+
     log.info(`Board handler: ${title}`);
-
+    // await infiniteScroll()
     log.info(`Getting sections from board ${title}`, { url: request.loadedUrl });
-    // Grab boards and sections from user page
-    // let ds = await Dataset.open()
-
-    // await ds.pushData()
-
     await enqueueLinks({
         // label: CRAWLEE_CONSTANTS.section,
         label: CRAWLEE_CONSTANTS.section,
-        selector: `${SELECTORS.section_selector} a`
+        urls: formatLinks(getLinksForSelector(SELECTORS.section_selector, $), request)
     });
     await enqueueLinks({
         label: CRAWLEE_CONSTANTS.section,
-        selector: `${SELECTORS.pins_selector} a`,
-        urls: [],
+        urls: formatLinks(getLinksForSelector(SELECTORS.section_selector, $), request)
     });
+
+    // Grab pins for board
+    log.info(`Getting pins for board ${title}`, { url: request.loadedUrl });
     let pins = await autoScroll(page as any);
+    log.info(`Got ${pins.length} pins for board ${title}`, { url: request.loadedUrl });
+    log.info(`Saving pins for board ${title}`, { url: request.loadedUrl });
     await ds.pushData({ boardName: title, sections: [], boardPins: pins })
 });
 
-router.addHandler('section', async ({ request, page, log, }) => {
-    const title = await page.title();
-    log.info(`Section handler: ${title}`);
+router.addHandler('section', async ({ request, page, log, parseWithCheerio }) => {
+    let $ = await parseWithCheerio()
+    const title = $(SELECTORS.section_title_selector).text || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+    log.info(`Processing section: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
+
     // Grab pins from section page
+    log.info(`Getting pins for section ${title}`, { url: request.loadedUrl });
     let pins = await autoScroll(page as any);
+    log.info(`Got ${pins.length} pins for section ${title}`, { url: request.loadedUrl });
+    log.info(`Saving pins for section ${title}`, { url: request.loadedUrl });
     ds.pushData({ sectionName: title, sectionPins: pins })
 });
 
 router.addHandler('pin', async ({ request, page, log, enqueueLinks }) => {
-    const title = await page.title();
+    const title = page.url();
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
 
@@ -159,6 +162,21 @@ router.addHandler('downloadImage', async ({ request, page, log }) => {
     //     title,
     // });
 });
+
+function getLinksForSelector(selector: string, $: CheerioAPI): string[] {
+    return $(`${selector}`).map((_, el) => {
+        let href = $(el).find('a').attr('href');
+        return href;
+    }).get();
+}
+
+function formatLinks(links: string[], request: Request<Dictionary<any>>) {
+    return links.map(l => {
+        const req_url = request.url;
+        const url = new URL(req_url);
+        return `${url.origin}${l}`;
+    });
+}
 
 async function extractBoardsSections(page: Playwright.Page, SELECTORS: any) {
     // @ts-ignore
@@ -427,7 +445,7 @@ export async function autoScroll(page: Playwright.Page): Promise<Pin[]> {
                         // @ts-ignore
                         // If we see the "More ideas like this" text element or the "Find more ideas for this board" text element
                         // we can stop scrolling
-                        if (isVis) {
+                        if (isVis || (h3.length == 0 && pins.length == 1)) {
                             clearInterval(timer)
 
                             // Parse results
