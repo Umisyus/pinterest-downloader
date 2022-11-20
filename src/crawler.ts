@@ -1,5 +1,4 @@
 import * as Playwright from 'playwright';
-import { Browser, Locator } from 'playwright';
 import { randomUUID } from 'crypto';
 import type { Section, Board, Pin } from './types';
 import * as fs from 'fs/promises'
@@ -7,8 +6,11 @@ import { existsSync } from 'fs'
 import path from 'path';
 import { SELECTORS, CONSTANTS } from "./selectors_constants.js"
 let __dirname = CONSTANTS.dirname
-let PINTEREST_DATA_DIR = CONSTANTS.PINTEREST_DATA_DIR
-PINTEREST_DATA_DIR = path.resolve(`${__dirname + '../' + 'src' + '/' + PINTEREST_DATA_DIR}`)
+let PINTEREST_DATA_DIR = path.resolve(`${__dirname + '../' + 'src' + '/' + CONSTANTS.PINTEREST_DATA_DIR}`)
+
+const section_selector = SELECTORS.section_selector;
+const board_selector = SELECTORS.board_selector;
+
 
 // Get path of script
 const STORAGE_STATE_PATH = CONSTANTS.STORAGE_STATE_PATH;
@@ -20,12 +22,15 @@ console.log(PINTEREST_DATA_DIR);
 console.log('Starting Pinterest Crawler...');
 
 const excl_path = __dirname + CONSTANTS.exclusion;
+let exclusion_file_data = null
 
-const exclusion_file = await fs.readFile(excl_path, 'utf8').catch((err) => {
-    console.error('Could not read exclusions', err)
-})
+await fs.readFile(excl_path, 'utf8')
+    .then(data => exclusion_file_data = data)
+    .catch((err) => {
+        console.error('Could not read exclusions', err)
+    })
 
-let exclusions = JSON.parse(exclusion_file ?? '[]') as string[]
+let exclusions = JSON.parse(exclusion_file_data ?? '[]') as string[]
 
 let browser: Playwright.BrowserContext;
 
@@ -66,8 +71,10 @@ export async function launch_login() {
     // await browser.close();
 
 }
-export async function crawl_start(page: Playwright.Page) {
 
+
+export async function* crawl_start(page: Playwright.Page) {
+    let board123 = null
     await page.goto("https://www.pinterest.ca/dracana96");
 
     // Wait for boards to load
@@ -89,7 +96,7 @@ export async function crawl_start(page: Playwright.Page) {
         function get_boards(boards_selector = "") {
             // Check if null or empty
             if (boards_selector == null || boards_selector == "")
-                boards_selector = 'div[data-test-id="pwt-grid-item"]'
+                boards_selector = board_selector
 
             // @ts-ignore
             let boards = Array.from(document.querySelectorAll(boards_selector))
@@ -127,7 +134,7 @@ export async function crawl_start(page: Playwright.Page) {
                     ;
             };
 
-            let sections = $x('*//div[starts-with(@data-test-id,"section")]')
+            let sections = $x(section_selector)
             // @ts-ignore
             return sections.map(i => (window.location.origin + i.querySelector('a').getAttribute('href')))
         }
@@ -261,7 +268,9 @@ export async function crawl_start(page: Playwright.Page) {
         console.log(`Saving ${board_pins_total} board pins`);
         console.log(`Saving ${section_pins_total} section pins`);
 
-       // await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: CONSTANTS.dirname + PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
+        // await save_to_file(board, { fileName: board.boardName, addDate: true, randomized: true, toDir: CONSTANTS.dirname + PINTEREST_DATA_DIR }).then((fullFilePath) => console.log("Saved to file", fullFilePath)).catch(console.error)
+        board123 = board
+        yield board123
 
     }
 
@@ -273,7 +282,7 @@ export async function crawl_start(page: Playwright.Page) {
     await browser.close();
 
     console.log("Closed.");
-
+    yield board123
 }
 
 function getBoardOrSectionName(boardLink: string) {

@@ -15,18 +15,23 @@ let zip = new JSZip();
 
 let __dirname = path.dirname(process.argv[1]);
 
-(async () => {
+export async function main() {
     let PINTEREST_DATA_DIR = path.resolve(`${__dirname + '/' + '..' + '/' + 'src' + '/' + 'storage/pinterest-boards/'}`)
 
     let dir = path.resolve(`${PINTEREST_DATA_DIR}/`)
     console.log(dir);
 
 
+    /* READ BOARD DATA FILES */
+    let [...pin_data]: Board[] = []
+    try {
 
-    let [...pin_data]: Board[] = fs.readdirSync(dir, { withFileTypes: true })
-        .map((file) => fs.readFileSync(dir + "/" + file.name))
-        .map((data) => JSON.parse(data.toString('utf-8')))
-
+        [...pin_data] = fs.readdirSync(dir, { withFileTypes: true })
+            .map((file) => fs.readFileSync(dir + "/" + file.name))
+            .map((data) => JSON.parse(data.toString('utf-8')))
+    } catch (error) {
+        console.error(error);
+    }
 
     await launch_login().then(async (page: Playwright.Page) => {
         // Filter pin_data to only include pins that are valid
@@ -69,7 +74,7 @@ let __dirname = path.dirname(process.argv[1]);
     });
     console.log("Exiting...");
 
-})();
+};
 
 async function dlPinBoard(board: Board, page: Playwright.Page) {
     zip.folder(board.boardName);
@@ -107,7 +112,7 @@ async function dlPinBoard(board: Board, page: Playwright.Page) {
 
 }
 
-async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, sectionName: string) {
+export async function dlPin(pin: Pin, page: Playwright.Page, boardName: string, sectionName: string) {
 
     if (pin.image_link == "" || pin.is_video == true) {
         console.warn(`No Link for ${pin.title}`);
