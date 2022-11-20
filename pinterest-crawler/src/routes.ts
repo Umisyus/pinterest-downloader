@@ -7,6 +7,7 @@ import Playwright from 'playwright';
 // import { CRAWLEE_CONSTANTS } from './main.js';
 import { Pin } from '../../src/types';
 import fs from 'fs'
+import { CRAWLEE_CONSTANTS } from './main.js';
 // import json data from file
 // import { data } from '../../storage/login.json';
 const login_data = JSON.parse(fs.readFileSync('/Users/umit/Desktop/Github Test/PinterestCrawl/storage/login.json', 'utf8'));
@@ -15,7 +16,7 @@ export let router = createPlaywrightRouter();
 let ds = await Dataset.open()
 
 // Scroll down page to load all pins
-router.addDefaultHandler(async ({ log, request, page, enqueueLinks }) => {
+router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithCheerio }) => {
     // await page.waitForLoadState('load', { timeout: 60_000 })
     log.info(`DEFAULT HANDLER: ${request.url}`);
     /** All selectors go here, you add links of each element
@@ -40,6 +41,8 @@ router.addDefaultHandler(async ({ log, request, page, enqueueLinks }) => {
         (log.info(`Not logged in`));
         await login(page)
         log.info(`Logged in now.`);
+        // Goto main profile page
+        await page.goto("https://www.pinterest.com/dracana96");
         // await enqueueLinks({
         //     label: 'login',
         //     forefront: true
@@ -49,25 +52,33 @@ router.addDefaultHandler(async ({ log, request, page, enqueueLinks }) => {
         log.info(`Logged in`)
     }
 
-    await page.waitForSelector(`${SELECTORS.board_selector} a`).catch(() => { console.log("No boards found") });
-
+    await page.waitForSelector(`${SELECTORS.board_selector}`).catch(() => { console.log("No boards found") });
+    let $ = await parseWithCheerio()
     log.info(`Enqueueing boards`);
+    let links = $(`${SELECTORS.board_selector} a`).map((i, el) => {
+        let href = $(el).attr('href');
+        return href;
+    }).get();
+
+    log.info(`Links: ${links}`);
+    const req_url = request.url
+    const url = new URL(req_url);
+    let board_links = links.map(l => `${url.origin}${l}`)
 
     // Add board selector
     await enqueueLinks({
-        selector: `${SELECTORS.board_selector} a`,
-        // label: CRAWLEE_CONSTANTS.board
-        label: 'board'
+        label: CRAWLEE_CONSTANTS.board,
+        urls: board_links
     })
-    await page.waitForSelector(`${SELECTORS.section_selector} a`).catch(() => { console.log("No sections found") });
+    // await page.waitForSelector(`${SELECTORS.section_selector} a`).catch(() => { console.log("No sections found") });
 
-    // Add section selector
-    log.info(`Enqueueing sections`);
-    await enqueueLinks({
-        selector: `${SELECTORS.section_selector} a`,
-        // label: CRAWLEE_CONSTANTS.section
-        label: 'section'
-    })
+    // // Add section selector
+    // log.info(`Enqueueing sections`);
+    // await enqueueLinks({
+    //     selector: `a`,
+    //     // label: CRAWLEE_CONSTANTS.section
+    //     label: CRAWLEE_CONSTANTS.section
+    // })
 
     // await page.waitForSelector(`${SELECTORS.pins_selector} a`).catch(() => { console.log("No pins found") });
     // // Add pin selector
@@ -96,19 +107,22 @@ router.addHandler('board', async ({ enqueueLinks, request, page, log }) => {
 
     log.info(`Getting sections from board ${title}`, { url: request.loadedUrl });
     // Grab boards and sections from user page
-    let ds = await Dataset.open()
-    // await ds.pushData(board_links)
+    // let ds = await Dataset.open()
+
+    // await ds.pushData()
+
     await enqueueLinks({
         // label: CRAWLEE_CONSTANTS.section,
-        label: 'section',
+        label: CRAWLEE_CONSTANTS.section,
         selector: `${SELECTORS.section_selector} a`
     });
     await enqueueLinks({
-        label: 'pin',
-        selector: SELECTORS.pins_selector
+        label: CRAWLEE_CONSTANTS.section,
+        selector: `${SELECTORS.pins_selector} a`,
+        urls: [],
     });
     let pins = await autoScroll(page as any);
-    ds.pushData({ boardName: title, sections: [], boardPins: pins })
+    await ds.pushData({ boardName: title, sections: [], boardPins: pins })
 });
 
 router.addHandler('section', async ({ request, page, log, }) => {
@@ -126,7 +140,7 @@ router.addHandler('pin', async ({ request, page, log, enqueueLinks }) => {
     log.info(`${title}`, { url: request.loadedUrl });
 
     await enqueueLinks({
-        label: 'pin',
+        label: CRAWLEE_CONSTANTS.pin,
         selector: SELECTORS.pins_selector
     });
 
