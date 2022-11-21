@@ -8,7 +8,8 @@ const startUrls = ['https://pinterest.ca/dracana96/'];
 
 
 const crawler = new PlaywrightCrawler({
-    headless: false,
+    headless: true,
+    requestHandlerTimeoutSecs: 99_999,
     minConcurrency: 1,
     maxConcurrency: 3,
     maxRequestRetries: 3,

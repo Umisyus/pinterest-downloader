@@ -65,7 +65,7 @@ router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithChe
     // Add board selector
     await enqueueLinks({
         label: CRAWLEE_CONSTANTS.board,
-        urls: board_links
+        urls: [board_links[2]]
     })
     // await page.waitForSelector(`${SELECTORS.section_selector} a`).catch(() => { console.log("No sections found") });
 
@@ -101,7 +101,7 @@ router.addHandler('login', async ({ log, request, page }) => {
 router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithCheerio }) => {
     let $ = await parseWithCheerio()
     let sel = SELECTORS.board_title_selector
-    const title = getTitleText($, sel) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+    const title = getTitleText(sel, $) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
 
     log.info(`Board handler: ${title}`);
     // await infiniteScroll()
@@ -126,8 +126,12 @@ router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithC
 
 router.addHandler('section', async ({ request, page, log, parseWithCheerio }) => {
     let $ = await parseWithCheerio()
-    let sel = SELECTORS.section_title_selector
-    const title = getTitleText($, sel) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+    let boardName = $(SELECTORS.board_title_selector).first().text() ?? "UNKNOWN"
+    let boardLink = formatLinks([$(SELECTORS.board_title_selector).parent().attr('href') ?? ""], request)[0]
+
+    const title = (getTitleText(SELECTORS.section_title_selector, $)
+        || request.loadedUrl?.split('/').filter(o => o !== '').pop()) ?? 'No title'
+
     log.info(`Processing section: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
 
@@ -136,7 +140,14 @@ router.addHandler('section', async ({ request, page, log, parseWithCheerio }) =>
     let pins = await autoScroll(page as any);
     log.info(`Got ${pins.length} pins for section ${title}`, { url: request.loadedUrl });
     log.info(`Saving pins for section ${title}`, { url: request.loadedUrl });
-    ds.pushData({ sectionName: title, sectionPins: pins })
+    ds.pushData({
+        boardName,
+        boardLink,
+        sectionName: title,
+        sectionLink: request.loadedUrl,
+        sectionPins: pins,
+        pinCount: pins.length
+    })
 });
 
 router.addHandler('pin', async ({ request, page, log, enqueueLinks }) => {
@@ -159,13 +170,10 @@ router.addHandler('downloadImage', async ({ request, page, log }) => {
     for await (let p of pin as Pin[]) {
         log.info(`> > > Downloading pin ${p.title}`);
         await dlPin(p, page as any, 'my-board', 'my-section')
-    }  // await Dataset.pushData({
-    //     url: request.loadedUrl,
-    //     title,
-    // });
+    }
 });
 
-function getTitleText($: CheerioAPI, sel: string) {
+function getTitleText(sel: string, $: CheerioAPI,) {
     return $(sel).text();
 }
 
