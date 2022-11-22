@@ -2,7 +2,7 @@
 import { PlaywrightCrawler, RequestQueue } from 'crawlee';
 import { router } from './routes.js';
 
-export const CRAWLEE_CONSTANTS = { reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin" };
+export const CRAWLEE_CONSTANTS = { reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin:"dlpin" };
 
 const startUrls = ['https://pinterest.ca/dracana96/'];
 
