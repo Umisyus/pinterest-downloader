@@ -9,8 +9,7 @@ import { CRAWLEE_CONSTANTS } from './main.js';
 import { CheerioAPI } from 'cheerio';
 // import login data from file
 
-import { user, pass } from './storage/login.json' assert {type: "json"};
-const loadJSON = (path: string): any => JSON.parse(fs.readFileSync(new URL(path).href, 'utf-8'));
+const login_data = JSON.parse(fs.readFileSync('./storage/login.json', 'utf8'));
 
 export let router = createPlaywrightRouter();
 let ds = await Dataset.open('pinterest');
@@ -91,8 +90,8 @@ router.addHandler('login', async ({ log, request, page }) => {
     log.info(`LOGIN HANDLER: ${request.url}`);
     // Login to Pinterest
     await page.waitForSelector('input[name=email]').catch(() => { console.log("No login form found") });
-    await page.type('input[name=email]', user);
-    await page.type('input[name=password]', pass);
+    await page.type('input[name=email]', login_data.user);
+    await page.type('input[name=password]', login_data.pass);
     await page.click('button[type=submit]');
     await page.waitForNavigation();
 })
@@ -496,8 +495,8 @@ export async function autoScroll(page: Playwright.Page): Promise<Pin[]> {
 
 export async function login(page: any) {
     await page.goto('https://pinterest.ca/login/');
-    await page.type('input#email', user);
-    await page.type('input#password', pass);
+    await page.type('input#email', login_data.user);
+    await page.type('input#password', login_data.pass);
     await page.click('button[type=submit]');
     await page.waitForNavigation();
 }
