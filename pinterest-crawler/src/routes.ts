@@ -1,17 +1,16 @@
 import { Dataset, createPlaywrightRouter, Request, enqueueLinks, Dictionary } from 'crawlee';
-// import { crawl_start, autoScroll } from '../../src/crawler.js';
-// import { dlPin } from '../../src/pin-download.js';
+
 import { randomUUID } from 'crypto'
-import { SELECTORS } from '../../src/selectors_constants.js';
+import { SELECTORS } from './constants/constants_selectors.js';
 import Playwright from 'playwright';
-// import { CRAWLEE_CONSTANTS } from './main.js';
-import { Pin } from '../../src/types';
+import { Pin } from './constants/types.js';
 import fs from 'fs'
 import { CRAWLEE_CONSTANTS } from './main.js';
 import { CheerioAPI } from 'cheerio';
-// import json data from file
-// import { data } from '../../storage/login.json';
-const login_data = JSON.parse(fs.readFileSync('/Users/umit/Desktop/Github Test/PinterestCrawl/storage/login.json', 'utf8'));
+// import login data from file
+
+import { user, pass } from './storage/login.json' assert {type: "json"};
+const loadJSON = (path: string): any => JSON.parse(fs.readFileSync(new URL(path).href, 'utf-8'));
 
 export let router = createPlaywrightRouter();
 let ds = await Dataset.open('pinterest');
@@ -92,8 +91,8 @@ router.addHandler('login', async ({ log, request, page }) => {
     log.info(`LOGIN HANDLER: ${request.url}`);
     // Login to Pinterest
     await page.waitForSelector('input[name=email]').catch(() => { console.log("No login form found") });
-    await page.type('input[name=email]', login_data.user);
-    await page.type('input[name=password]', login_data.pass);
+    await page.type('input[name=email]', user);
+    await page.type('input[name=password]', pass);
     await page.click('button[type=submit]');
     await page.waitForNavigation();
 })
@@ -497,8 +496,8 @@ export async function autoScroll(page: Playwright.Page): Promise<Pin[]> {
 
 export async function login(page: any) {
     await page.goto('https://pinterest.ca/login/');
-    await page.type('input#email', login_data.user);
-    await page.type('input#password', login_data.pass);
+    await page.type('input#email', user);
+    await page.type('input#password', pass);
     await page.click('button[type=submit]');
     await page.waitForNavigation();
 }

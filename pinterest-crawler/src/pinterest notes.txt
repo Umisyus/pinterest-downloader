@@ -1,0 +1,173 @@
+// V1
+pin_data.map(({ title, videos, story_pin_data }) => {
+    let video = story_pin_data?.pages[0].blocks[0].video.video_list[0] ?? {};
+
+    return ({ title, videos, story_video: Object.values(video) });
+})
+// Get pin link
+let pin_link = (id) => `https://www.pinterest.ca/pin/${id}`
+
+// V2
+pin_data.map(({ title, link, id, videos, story_pin_data }) => {
+    let video = story_pin_data?.pages[0].blocks[0].video ?? {};
+    let pin_video = Object.values(videos?.video_list ?? {}).pop() ?? [];
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+    return ({ title: title ?? '', origin_link: link ?? '', pin_link, videos: pin_video, story_video: Object.values(video) });
+})
+
+let video = (Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop().url ?? '';
+
+// V3
+pin_data.map(({ title, link, id, videos, story_pin_data }) => {
+    let video = (!!story_pin_data) ?
+        Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()?.url : '';
+    let pin_video = Array.from(Object.values(videos?.video_list ?? {})).pop().url ?? '';
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+
+    return ({ title: title ?? '', origin_link: link ?? '', pin_link, videos: pin_video, story_video: video ?? [] });
+})
+// V4
+pin_data.map(({ title, link, id, images, videos, story_pin_data }) => {
+    let video = Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()?.url ?? '';
+    let pin_video = Array.from(Object.values(videos?.video_list ?? {})).pop()?.url ?? '';
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+    let pin_images = Object.values(images ?? {}).pop()
+    // let video_link = pin_video ?? video
+    return ({ title: title ?? '', origin_link: link ?? '', pin_link, original_image: pin_images?.url ?? '', video_link: pin_video, story_video_link: video ?? [] });
+})
+// V5
+pin_data.map(({ title, link, id, images, videos, story_pin_data }) => {
+    let video = Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()?.url ?? '';
+    let pin_video = Array.from(Object.values(videos?.video_list ?? {})).pop()?.url ?? '';
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+    let pin_images = Object.values(images ?? {}).pop()
+    let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
+    return ({ title: title ?? '', origin_link: link ?? '', pin_link, original_image: pin_images?.url ?? '', video_link: video_link });
+})
+// V6 - Filter out invalid pins
+pin_data.map(({ title, link, id, images, videos, story_pin_data }) => {
+    let video = Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()?.url ?? '';
+    let pin_video = Array.from(Object.values(videos?.video_list ?? {})).pop()?.url ?? '';
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+    let pin_images = Object.values(images ?? {}).pop()
+    let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
+    return ({ title: title ?? '', origin_link: link ?? '', pin_link, original_image: pin_images?.url ?? '', video_link: video_link });
+}).filter((i) => {
+    if (typeof i.title === 'object') return false;
+    return true
+});
+// V7 - Filter out invalid pins, verbose
+pin_data.map(({ title, link, id, images, videos, story_pin_data }) => {
+    let video = Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()?.url ?? '';
+    let pin_video = Array.from(Object.values(videos?.video_list ?? {})).pop()?.url ?? '';
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+    let pin_images = Object.values(images ?? {}).pop()
+    let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
+    return ({ title: title ?? '', origin_link: link ?? '', pin_link, original_image: pin_images?.url ?? '', video_link: video_link });
+}).filter((i) => {
+    if (i.title?.format?.includes('Find some ideas for this board')) return false;
+    return true
+});
+
+// CUTE-FUNNY-ANIMALS BOARD REQUEST HEADERS
+// BoardFeed URL
+// https://www.pinterest.ca/resource/BoardFeedResource/get/?source_url=%2F<REDACTED>%2Fcute-funny-animals%2F&data=%7B%22options%22%3A%7B%22board_id%22%3A%22646477790200198726%22%2C%22board_url%22%3A%22%2F<REDACTED>%2Fcute-funny-animals%2F%22%2C%22currentFilter%22%3A-1%2C%22field_set_key%22%3A%22react_grid_pin%22%2C%22filter_section_pins%22%3Atrue%2C%22sort%22%3A%22default%22%2C%22layout%22%3A%22default%22%2C%22page_size%22%3A25%2C%22redux_normalize_feed%22%3Atrue%7D%2C%22context%22%3A%7B%7D%7D&_=1669089850162
+
+// REQUEST HEADERS
+// GET /resource/BoardFeedResource/get/?source_url=%2F<REDACTED>%2Fcute-funny-animals%2F&data=%7B%22options%22%3A%7B%22board_id%22%3A%22646477790200198726%22%2C%22board_url%22%3A%22%2F<REDACTED>%2Fcute-funny-animals%2F%22%2C%22currentFilter%22%3A-1%2C%22field_set_key%22%3A%22react_grid_pin%22%2C%22filter_section_pins%22%3Atrue%2C%22sort%22%3A%22default%22%2C%22layout%22%3A%22default%22%2C%22page_size%22%3A25%2C%22redux_normalize_feed%22%3Atrue%7D%2C%22context%22%3A%7B%7D%7D&_=1669089850162 HTTP/2
+// Host: www.pinterest.ca
+// User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:107.0) Gecko/20100101 Firefox/107.0
+// Accept: application/json, text/javascript, */*, q=0.01
+// Accept-Language: en
+// Accept-Encoding: gzip, deflate, br
+// Referer: https://www.pinterest.ca/
+// X-Requested-With: XMLHttpRequest
+// X-APP-VERSION: 83e0acd
+// X-Pinterest-AppState: active
+// X-Pinterest-ExperimentHash: <REDACTED>
+// X-Pinterest-Source-Url: /<REDACTED>/cute-funny-animals/
+// X-Pinterest-PWS-Handler: www/[username]/[slug].js
+// DNT: 1
+// Sec-Fetch-Dest: empty
+// Sec-Fetch-Mode: cors
+// Sec-Fetch-Site: same-origin
+// Connection: keep-alive
+// Cookie: <REDACTED>
+// TE: trailers
+
+
+// FILTER FOR BOARD FEED REQUESTS USING THE FOLLOWING URL
+// https://www.pinterest.ca/resource/BoardFeedResource/*
+
+// FILTER FOR BOARD SECTION REQUESTS USING THE FOLLOWING URL
+// https://www.pinterest.ca/resource/BoardSectionsResource/*
+
+
+
+// CONCEPT-ART BOARD FEED REQUEST HEADERS
+GET /resource/BoardFeedResource/get/?source_url=%2F<REDACTED>%2Fconcept-art%2F&data=%7B%22options%22%3A%7B%22board_id%22%3A%22646477790200188427%22%2C%22board_url%22%3A%22%2F<REDACTED>%2Fconcept-art%2F%22%2C%22currentFilter%22%3A-1%2C%22field_set_key%22%3A%22react_grid_pin%22%2C%22filter_section_pins%22%3Atrue%2C%22sort%22%3A%22default%22%2C%22layout%22%3A%22default%22%2C%22page_size%22%3A25%2C%22redux_normalize_feed%22%3Atrue%7D%2C%22context%22%3A%7B%7D%7D&_=1669101500379 HTTP/2
+Host: www.pinterest.ca
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:107.0) Gecko/20100101 Firefox/107.0
+Accept: application/json, text/javascript, */*, q=0.01
+Accept-Language: en
+Accept-Encoding: gzip, deflate, br
+Referer: https://www.pinterest.ca/
+X-Requested-With: XMLHttpRequest
+X-APP-VERSION: 83e0acd
+X-Pinterest-AppState: active
+X-Pinterest-ExperimentHash: <REDACTED>
+X-Pinterest-Source-Url: /<REDACTED>/concept-art/
+X-Pinterest-PWS-Handler: www/[username]/[slug].js
+DNT: 1
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: cors
+Sec-Fetch-Site: same-origin
+Connection: keep-alive
+Cookie: <REDACTED>
+TE: trailers
+
+// CONCEPT-ART BOARD SECTION REQUEST HEADERS
+
+GET /resource/BoardSectionsResource/get/?source_url=%2F<REDACTED>%2Fconcept-art%2F&data=%7B%22options%22%3A%7B%22board_id%22%3A%22646477790200188427%22%2C%22redux_normalize_feed%22%3Atrue%7D%2C%22context%22%3A%7B%7D%7D&_=1669101497186 HTTP/2
+Host: www.pinterest.ca
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:107.0) Gecko/20100101 Firefox/107.0
+Accept: application/json, text/javascript, */*, q=0.01
+Accept-Language: en
+Accept-Encoding: gzip, deflate, br
+Referer: https://www.pinterest.ca/
+X-Requested-With: XMLHttpRequest
+X-APP-VERSION: 83e0acd
+X-Pinterest-AppState: active
+X-Pinterest-ExperimentHash: <REDACTED>
+X-Pinterest-Source-Url: /<REDACTED>/concept-art/
+X-Pinterest-PWS-Handler: www/[username]/[slug].js
+DNT: 1
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: cors
+Sec-Fetch-Site: same-origin
+Connection: keep-alive
+Cookie: <REDACTED>
+TE: trailers
+
+// SECOND SAMPLE SAME BOARD
+
+GET /resource/BoardFeedResource/get/?source_url=%2F<REDACTED>%2Fconcept-art%2F&data=%7B%22options%22%3A%7B%22board_id%22%3A%22646477790200188427%22%2C%22board_url%22%3A%22%2F<REDACTED>%2Fconcept-art%2F%22%2C%22currentFilter%22%3A-1%2C%22field_set_key%22%3A%22react_grid_pin%22%2C%22filter_section_pins%22%3Atrue%2C%22sort%22%3A%22default%22%2C%22layout%22%3A%22default%22%2C%22page_size%22%3A25%2C%22redux_normalize_feed%22%3Atrue%2C%22bookmarks%22%3A%5B%22Y2JURlEwTWs1RVdUQk9lbU16VFdwRk1VMXFaM3BPVkVFelRVUm9PRTFxVmpoTmFsWTRXVlJXYkZreVRUUmFWRWswVFVkYWJGcEVTWGhOTWxsNlRVUlJORTVIU1hoWmJWbDVUbXBqZWxsVVNUTmFha2sxVG1wSmVFMTZRbWhOUjFwdFRtcE5kMWxYVlhwYWFsVXhUVVJKZDFsVVpHbE9NazV0V1ZoNFQxSldaRGc9fFVIbzVUMkl5Tld4bVJFNXJUMVJOTUZwVVFUSlBSR3MxVFRKUmVFNHlWVFZhUkVVelQwZE9iRmxVU1RSWlYxcHRUbFJuTlU1NlNYaGFhbHBvVG5wc2JFNUVRWGhhVkVGNVdrZFpNazR5UlRSTmVtaHFXVlJhYTA5WFVYaGFSRm80Vkd0V1dHWkJQVDA9fGE4NmJkNDE2Y2U5NzNkMzljOGU2NGYyNDM4NzRmYTVmNmY5ZjQ3OGZmNDFlMDZhMjU5NGY0NGZmZmJkNmMyOTR8TkVXfA%3D%3D%22%5D%7D%2C%22context%22%3A%7B%7D%7D&_=1669101606590 HTTP/2
+Host: www.pinterest.ca
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:107.0) Gecko/20100101 Firefox/107.0
+Accept: application/json, text/javascript, */*, q=0.01
+Accept-Language: en
+Accept-Encoding: gzip, deflate, br
+Referer: https://www.pinterest.ca/
+X-Requested-With: XMLHttpRequest
+X-APP-VERSION: 83e0acd
+X-Pinterest-AppState: background
+X-Pinterest-ExperimentHash: <REDACTED>
+X-Pinterest-Source-Url: /<REDACTED>/concept-art/
+X-Pinterest-PWS-Handler: www/[username]/[slug].js
+DNT: 1
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: cors
+Sec-Fetch-Site: same-origin
+Connection: keep-alive
+Cookie: <REDACTED>
+TE: trailers
