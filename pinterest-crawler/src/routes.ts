@@ -172,9 +172,9 @@ router.addHandler('board_intercept', async ({ request, page, log }) => {
     const title = page.url();
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
-    await page.route('**/BoardFeedResource*/', async (route) => {
+    await page.route('**/BoardFeedResource/*', async (route) => {
         await route.continue();
-        if (route.request().resourceType() === 'xhr' && route.request().url().includes('https://www.pinterest.ca/resource/BoardFeedResource/*')) {
+        if (route.request().resourceType() === 'json' && route.request().url().includes('BoardFeedResource')) {
             log.info(`XHR request intercepted: ${route.request().url()}`);
             let data = await (await route.request().response())?.json()
             log.info(parsePinterestBoardJSON(data.resource_response.data).join('|'))
@@ -192,7 +192,7 @@ router.addHandler('section_intercept', async ({ request, page, log }) => {
     await page.route('**/BoardSectionsResource*/', async (route) => {
         await route.continue();
 
-        if (route.request().resourceType() === 'xhr' && route.request().url().includes('https://www.pinterest.ca/resource/BoardSectionsResource/*')) {
+        if (route.request().resourceType() === 'json' && route.request().url().includes('BoardSectionsResource')) {
             log.info(`XHR request intercepted: ${route.request().url()}`);
             let json_data = await (await route.request().response())?.json()
             // ds.pushData({ data })
@@ -201,14 +201,14 @@ router.addHandler('section_intercept', async ({ request, page, log }) => {
     });
 });
 
-router.addHandler('section_intercept', async ({ request, page, log }) => {
+router.addHandler('user_intercept', async ({ request, page, log }) => {
     const title = page.url();
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
-    await page.route('**/BoardSections*/', async (route) => {
+    await page.route('**/UserPinsResource/*', async (route) => {
         await route.continue();
 
-        if (route.request().url().includes('https://www.pinterest.ca/resource/BoardFeedResource/*') && route.request().resourceType() === 'xhr') {
+        if (route.request().url().includes('UserPinsResource') && route.request().resourceType() === 'json') {
             log.info(`XHR request intercepted: ${route.request().url()}`);
             let data = await (await route.request().response())?.json() ?? {}
             // ds.pushData({ data })
