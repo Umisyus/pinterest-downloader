@@ -7,6 +7,7 @@ import { Pin } from './constants/types.js';
 import fs from 'fs'
 import { CRAWLEE_CONSTANTS } from './main.js';
 import { CheerioAPI } from 'cheerio';
+import { Datum } from './pin-board-data-type.js';
 // import login data from file
 
 const login_data = JSON.parse(fs.readFileSync('./storage/login.json', 'utf8'));
@@ -173,11 +174,28 @@ router.addHandler('board_intercept', async ({ request, page, log }) => {
     log.info(`${title}`, { url: request.loadedUrl });
     await page.route('**/BoardFeedResource*/', async (route) => {
         await route.continue();
-
-        if (route.request().url().includes('https://www.pinterest.ca/resource/BoardFeedResource/*') || route.request().resourceType() === 'xhr') {
+        if (route.request().resourceType() === 'xhr' && route.request().url().includes('https://www.pinterest.ca/resource/BoardFeedResource/*')) {
             log.info(`XHR request intercepted: ${route.request().url()}`);
             let data = await (await route.request().response())?.json()
+            log.info(parsePinterestBoardJSON(data.resource_response.data).join('|'))
+
             ds.pushData({ data })
+        }
+
+    });
+});
+
+router.addHandler('section_intercept', async ({ request, page, log }) => {
+    const title = page.url();
+    log.info(`Pin handler: ${title}`);
+    log.info(`${title}`, { url: request.loadedUrl });
+    await page.route('**/BoardSectionsResource*/', async (route) => {
+        await route.continue();
+
+        if (route.request().resourceType() === 'xhr' && route.request().url().includes('https://www.pinterest.ca/resource/BoardSectionsResource/*')) {
+            log.info(`XHR request intercepted: ${route.request().url()}`);
+            let json_data = await (await route.request().response())?.json()
+            // ds.pushData({ data })
         }
 
     });
@@ -190,10 +208,10 @@ router.addHandler('section_intercept', async ({ request, page, log }) => {
     await page.route('**/BoardSections*/', async (route) => {
         await route.continue();
 
-        if (route.request().url().includes('https://www.pinterest.ca/resource/BoardFeedResource/*') || route.request().resourceType() === 'xhr') {
+        if (route.request().url().includes('https://www.pinterest.ca/resource/BoardFeedResource/*') && route.request().resourceType() === 'xhr') {
             log.info(`XHR request intercepted: ${route.request().url()}`);
-            let data = await (await route.request().response())?.json()
-            ds.pushData({ data })
+            let data = await (await route.request().response())?.json() ?? {}
+            // ds.pushData({ data })
         }
 
     });
@@ -528,3 +546,31 @@ export async function login(page: any) {
     await page.click('button[type=submit]');
     await page.waitForNavigation();
 }
+
+function parsePinterestBoardJSON(json_data: Datum[]) {
+    let pin_data: Datum[] = json_data
+    return pin_data.map(({ title, link, id, images, videos, story_pin_data }) => {
+        let video = (Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()).url ?? '';
+        let pin_video = (Array.from(Object.values(videos?.video_list ?? {})).pop()).url ?? '';
+        let pin_link = `https://www.pinterest.ca/pin/${id}`
+        let pin_images = (Object.values(images ?? {}).pop())?.url ?? '';
+        let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
+        return ({ title: title ?? 'Untitled Pin', pin_link, origin_link: link ?? '', original_image: pin_images, video_link });
+    }).filter((i) => {
+        if (typeof i.title === 'object') return false;
+        return true
+    });
+}
+
+let parse_data = (pin_data: Datum[]) => pin_data.map(({ title, grid_title, link, id, images, videos, story_pin_data }) => {
+    let video = (<any> Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()).url ?? '';
+    let pin_video = (<any> Array.from(Object.values(videos?.video_list ?? {})).pop())?.url ?? '';
+    let pin_link = `https://www.pinterest.ca/pin/${id}`
+    let pin_images = (<any> Object.values(images ?? {})).pop()
+    let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
+    let pin_title = [title, grid_title].filter(Boolean).pop() ?? 'Untitled pin by Unknown'
+    return ({ title: pin_title, origin_link: link ?? '', pin_link, original_image: pin_images?.url ?? '', video_link: video_link });
+}).filter((i: any) => {
+    if (i.title?.format?.includes('Find some ideas for this board')) return false;
+    return true
+});

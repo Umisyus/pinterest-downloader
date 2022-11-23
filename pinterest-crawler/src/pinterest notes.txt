@@ -1,3 +1,4 @@
+// Extract pins from board
 // V1
 pin_data.map(({ title, videos, story_pin_data }) => {
     let video = story_pin_data?.pages[0].blocks[0].video.video_list[0] ?? {};
