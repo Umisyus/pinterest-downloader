@@ -1,22 +1,22 @@
-import { Dataset, createPlaywrightRouter, Request, enqueueLinks, Dictionary } from 'crawlee';
+import { Dataset, createPlaywrightRouter, Request, Dictionary, Log } from 'crawlee';
 
 import { randomUUID } from 'crypto'
 import { SELECTORS } from './constants/constants_selectors.js';
 import Playwright from 'playwright';
 import { Pin } from './constants/types.js';
 import fs from 'fs'
-import { CRAWLEE_CONSTANTS } from './main.js';
 import { CheerioAPI } from 'cheerio';
 import { Datum } from './pin-board-data-type.js';
+import { InfiniteScrollOptions } from '@crawlee/playwright/internals/utils/playwright-utils.js';
 // import login data from file
 
-const login_data = JSON.parse(fs.readFileSync('./storage/login.json', 'utf8'));
+const login_data = JSON.parse(fs.readFileSync('../storage/login.json', 'utf8'));
 
 export let router = createPlaywrightRouter();
 let ds = await Dataset.open('pinterest');
 
 // Scroll down page to load all pins
-router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithCheerio }) => {
+router.addDefaultHandler(async ({ log, request, page, crawler, infiniteScroll, parseWithCheerio }) => {
     // await page.waitForLoadState('load', { timeout: 60_000 })
     log.info(`DEFAULT HANDLER: ${request.url}`);
     /** All selectors go here, you add links of each element
@@ -37,35 +37,37 @@ router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithChe
 
     if (if_login_text == 'Log in') {
         console.log({ if_login_text });
-
+        await (await crawler.getRequestQueue()).reclaimRequest(request);
         (log.info(`Not logged in`));
         await login(page)
         log.info(`Logged in now.`);
-        // Goto main profile page
-        await page.goto("https://www.pinterest.com/dracana96");
+        let next_url = (await (await crawler.getRequestQueue()).fetchNextRequest())?.url ?? '';
+        // Goto main profile pins page
+        // await page.goto(next_url, { waitUntil: 'domcontentloaded' });
         // await enqueueLinks({
         //     label: 'login',
         //     forefront: true
         // });
+
     }
     else {
         log.info(`Logged in`)
     }
 
-    await page.waitForSelector(`${SELECTORS.board_selector}`).catch(() => { console.log("No boards found") });
+    // await page.waitForSelector(`${SELECTORS.board_selector}`).catch(() => { console.log("No boards found") });
     let $ = await parseWithCheerio()
-    log.info(`Enqueueing boards`);
-    let links = getLinksForSelector(SELECTORS.board_selector, $);
 
-    log.info(`Links: ${links}`);
+    // let links = getLinksForSelector(SELECTORS.board_selector, $);
 
-    let board_links = formatLinks(links, request)
+    // log.info(`Links: ${links}`);
+
+    // let board_links = formatLinks(links, request)
 
     // Add board selector
-    await enqueueLinks({
-        label: CRAWLEE_CONSTANTS.board,
-        urls: [board_links[2]]
-    })
+    // await enqueueLinks({
+    //     label: CRAWLEE_CONSTANTS.board,
+    //     urls: [board_links[2]]
+    // })
     // await page.waitForSelector(`${SELECTORS.section_selector} a`).catch(() => { console.log("No sections found") });
 
     // // Add section selector
@@ -83,8 +85,41 @@ router.addDefaultHandler(async ({ log, request, page, enqueueLinks, parseWithChe
     //     selector: `${SELECTORS.pins_selector} a`,
     //     label: CRAWLEE_CONSTANTS.pin
     // })
+    await page.goto("https://www.pinterest.com/dracana96/pins", { waitUntil: 'domcontentloaded' });
 
-});
+    page.on('response', async (response) => {
+        const url = response.url();
+        console.log({ url });
+
+        if (url.includes('UserPinsResource')) {
+            log.info(`XHR request intercepted: ${url}`);
+            let json_data = await response.json();
+            log.info(`Parsing JSON data`);
+            let parsedData = parsePinterestBoardJSON(json_data);
+            log.info(`Scrolling down`);
+            await infiniteScroll({ timeoutSecs: 5 });
+            log.info(`Parsed data: ${parsedData}`);
+            // ds.pushData({ parsedData });
+        }
+    });
+
+    // await getPageJSON(page, log, request, infiniteScroll);
+    // await page.route('**/*', async (route) => {
+    //     await route.continue();
+
+    //     if (route.request().url().includes('UserPinsResource')
+    //         //  && route.request().resourceType() === 'xhr'
+    //     ) {
+    //         log.info(`XHR request intercepted: ${route.request().url()}`);
+    //         let data = await (await route.request().response())?.json() ?? {};
+    //         infiniteScroll({ timeoutSecs: 5 });
+    //         ds.pushData({ data });
+    //     }
+
+    // });
+
+
+})
 
 // router.addHandler(CRAWLEE_CONSTANTS.login, async ({ log, request, page }) => {
 router.addHandler('login', async ({ log, request, page }) => {
@@ -97,57 +132,57 @@ router.addHandler('login', async ({ log, request, page }) => {
     await page.waitForNavigation();
 })
 
-router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithCheerio }) => {
-    let $ = await parseWithCheerio()
-    let sel = SELECTORS.board_title_selector
-    const title = getTitleText(sel, $) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
+// router.addHandler('board', async ({ enqueueLinks, request, page, log, parseWithCheerio }) => {
+//     let $ = await parseWithCheerio()
+//     let sel = SELECTORS.board_title_selector
+//     const title = getTitleText(sel, $) || request.loadedUrl?.split('/').filter(o => o !== '').pop()
 
-    log.info(`Board handler: ${title}`);
-    // await infiniteScroll()
-    log.info(`Getting sections from board ${title}`, { url: request.loadedUrl });
-    await enqueueLinks({
-        // label: CRAWLEE_CONSTANTS.section,
-        label: CRAWLEE_CONSTANTS.section,
-        urls: formatLinks(getLinksForSelector(SELECTORS.section_selector, $), request)
-    });
-    await enqueueLinks({
-        label: CRAWLEE_CONSTANTS.pin,
-        urls: formatLinks(getLinksForSelector(SELECTORS.section_selector, $), request)
-    });
+//     log.info(`Board handler: ${title}`);
+//     // await infiniteScroll()
+//     log.info(`Getting sections from board ${title}`, { url: request.loadedUrl });
+//     await enqueueLinks({
+//         // label: CRAWLEE_CONSTANTS.section,
+//         label: CRAWLEE_CONSTANTS.section,
+//         urls: formatLinks(getLinksForSelector(SELECTORS.section_selector, $), request)
+//     });
+//     await enqueueLinks({
+//         label: CRAWLEE_CONSTANTS.pin,
+//         urls: formatLinks(getLinksForSelector(SELECTORS.section_selector, $), request)
+//     });
 
-    // Grab pins for board
-    log.info(`Getting pins for board ${title}`, { url: request.loadedUrl });
-    let pins = await autoScroll(page as any);
-    log.info(`Got ${pins.length} pins for board ${title}`, { url: request.loadedUrl });
-    log.info(`Saving pins for board ${title}`, { url: request.loadedUrl });
-    await ds.pushData({ boardName: title, sections: [], boardPins: pins })
-});
+//     // Grab pins for board
+//     log.info(`Getting pins for board ${title}`, { url: request.loadedUrl });
+//     let pins = await autoScroll(page as any);
+//     log.info(`Got ${pins.length} pins for board ${title}`, { url: request.loadedUrl });
+//     log.info(`Saving pins for board ${title}`, { url: request.loadedUrl });
+//     await ds.pushData({ boardName: title, sections: [], boardPins: pins })
+// });
 
-router.addHandler('section', async ({ request, page, log, parseWithCheerio }) => {
-    let $ = await parseWithCheerio()
-    let boardName = $(SELECTORS.board_title_selector).first().text() ?? "UNKNOWN"
-    let boardLink = formatLinks([$(SELECTORS.board_title_selector).parent().attr('href') ?? ""], request)[0]
+// router.addHandler('section', async ({ request, page, log, parseWithCheerio }) => {
+//     let $ = await parseWithCheerio()
+//     let boardName = $(SELECTORS.board_title_selector).first().text() ?? "UNKNOWN"
+//     let boardLink = formatLinks([$(SELECTORS.board_title_selector).parent().attr('href') ?? ""], request)[0]
 
-    const title = (getTitleText(SELECTORS.section_title_selector, $)
-        || request.loadedUrl?.split('/').filter(o => o !== '').pop()) ?? 'No title'
+//     const title = (getTitleText(SELECTORS.section_title_selector, $)
+//         || request.loadedUrl?.split('/').filter(o => o !== '').pop()) ?? 'No title'
 
-    log.info(`Processing section: ${title}`);
-    log.info(`${title}`, { url: request.loadedUrl });
+//     log.info(`Processing section: ${title}`);
+//     log.info(`${title}`, { url: request.loadedUrl });
 
-    // Grab pins from section page
-    log.info(`Getting pins for section ${title}`, { url: request.loadedUrl });
-    let pins = await autoScroll(page as any);
-    log.info(`Got ${pins.length} pins for section ${title}`, { url: request.loadedUrl });
-    log.info(`Saving pins for section ${title}`, { url: request.loadedUrl });
-    ds.pushData({
-        boardName,
-        boardLink,
-        sectionName: title,
-        sectionLink: request.loadedUrl,
-        sectionPins: pins,
-        pinCount: pins.length
-    })
-});
+//     // Grab pins from section page
+//     log.info(`Getting pins for section ${title}`, { url: request.loadedUrl });
+//     let pins = await autoScroll(page as any);
+//     log.info(`Got ${pins.length} pins for section ${title}`, { url: request.loadedUrl });
+//     log.info(`Saving pins for section ${title}`, { url: request.loadedUrl });
+//     ds.pushData({
+//         boardName,
+//         boardLink,
+//         sectionName: title,
+//         sectionLink: request.loadedUrl,
+//         sectionPins: pins,
+//         pinCount: pins.length
+//     })
+// });
 
 router.addHandler('pin', async ({ request, page, log }) => {
     log.info(`Processing pin: ${request.url}`);
@@ -168,7 +203,7 @@ router.addHandler('downloadImage', async ({ request, page, log }) => {
     }
 });
 
-router.addHandler('board_intercept', async ({ request, page, log }) => {
+router.addHandler('board', async ({ request, page, log }) => {
     const title = page.url();
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
@@ -185,7 +220,7 @@ router.addHandler('board_intercept', async ({ request, page, log }) => {
     });
 });
 
-router.addHandler('section_intercept', async ({ request, page, log }) => {
+router.addHandler('section', async ({ request, page, log }) => {
     const title = page.url();
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
@@ -201,7 +236,29 @@ router.addHandler('section_intercept', async ({ request, page, log }) => {
     });
 });
 
-router.addHandler('user_intercept', async ({ request, page, log }) => {
+async function getPageJSON(page: Playwright.Page, log: Log, request: Request<Dictionary<any>>, infiniteScroll: (options?: InfiniteScrollOptions | undefined) => Promise<void>) {
+    const title = page.url();
+    log.info(`Pin handler: ${title}`);
+    log.info(`${title}`, { url: request.loadedUrl });
+
+    page.on('response', async (response) => {
+        const url = response.url();
+        console.log({ url });
+
+        if (url.includes('UserPinsResource')) {
+            log.info(`XHR request intercepted: ${url}`);
+            let json_data = await response.json();
+            log.info(`Parsing JSON data`);
+            let parsedData = parsePinterestBoardJSON(json_data);
+            log.info(`Scrolling down`);
+            await infiniteScroll({ timeoutSecs: 5 });
+            log.info(`Parsed data: ${parsedData}`);
+            // ds.pushData({ parsedData });
+        }
+    });
+}
+
+async function getJSON(page: Playwright.Page, log: Log, request: Request<Dictionary<any>>, infiniteScroll: { (options?: InfiniteScrollOptions | undefined): Promise<void>; (arg0: { timeoutSecs: number; }): void; }) {
     const title = page.url();
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
@@ -210,12 +267,13 @@ router.addHandler('user_intercept', async ({ request, page, log }) => {
 
         if (route.request().url().includes('UserPinsResource') && route.request().resourceType() === 'json') {
             log.info(`XHR request intercepted: ${route.request().url()}`);
-            let data = await (await route.request().response())?.json() ?? {}
-            // ds.pushData({ data })
+            let data = await (await route.request().response())?.json() ?? {};
+            ds.pushData({ data });
+            infiniteScroll({ timeoutSecs: 5 });
         }
 
     });
-})
+}
 
 function getTitleText(sel: string, $: CheerioAPI,) {
     return $(sel).text();
@@ -553,11 +611,11 @@ function parsePinterestBoardJSON(json_data: Datum[]) {
         let video = (Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()).url ?? '';
         let pin_video = (Array.from(Object.values(videos?.video_list ?? {})).pop()).url ?? '';
         let pin_link = `https://www.pinterest.ca/pin/${id}`
-        let pin_images = (Object.values(images ?? {}).pop())?.url ?? '';
-        let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
-        return ({ title: title ?? 'Untitled Pin', pin_link, origin_link: link ?? '', original_image: pin_images, video_link });
+        let pin_original_image = (Object.values(images ?? {}).pop())?.url ?? '';
+        let pin_video_link = [video, pin_video].filter(Boolean).pop() ?? ''
+        return ({ pin_title: title ?? 'Untitled Pin', pin_link, origin_link: link ?? '', pin_original_image: pin_original_image, pin_video_link });
     }).filter((i) => {
-        if (typeof i.title === 'object') return false;
+        if (typeof i.pin_title === 'object') return false;
         return true
     });
 }
