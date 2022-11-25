@@ -1,4 +1,4 @@
-import { Dataset, createPlaywrightRouter, Request, Dictionary, Log } from 'crawlee';
+import { Dataset, createPlaywrightRouter, Request, enqueueLinks, Dictionary, createPuppeteerRouter, Log } from 'crawlee';
 
 import { randomUUID } from 'crypto'
 import { SELECTORS } from './constants/constants_selectors.js';
@@ -8,120 +8,96 @@ import fs from 'fs'
 import { CheerioAPI } from 'cheerio';
 import { Datum } from './pin-board-data-type.js';
 import { InfiniteScrollOptions } from '@crawlee/playwright/internals/utils/playwright-utils.js';
+import { ds } from './main.js';
 // import login data from file
 
 const login_data = JSON.parse(fs.readFileSync('../storage/login.json', 'utf8'));
 
 export let router = createPlaywrightRouter();
-let ds = await Dataset.open('pinterest');
 
 // Scroll down page to load all pins
-router.addDefaultHandler(async ({ log, request, page, crawler, infiniteScroll, parseWithCheerio }) => {
+router.addDefaultHandler(async ({ log, request,
+    // crawler
+    // enqueueLinks,
+    // page,
+    // parseWithCheerio, crawler,
+    infiniteScroll,
+    blockRequests
+}) => {
     // await page.waitForLoadState('load', { timeout: 60_000 })
     log.info(`DEFAULT HANDLER: ${request.url}`);
     /** All selectors go here, you add links of each element
      * (I.E.: The anchor tag HREF attribute that may be found within an element, ex.: [ 'div > a' or 'div a' ]) to the request queue with a label
      */
+    // Block images from loading
+    await blockRequests({ urlPatterns: ['.png', '.jpg', '.jpeg', '.gif', '.svg'] })
 
-    log.info(`Login chk`);
-    let if_login = null;
-    let is_logged_in = false
-    let if_login_text = ""
-    try {
-        if_login = page.locator('button', { hasText: 'Log in' });
-        if_login_text = await if_login.textContent() ?? "";
+    // log.info(`Login chk`);
+    // let if_login = null;
+    // let is_logged_in = false
+    // let if_login_text = ""
+    // try {
+    //     if_login = page.locator('button', { hasText: 'Log in' });
+    //     if_login_text = await if_login.textContent() ?? "";
 
-    } catch (error) {
-        is_logged_in = true
-    }
+    // } catch (error) {
+    //     is_logged_in = true
+    // }
 
-    if (if_login_text == 'Log in') {
-        console.log({ if_login_text });
-        await (await crawler.getRequestQueue()).reclaimRequest(request);
-        (log.info(`Not logged in`));
-        await login(page)
-        log.info(`Logged in now.`);
-        let next_url = (await (await crawler.getRequestQueue()).fetchNextRequest())?.url ?? '';
-        // Goto main profile pins page
-        // await page.goto(next_url, { waitUntil: 'domcontentloaded' });
-        // await enqueueLinks({
-        //     label: 'login',
-        //     forefront: true
-        // });
-
-    }
-    else {
-        log.info(`Logged in`)
-    }
+    // if (if_login_text == 'Log in') {
+    //     console.log({ if_login_text });
+    //     await (await crawler.getRequestQueue()).reclaimRequest(request);
+    //     (log.info(`Not logged in`));
+    //     await login(page)
+    //     log.info(`Logged in now.`);
+    // }
+    // else {
+    //     log.info(`Logged in`)
+    // }
 
     // await page.waitForSelector(`${SELECTORS.board_selector}`).catch(() => { console.log("No boards found") });
-    let $ = await parseWithCheerio()
+    // let $ = await parseWithCheerio()
 
-    // let links = getLinksForSelector(SELECTORS.board_selector, $);
+    // await page.goto("https://www.pinterest.com/dracana96/pins", { waitUntil: 'domcontentloaded' });
 
-    // log.info(`Links: ${links}`);
+    // page.on('response', async (response) => {
+    //     const url = response.url();
+    //     console.log({ url });
 
-    // let board_links = formatLinks(links, request)
-
-    // Add board selector
-    // await enqueueLinks({
-    //     label: CRAWLEE_CONSTANTS.board,
-    //     urls: [board_links[2]]
-    // })
-    // await page.waitForSelector(`${SELECTORS.section_selector} a`).catch(() => { console.log("No sections found") });
-
-    // // Add section selector
-    // log.info(`Enqueueing sections`);
-    // await enqueueLinks({
-    //     selector: `a`,
-    //     // label: CRAWLEE_CONSTANTS.section
-    //     label: CRAWLEE_CONSTANTS.section
-    // })
-
-    // await page.waitForSelector(`${SELECTORS.pins_selector} a`).catch(() => { console.log("No pins found") });
-    // // Add pin selector
-    // log.info(`Enqueueing pins`);
-    // await enqueueLinks({
-    //     selector: `${SELECTORS.pins_selector} a`,
-    //     label: CRAWLEE_CONSTANTS.pin
-    // })
-    await page.goto("https://www.pinterest.com/dracana96/pins", { waitUntil: 'domcontentloaded' });
-
-    page.on('response', async (response) => {
-        const url = response.url();
-        console.log({ url });
-
-        if (url.includes('UserPinsResource')) {
-            log.info(`XHR request intercepted: ${url}`);
-            let json_data = await response.json();
-            log.info(`Parsing JSON data`);
-            let parsedData = parsePinterestBoardJSON(json_data);
-            log.info(`Scrolling down`);
-            await infiniteScroll({ timeoutSecs: 5 });
-            log.info(`Parsed data: ${parsedData}`);
-            // ds.pushData({ parsedData });
-        }
-    });
-
-    // await getPageJSON(page, log, request, infiniteScroll);
-    // await page.route('**/*', async (route) => {
-    //     await route.continue();
-
-    //     if (route.request().url().includes('UserPinsResource')
-    //         //  && route.request().resourceType() === 'xhr'
-    //     ) {
-    //         log.info(`XHR request intercepted: ${route.request().url()}`);
-    //         let data = await (await route.request().response())?.json() ?? {};
-    //         infiniteScroll({ timeoutSecs: 5 });
-    //         ds.pushData({ data });
+    //     if (url.includes('UserPinsResource')) {
+    //         log.info(`XHR request intercepted: ${url}`);
+    //         let json_data = await response.json();
+    //         log.info(`Parsing JSON data`);
+    //         let parsedData = parsePinterestBoardJSON(json_data);
+    //         log.info(`Scrolling down`);
+    //         log.info(`Parsed data: ${parsedData}`);
+    //         // ds.pushData({ parsedData });
     //     }
-
     // });
 
+    // enqueueLinks({
+    //     urls: [`https://www.pinterest.com/dracana96/pins`],
+    //     label: 'allPins',
+    //     requestQueue: await crawler.getRequestQueue(),
+    // })
+    log.info(`Processing all pins: ${request.url}`);
+    log.info(`Scrolled down`);
+    // page.on('request', async (request) => {
+    //     const url = request.url();
+    //     if (url.includes('UserPinsResource')) {
+    //         log.info(`XHR request intercepted: ${url}`);
+    //         let json_data = await (await request.response())?.json();
+    //         log.info(`Parsing JSON data`);
+    //         let parsedData = parsePinterestBoardJSON(json_data);
+    //         log.info(`Scrolling down`);
+    //         log.info(`Parsed data: ${parsedData}`);
+    //         // ds.pushData({ parsedData });
+    //     }
 
+    // })
+    await infiniteScroll({ waitForSecs: 5 })
 })
 
-// router.addHandler(CRAWLEE_CONSTANTS.login, async ({ log, request, page }) => {
 router.addHandler('login', async ({ log, request, page }) => {
     log.info(`LOGIN HANDLER: ${request.url}`);
     // Login to Pinterest
@@ -192,6 +168,26 @@ router.addHandler('pin', async ({ request, page, log }) => {
     // log.info(`Saving pin ${title}`, { url: request.loadedUrl });
 });
 
+router.addHandler('allPins', async ({
+    // page,
+    request, log, infiniteScroll }) => {
+    log.info(`Processing all pins: ${request.url}`);
+    log.info(`Scrolled down`);
+    // page.on('request', async (request) => {
+    //     const url = request.url();
+    //     if (url.includes('UserPinsResource')) {
+    //         log.info(`XHR request intercepted: ${url}`);
+    //         let json_data = await (await request.response())?.json();
+    //         log.info(`Parsing JSON data`);
+    //         let parsedData = parsePinterestBoardJSON(json_data);
+    //         log.info(`Scrolling down`);
+    //         log.info(`Parsed data: ${parsedData}`);
+    //         // ds.pushData({ parsedData });
+    //     }
+    await infiniteScroll({ waitForSecs: 5 })
+
+});
+
 router.addHandler('downloadImage', async ({ request, page, log }) => {
     const title = await page.title();
     log.info(`${title}`, { url: request.loadedUrl });
@@ -204,19 +200,18 @@ router.addHandler('downloadImage', async ({ request, page, log }) => {
 });
 
 router.addHandler('board', async ({ request, page, log }) => {
-    const title = page.url();
+    const title = page.$eval('h1', el => el.textContent);
     log.info(`Pin handler: ${title}`);
     log.info(`${title}`, { url: request.loadedUrl });
-    await page.route('**/BoardFeedResource/*', async (route) => {
-        await route.continue();
-        if (route.request().resourceType() === 'json' && route.request().url().includes('BoardFeedResource')) {
-            log.info(`XHR request intercepted: ${route.request().url()}`);
-            let data = await (await route.request().response())?.json()
-            log.info(parsePinterestBoardJSON(data.resource_response.data).join('|'))
 
+    page.on('request', async (request) => {
+        if (request.resourceType() === 'json' && request.url().includes('BoardFeedResource')) {
+            log.info(`XHR request intercepted: ${request.url()}`);
+            let data = await (await request.response())?.json()
+            log.info(parsePinterestBoardJSON(data.resource_response.data).join('|'))
+            log.info(`Saving json data for board ${title}`, { url: request.url() });
             ds.pushData({ data })
         }
-
     });
 });
 
