@@ -1,6 +1,6 @@
 // For more information, see https://crawlee.dev/
 import { log, PlaywrightCrawler, PlaywrightCrawlingContext, PlaywrightHook, playwrightUtils, RequestQueue } from 'crawlee';
-import { router } from './routes.js';
+import { parsePinterestBoardJSON, router } from './routes.js';
 import * as Playwright from 'playwright';
 import { Dataset } from 'apify';
 export const CRAWLEE_CONSTANTS = { reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
@@ -17,7 +17,13 @@ const preNavigationHooks = [
                 log.info(`XHR Request intercepted: ${request.url()}`);
                 const response = await request.response();
                 const body = await response?.json();
-                console.log({ body });
+                if (body) {
+                    console.log({ body });
+                    log.info(`Saving to dataset`);
+                    let parsed = parsePinterestBoardJSON(body);
+                    console.log(`${(parsed)}`);
+                    ds.pushData(parsed);
+                }
             }
         });
     }
