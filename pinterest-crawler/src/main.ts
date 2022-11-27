@@ -1,13 +1,13 @@
 // For more information, see https://crawlee.dev/
-import { log, PlaywrightCrawler, PlaywrightCrawlingContext, PlaywrightHook, playwrightUtils, RequestQueue } from 'crawlee';
+import { KeyValueStore, log, PlaywrightCrawler, PlaywrightCrawlingContext, PlaywrightHook, playwrightUtils, RequestQueue } from 'crawlee';
 import { parsePinterestBoardJSON, router } from './routes.js';
 import * as Playwright from 'playwright';
 import { Dataset } from 'apify';
 export const CRAWLEE_CONSTANTS = { reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
 
 const startUrls = ['https://pinterest.ca/dracana96/pins'];
-export const ds = await Dataset.open('pinterest-json-test');
-
+let kvs = await KeyValueStore.open('pinterest-json-test');
+export let ds = await Dataset.open('pinterest-json-test');
 const preNavigationHooks = [
     async (ctx: PlaywrightCrawlingContext) => {
         const page = ctx.page
@@ -21,8 +21,9 @@ const preNavigationHooks = [
                     console.log({ body });
                     log.info(`Saving to dataset`);
                     let parsed = parsePinterestBoardJSON(body);
-                    console.log(`${(parsed)}`);
-                    ds.pushData(parsed);
+
+                    parsed.forEach(async p =>
+                        await kvs.setValue(p.pin_link.split('/')[4], p));
                 }
             }
         });
@@ -48,3 +49,4 @@ const crawler = new PlaywrightCrawler({
 await crawler.addRequests(startUrls)
 
 await crawler.run();
+
