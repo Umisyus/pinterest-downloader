@@ -17,10 +17,7 @@ export let router = createPlaywrightRouter();
 
 // Scroll down page to load all pins
 router.addDefaultHandler(async ({ log, request,
-    // crawler
-    // enqueueLinks,
-    // page,
-    // parseWithCheerio, crawler,
+
     infiniteScroll,
     blockRequests
 }) => {
@@ -95,7 +92,7 @@ router.addDefaultHandler(async ({ log, request,
     //     }
 
     // })
-    await infiniteScroll({ waitForSecs: 5 })
+    await infiniteScroll({ waitForSecs: 15 });
 })
 
 router.addHandler('login', async ({ log, request, page }) => {
@@ -603,29 +600,28 @@ export async function login(page: any) {
 export function parsePinterestBoardJSON(json_data: any) {
     let pin_data: Datum[] = json_data.resource_response.data as Datum[];
 
-    return pin_data.map(({ grid_title, link, id, images, videos, story_pin_data }) => {
-        let pin_title = (grid_title !== "" ? grid_title.replace(/\s{2,}/,' ').substring(0,69) : "Untitled Pin").trim();
-        let video = (Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop())?.url ?? '';
-        let pin_video = (Array.from(Object.values(videos?.video_list ?? {})).pop())?.url ?? '';
+    return pin_data.map(({ board, grid_title, link, id, images, videos, story_pin_data }) => {
+        let board_title = board.name
+        let board_link = board.url
+
+        let pin_title = (grid_title !== "" ? grid_title.replace(/\s{2,}/, ' ').substring(0, 69) : "Untitled Pin").trim();
+        let video = ''
+        if (story_pin_data !== undefined && story_pin_data !== null) {
+            video = (Array.from(Object.values(story_pin_data?.pages[0]?.blocks[0]?.video?.video_list ?? {})).pop())?.url ?? '';
+        }
+        let pin_video = ''
+        if (videos !== undefined && videos !== null
+            && videos.video_list !== undefined && videos.video_list !== null) {
+            pin_video = (Array.from(Object.values((videos.video_list ?? {}) ?? {})).pop()).url ?? '';
+        }
+
         let pin_link = `https://www.pinterest.ca/pin/${id}`
         let pin_original_image = (Object.values(images ?? {}).pop())?.url ?? '';
         let pin_video_link = [video, pin_video].filter(Boolean).pop() ?? ''
-        return ({ pin_title: (pin_title) ?? 'Untitled Pin', pin_link, origin_link: link ?? '', pin_original_image: pin_original_image, pin_video_link });
+        return ({ board_title, board_link, pin_title: (pin_title) ?? 'Untitled Pin', pin_link, origin_link: link ?? '', pin_original_image: pin_original_image, pin_video_link });
+
     }).filter((i) => {
-        if (typeof i.pin_title === 'object') return false;
+        if (typeof i?.pin_title === 'object') return false;
         return true
     });
 }
-
-let parse_data = (pin_data: Datum[]) => pin_data.map(({ title, grid_title, link, id, images, videos, story_pin_data }) => {
-    let video = (<any> Array.from(Object.values(story_pin_data?.pages[0].blocks[0].video.video_list ?? {})).pop()).url ?? '';
-    let pin_video = (<any> Array.from(Object.values(videos?.video_list ?? {})).pop())?.url ?? '';
-    let pin_link = `https://www.pinterest.ca/pin/${id}`
-    let pin_images = (<any> Object.values(images ?? {})).pop()
-    let video_link = [video, pin_video].filter(Boolean).pop() ?? ''
-    let pin_title = [title, grid_title].filter(Boolean).pop() ?? 'Untitled pin by Unknown'
-    return ({ title: pin_title, origin_link: link ?? '', pin_link, original_image: pin_images?.url ?? '', video_link: video_link });
-}).filter((i: any) => {
-    if (i.title?.format?.includes('Find some ideas for this board')) return false;
-    return true
-});

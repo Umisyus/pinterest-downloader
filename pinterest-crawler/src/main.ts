@@ -3,11 +3,17 @@ import { KeyValueStore, log, PlaywrightCrawler, PlaywrightCrawlingContext, Playw
 import { parsePinterestBoardJSON, router } from './routes.js';
 import * as Playwright from 'playwright';
 import { Dataset } from 'apify';
-export const CRAWLEE_CONSTANTS = { reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
+import { Datum } from './pin-board-data-type.js';
+export const CRAWLEE_CONSTANTS = { datastorename: 'pinterest-json-test', reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
 
 const startUrls = ['https://pinterest.ca/dracana96/pins'];
-let kvs = await KeyValueStore.open('pinterest-json-test');
-export let ds = await Dataset.open('pinterest-json-test');
+const exportFileName = `unique-pins-export`;
+
+let kvs = await KeyValueStore.open(`${CRAWLEE_CONSTANTS.datastorename}`);
+export let ds = await Dataset.open(CRAWLEE_CONSTANTS.datastorename);
+let d = await ds.getData()
+console.log(JSON.stringify(d, null, 2));
+
 const preNavigationHooks = [
     async (ctx: PlaywrightCrawlingContext) => {
         const page = ctx.page
@@ -18,19 +24,18 @@ const preNavigationHooks = [
                 const response = await request.response();
                 const body = await response?.json();
                 if (body) {
-                    console.log({ body });
+                    // .log({ body });
                     log.info(`Saving to dataset`);
                     let parsed = parsePinterestBoardJSON(body);
 
-                    parsed.forEach(async p =>
-                        await kvs.setValue(p.pin_link.split('/')[4], p));
+                    await ds.pushData(parsed);
                 }
             }
         });
     }
 ];
 const crawler = new PlaywrightCrawler({
-    headless: false,
+    headless: true,
     requestHandlerTimeoutSecs: 99_999,
     minConcurrency: 1,
     maxConcurrency: 1,
@@ -48,5 +53,22 @@ const crawler = new PlaywrightCrawler({
 
 await crawler.addRequests(startUrls)
 
-await crawler.run();
+await crawler.run().then(async () => {
+    log.info('Crawling finished, filtering duplicate data...');
+    let filtered = (await ds.getData()).items
+        .filter((item, index, dataset) => {
+            const _thing = JSON.stringify(item);
+            return index === dataset.findIndex(obj => {
+                return JSON.stringify(obj) === _thing;
+            });
+        })
+    let resultsDataset = await Dataset.open('pinterest-json-unique-results');
+    await resultsDataset.pushData(filtered);
 
+    console.log(`Found ${filtered.length} unique pins`);
+    log.info('Exporting dataset...');
+    await resultsDataset.exportToJSON(exportFileName);
+
+    log.info('Done, will now exit...');
+    await crawler.teardown()
+});
