@@ -24,7 +24,7 @@ const preNavigationHooks = [
                 const response = await request.response();
                 const body = await response?.json();
                 if (body) {
-                    // .log({ body });
+                    log.debug(JSON.stringify(body, null, 2));
                     log.info(`Saving to dataset`);
                     let parsed = parsePinterestBoardJSON(body);
 
