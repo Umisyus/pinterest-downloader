@@ -2,7 +2,7 @@
 import { KeyValueStore, log, PlaywrightCrawler, PlaywrightCrawlingContext, PlaywrightHook, playwrightUtils, RequestQueue } from 'crawlee';
 import { parsePinterestBoardJSON, router } from './routes.js';
 import * as Playwright from 'playwright';
-import { Dataset } from 'apify';
+import { Actor, Dataset } from 'apify';
 import { Datum } from './pin-board-data-type.js';
 export const CRAWLEE_CONSTANTS = { datastorename: 'pinterest-json-test', reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
 
@@ -34,6 +34,8 @@ const preNavigationHooks = [
         });
     }
 ];
+
+Actor.init()
 const crawler = new PlaywrightCrawler({
     headless: true,
     requestHandlerTimeoutSecs: 99_999,
@@ -72,3 +74,5 @@ await crawler.run().then(async () => {
     log.info('Done, will now exit...');
     await crawler.teardown()
 });
+
+Actor.exit()
