@@ -4,15 +4,13 @@ import { parsePinterestBoardJSON, router } from './routes.js';
 import * as Playwright from 'playwright';
 import { Actor, Dataset } from 'apify';
 import { Datum } from './pin-board-data-type.js';
-export const CRAWLEE_CONSTANTS = { datastorename: 'pinterest-json-test', reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
+export const CRAWLEE_CONSTANTS = { datastorename: 'pinterest-json', reqQueue: "pinterest", login: 'login', board: "board", section: "section", pin: "pin", download_pin: "dlpin" };
 
 const startUrls = ['https://pinterest.ca/dracana96/pins'];
 const exportFileName = `unique-pins-export`;
 
-let kvs = await KeyValueStore.open(`${CRAWLEE_CONSTANTS.datastorename}`);
+// let kvs = await KeyValueStore.open(`${CRAWLEE_CONSTANTS.datastorename}`);
 export let ds = await Dataset.open(CRAWLEE_CONSTANTS.datastorename);
-let d = await ds.getData()
-console.log(JSON.stringify(d, null, 2));
 
 const preNavigationHooks = [
     async (ctx: PlaywrightCrawlingContext) => {
@@ -20,22 +18,32 @@ const preNavigationHooks = [
         page.on('request', async (request: Playwright.Request) => {
             if (request.url().includes('UserPinsResource')) {
 
-                log.info(`XHR Request intercepted: ${request.url()}`);
+                log.debug(`XHR Request intercepted: ${request.url()}`);
                 const response = await request.response();
                 const body = await response?.json();
                 if (body) {
                     log.debug(JSON.stringify(body, null, 2));
                     log.info(`Saving to dataset`);
-                    let parsed = parsePinterestBoardJSON(body);
+                    let pinData = parsePinterestBoardJSON(body);
 
-                    await ds.pushData(parsed);
+                    // await ds.pushData({ pins: pinData });
+                    pinData.forEach(async (i) => {
+                        // log.info(i.board_title);
+                        // await kvs.setValue(`${CRAWLEE_CONSTANTS.datastorename}-${i.board_title.replace(/\s/g, '-')}`, i);
+                        console.log(i.board_link)
+
+                        let bname = i.board_link.pathname.split('/').filter(Boolean).slice(1, 3).join('-')
+                        log.info(`Saving to board: ${bname}`);
+                        await (await Dataset.open(bname)).pushData(i);
+                    })
+                    log.info(`Saved ${pinData.length} pins to dataset`);
                 }
             }
         });
     }
 ];
 
-Actor.init()
+await Actor.init()
 const crawler = new PlaywrightCrawler({
     headless: true,
     requestHandlerTimeoutSecs: 99_999,
@@ -56,23 +64,8 @@ const crawler = new PlaywrightCrawler({
 await crawler.addRequests(startUrls)
 
 await crawler.run().then(async () => {
-    log.info('Crawling finished, filtering duplicate data...');
-    let filtered = (await ds.getData()).items
-        .filter((item, index, dataset) => {
-            const _thing = JSON.stringify(item);
-            return index === dataset.findIndex(obj => {
-                return JSON.stringify(obj) === _thing;
-            });
-        })
-    let resultsDataset = await Dataset.open('pinterest-json-unique-results');
-    await resultsDataset.pushData(filtered);
-
-    console.log(`Found ${filtered.length} unique pins`);
-    log.info('Exporting dataset...');
-    await resultsDataset.exportToJSON(exportFileName);
-
     log.info('Done, will now exit...');
     await crawler.teardown()
 });
 
-Actor.exit()
+await Actor.exit()

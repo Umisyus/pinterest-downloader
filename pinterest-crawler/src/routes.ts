@@ -27,11 +27,10 @@ router.addDefaultHandler(async ({ log, request, infiniteScroll, blockRequests })
 
 export function parsePinterestBoardJSON(json_data: any) {
     let pin_data: Datum[] = json_data.resource_response.data as Datum[];
-
+    let origin = json_data.client_context.origin;
     return pin_data.map(({ board, grid_title, link, id, images, videos, story_pin_data }) => {
         let board_title = board.name
-        let board_link = board.url
-
+        let board_link = new URL(`${origin}${board.url}`)
         let pin_title = (grid_title !== "" ? grid_title.replace(/\s{2,}/, ' ').substring(0, 69) : "Untitled Pin").trim();
         let video = ''
         if (story_pin_data !== undefined && story_pin_data !== null) {
