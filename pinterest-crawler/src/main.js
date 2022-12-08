@@ -9,7 +9,7 @@ import { Actor } from 'apify';
 
 // Initialize the Apify SDK
 
-async function getData(userName = 'dracana96', THRESHOLD = 50) {
+async function getData(userName = 'dracana96', THRESHOLD = 100) {
     // NODE VERSION
 
     console.log(userName)
@@ -56,7 +56,7 @@ async function getData(userName = 'dracana96', THRESHOLD = 50) {
             console.log('end');
             log.info(`# of pins: ${list.length}`);
 
-            await Actor.pushData(list)
+            await Actor.pushData(...list)
 
             console.log("saved to file");
             break;
