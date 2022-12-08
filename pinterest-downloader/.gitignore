@@ -6,4 +6,10 @@ node_modules
 apify_storage
 crawlee_storage
 storage
-imgaes/*
+images/*
+*.jpg
+*.png
+*.gif
+*.jpeg
+*.svg
+*.webp

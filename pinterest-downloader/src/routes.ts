@@ -23,7 +23,9 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             let boardName = board.name;
             innerFolder = boardName + '/';
             if (grid_title) {
-                filename = grid_title.replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '')
+                filename = grid_title
+                    .trim().slice(0, 69)
+                    .replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '') + '.png'
             } else {
 
                 filename = url_title;

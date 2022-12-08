@@ -24,12 +24,12 @@ const startUrls = dataSet.items.map((item: any) => item.images.orig.url);
 const crawler = new PlaywrightCrawler({
     // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
     requestHandler: router,
-    maxConcurrency: 5,
-    minConcurrency: 1,
+    maxConcurrency: 10,
+    minConcurrency: 2,
     maxRequestRetries: 3,
     // TEST
-    maxRequestsPerCrawl: 100,
-    maxRequestsPerMinute: 10
+    // maxRequestsPerCrawl: 100,
+    maxRequestsPerMinute: 50,
 });
 
 await crawler.run(startUrls);
