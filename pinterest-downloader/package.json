@@ -1,12 +1,10 @@
 {
-    "name": "pinterest-crawler",
+    "name": "pinterest-downloader",
     "version": "0.0.1",
     "type": "module",
     "description": "This is an example of a Crawlee project.",
     "dependencies": {
-        "apify": "^3.1.1",
         "crawlee": "^3.0.0",
-        "node-fetch": "^3.3.0",
         "playwright": "*"
     },
     "devDependencies": {

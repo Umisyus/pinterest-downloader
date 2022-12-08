@@ -9,21 +9,46 @@ import { CheerioAPI } from 'cheerio';
 import { Datum } from './pin-board-data-type.js';
 import { InfiniteScrollOptions } from '@crawlee/playwright/internals/utils/playwright-utils.js';
 import { ds } from './main.js';
-// import login data from file
-
-const login_data = JSON.parse(fs.readFileSync('../storage/login.json', 'utf8'));
 
 export let router = createPlaywrightRouter();
 
 // Scroll down page to load all pins
-router.addDefaultHandler(async ({ log, request, infiniteScroll, blockRequests }) => {
+router.addDefaultHandler(async ({ log, request, blockRequests, crawler, response }) => {
     // Block images from loading
     await blockRequests({ urlPatterns: ['.png', '.jpg', '.jpeg', '.gif', '.svg'] })
 
     log.info(`Processing all pins: ${request.url}`);
 
-    await infiniteScroll({ waitForSecs: 20 });
+    let bookmark = '';
+    // Detect if this is the first page of pins
+    if (request.url.includes('UserPinsResource')) {
+        // get bookmark from json data
+        let json_data = null;
+
+        try {
+            json_data = await response?.json();
+            log.debug(`JSON data received`);
+            bookmark = json_data?.resource?.options?.bookmarks[0];
+
+            if (bookmark && !bookmark.includes('end')) {
+                log.debug(`Bookmark: ${bookmark}`);
+                let pins = parsePinterestBoardJSON(json_data);
+                log.info(`Found ${pins.length} pins`);
+                let userName = json_data.resource.options.username;
+                let next_url = pins_url_bookmark(userName, bookmark)
+                log.info(`Next url: ${next_url}`);
+                await crawler.addRequests([next_url])
+            } else {
+                log.info(`No more pins to load`);
+            }
+        } catch (e) {
+            console.error(e)
+        }
+
+    }
 })
+
+function pins_url_bookmark(userName: string, bookmark: string) { return `https://www.pinterest.ca/resource/UserPinsResource/get/?source_url=%2F${userName}%2Fpins%2F&data=%7B%22options%22%3A%7B%22is_own_profile_pins%22%3Atrue%2C%22username%22%3A%22${userName}%22%2C%22field_set_key%22%3A%22grid_item%22%2C%22pin_filter%22%3Anull%2C%22bookmarks%22%3A%5B%22${bookmark}%22%5D%7D%2C%22context%22%3A%7B%7D%7D&_=1670393784068` }
 
 export function parsePinterestBoardJSON(json_data: any) {
     let pin_data: Datum[] = json_data.resource_response.data as Datum[];
