@@ -11,3 +11,6 @@ PythonProject/
 results*.json
 pinterest-download-data
 .DS_Store
+
+images
+images/*
