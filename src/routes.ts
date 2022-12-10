@@ -48,6 +48,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             // Save with file name or ID?
 
             let boardURLName = boardUrl[boardUrl.length - 1] === '/' ? boardUrl.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
+            boardURLName = boardURLName.replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '');
             // Save image to store in it's board folder
             let boardImageStore = await KeyValueStore.open(boardURLName as string);
             // Save image to store as it's specific type (png, jpg, gif, etc.)
