@@ -1,14 +1,12 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, Configuration, Dataset, KeyValueStore, RequestQueue } from 'apify';
+import { Actor, ApifyClient, Configuration, Dataset, KeyValueStore, log, RequestQueue } from 'apify';
 import { PlaywrightCrawler } from 'crawlee';
 import { router } from './routes.js';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init()
 
 const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME }: { APIFY_TOKEN: string | null, APIFY_USERNAME: string, DATASET_NAME: string }
-    =
-    //  { APIFY_TOKEN: null, APIFY_USERNAME: "customary_plum", DATASET_NAME: "pinterest-json" }
-    await Actor.getInput<any>();
+    = await Actor.getInput<any>();
 let token =
     // tokenJson.token ??
     APIFY_TOKEN ?? process.env.APIFY_TOKEN
@@ -32,19 +30,15 @@ export let imageKeyValueStore = await KeyValueStore.open('completed-downloads');
 const client = new ApifyClient({ token });
 
 client.baseUrl = 'https://api.apify.com/v2/';
+client.token = token;
 
 const dataSetName = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
-// '0UiUYmR0kikTmpgLX' ??
-
-let config: Configuration = new Configuration();
-config.set('token', token);
 
 export const imageset = (await (await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: 10 })).items;
 
-// console.log(dataSet);
 export const startUrls: string[] = imageset.map((item: any) => item.images.orig.url);
-console.log({ ...startUrls });
 
+log.info(`Total urls: ${startUrls.length}`);
 
 const crawler = new PlaywrightCrawler({
     // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
@@ -52,10 +46,9 @@ const crawler = new PlaywrightCrawler({
     maxConcurrency: 10,
     minConcurrency: 2,
     maxRequestRetries: 3,
-    // TEST
-    // maxRequestsPerCrawl: 100,
     maxRequestsPerMinute: 100,
 });
+
 crawler.addRequests(startUrls.map((url) => ({ url })));
 
 await crawler.run();
