@@ -1,6 +1,6 @@
 import { KeyValueStore } from 'apify';
-import { createPlaywrightRouter, Dataset } from 'crawlee';
-
+import { createPlaywrightRouter } from 'crawlee';
+import { randomUUID } from 'crypto'
 import { imageDownloadStatusKeyValueStore, imageset } from './main.js';
 export const router = createPlaywrightRouter();
 // let report = (await Dataset.open('completed-downloads'))
@@ -37,9 +37,14 @@ router.addDefaultHandler(async ({ log, request, response }) => {
                 if (pin_url_id === undefined) pin_url_id = item.id;
                 if (pin_url_id !== undefined)
                     pin_url_id[pin_url_id.length - 1] === '/' ? boardUrl.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
+                log.info("pin_url_id: " + pin_url_id);
 
-                let id_ext = item.id
-                filename = id_ext ?? pin_url_id + `.${ext}`;
+                let pin_id = item.id
+                log.info("id_ext: " + pin_id);
+
+                if (filename === undefined || filename === '' || filename === `.${ext}`)
+                    filename = pin_id ?? `unknown-${randomUUID()}` + `.${ext}`;
+                // filename = [pin_id, pin_url_id].filter(t => t !== undefined && t !== '' && t !== `${ext}`).pop() ?? `unkown-${randomUUID()}.png`
             }
 
             // TODO: Prevent recursive folder creation
