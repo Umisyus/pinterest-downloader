@@ -54,7 +54,10 @@ try {
 }
 
 // Filter out any pins alreadym marked as downloaded
-startUrls = startUrls.filter((url) => !vals.includes(url))
+let delta = startUrls.filter((url) => !vals.includes(url))
+log.info(`Total links downloaded: ${vals.length}`);
+log.info(`Total links to download: ${delta.length}`);
+startUrls = delta
 
 const crawler = new PlaywrightCrawler({
     // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
