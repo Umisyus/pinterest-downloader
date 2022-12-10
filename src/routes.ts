@@ -25,6 +25,8 @@ router.addDefaultHandler(async ({ log, request, response }) => {
                 filename = grid_title
                     .trim().slice(0, 69)
                     .replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '') + '.png'
+                if (filename === undefined || filename === '' || filename === `.${ext}`)
+                    filename = `pin-${item.id ?? randomUUID()}` + `.${ext}`
             } else {
                 // Source: https://www.bannerbear.com/blog/how-to-download-images-from-a-website-using-puppeteer/#downloading-images-from-a-website
                 const matches = /.(jpg|png|svg|gif)/.exec(response.url());
