@@ -42,7 +42,8 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             /* Save image */
             // Save with file name or ID?
 
-            await imageKeyValueStore.setValue(filename, body);
+            await imageKeyValueStore.setValue(filename, body, { contentType: 'image/png' });
+            log.info("Saved image: " + filename);
         }
 
     }
