@@ -42,7 +42,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             /* Save image */
             // Save with file name or ID?
 
-            await imageKeyValueStore.setValue(filename, body.toString('utf8') ?? text);
+            await imageKeyValueStore.setValue(filename, body);
         }
 
     }
