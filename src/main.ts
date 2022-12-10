@@ -17,10 +17,6 @@ if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
 }
 
-if (!APIFY_USERNAME && !process.env.APIFY_USERNAME) {
-    console.log('No APIFY_USERNAME provided!');
-    await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_USERNAME provided!' });
-}
 if (!DATASET_NAME && !process.env.DATASET_NAME) {
     console.log('No DATASET_NAME provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
