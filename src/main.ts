@@ -6,7 +6,9 @@ import { router } from './routes.js';
 await Actor.init()
 
 const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME }: { APIFY_TOKEN: string | null, APIFY_USERNAME: string, DATASET_NAME: string }
-    = { APIFY_TOKEN: null, APIFY_USERNAME: "customary_plum", DATASET_NAME: "pinterest-json" } //await Actor.getInput<any>();
+    =
+    //  { APIFY_TOKEN: null, APIFY_USERNAME: "customary_plum", DATASET_NAME: "pinterest-json" }
+    await Actor.getInput<any>();
 let token =
     // tokenJson.token ??
     APIFY_TOKEN ?? process.env.APIFY_TOKEN
