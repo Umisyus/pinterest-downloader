@@ -33,27 +33,13 @@ const client = new ApifyClient({ token });
 
 client.baseUrl = 'https://api.apify.com/v2/';
 
-const dataSetName = `${APIFY_USERNAME}/${DATASET_NAME}`;
+const dataSetName = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
 // '0UiUYmR0kikTmpgLX' ??
 
 let config: Configuration = new Configuration();
 config.set('token', token);
 
-// var dataSet = await Actor.openDataset('0UiUYmR0kikTmpgLX'
-//     // , { forceCloud: true }
-// );
-
-// const imageset = await dataSet.getData({
-
-//     // fields: [
-//     //     'images/orig/url',
-//     //     'grid_title',
-//     //     'id',
-//     //     'board/name',
-//     //     'board/url'
-//     // ]
-// });
-export const imageset = (await (await Actor.openDataset('customary_plum/pinterest-json', { forceCloud: true })).getData({ limit: 10 })).items;
+export const imageset = (await (await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: 10 })).items;
 
 // console.log(dataSet);
 export const startUrls: string[] = imageset.map((item: any) => item.images.orig.url);
