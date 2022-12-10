@@ -51,7 +51,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             await boardImageStore.setValue(`${filename}`, body, { contentType: `image/${ext}` });
             log.info("Saved image: " + filename + " to " + `${boardName}/${filename}`);
             // Save status to keyvalue store
-            await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, status: 'completed', isDownloaded: true }, { contentType: 'application/json' });
+            await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, status: 'completed', isDownloaded: true });
         }
 
     }
