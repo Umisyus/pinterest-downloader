@@ -32,9 +32,14 @@ router.addDefaultHandler(async ({ log, request, response }) => {
                     ext = matches[1];
                 }
 
-                let pin_url_id = request.url.split('/').filter(Boolean).pop()
-                let id_ext = item.id + `.${ext}`
-                filename = pin_url_id ?? id_ext;
+                let pin_url_id = request.url.split('/').filter(Boolean).pop();
+
+                if (pin_url_id === undefined) pin_url_id = item.id;
+                if (pin_url_id !== undefined)
+                    pin_url_id[pin_url_id.length - 1] === '/' ? boardUrl.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
+
+                let id_ext = item.id
+                filename = id_ext ?? pin_url_id + `.${ext}`;
             }
 
             // TODO: Prevent recursive folder creation
