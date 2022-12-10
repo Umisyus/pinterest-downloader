@@ -1,11 +1,11 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, Configuration, Dataset, KeyValueStore, log, RequestQueue } from 'apify';
-import { PlaywrightCrawler } from 'crawlee';
+import { Actor, ApifyClient, Configuration, Dataset, DatasetContent, KeyValueStore, log, RequestQueue } from 'apify';
+import { Dictionary, PlaywrightCrawler } from 'crawlee';
 import { router } from './routes.js';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init()
 
-const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME }: { APIFY_TOKEN: string | null, APIFY_USERNAME: string, DATASET_NAME: string }
+const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME, DOWNLOAD_LIMIT = 100 }: { APIFY_TOKEN: string, APIFY_USERNAME: string | undefined | null, DATASET_NAME: string, DOWNLOAD_LIMIT: number | undefined }
     = await Actor.getInput<any>();
 let token =
     // tokenJson.token ??
@@ -30,11 +30,17 @@ client.token = token;
 
 const dataSetName = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
 
-export const imageset = (await (await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: 10 })).items;
+export const imageset = ((await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: DOWNLOAD_LIMIT })).catch(console.error)
+    .then((data) => data?.items ?? []) ?? []
 
-export const startUrls: string[] = imageset.map((item: any) => item.images.orig.url);
+let startUrls = []
+try {
+    startUrls = ((await imageset))?.map((item: any) => item?.images?.orig?.url) ?? [];
 
-log.info(`Total urls: ${startUrls.length}`);
+    log.info(`Total links: ${startUrls.length}`);
+} catch (e: any) {
+    console.error(`Failed to read links: ${e}`)
+}
 
 const crawler = new PlaywrightCrawler({
     // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),

@@ -23,6 +23,12 @@
       "type": "string",
       "description": "Name of your dataset can be a random ID as show on the dataset page or a named dataset (which has a name you set)",
       "editor": "textfield"
+    },
+    "DOWNLOAD_LIMIT": {
+      "title": "DOWNLOAD_LIMIT",
+      "type": "number",
+      "description": "Limit of items to download from dataset",
+      "editor": "number"
     }
   },
   "required": [

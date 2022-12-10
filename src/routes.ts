@@ -2,22 +2,19 @@ import { KeyValueStore } from 'apify';
 import { createPlaywrightRouter, Dataset } from 'crawlee';
 
 import fs from 'fs';
-import { imageKeyValueStore, imageset } from './main.js';
+import { imageset } from './main.js';
 export const router = createPlaywrightRouter();
-const baseFolder = './images/';
 // let report = (await Dataset.open('completed-downloads'))
-let folderPath = '';
 router.addDefaultHandler(async ({ log, request, response }) => {
 
-    log.info('Downloading the page... ' + request.url);
+    log.info('Downloading the pin... ' + request.url);
     if (response && response?.ok()) {
         let body = await response.body();
-        let text = await response.text();
 
         let filename = ''
         let ext = 'png'
         // EX. URL: *pinterest-pin-id[.png,.jpg,.webp]
-        let item = imageset.find((item: any) => item.images.orig.url === request.url);
+        let item = (await imageset).find((item: any) => item.images.orig.url === request.url);
 
         let innerFolder = '';
         if (item) {
