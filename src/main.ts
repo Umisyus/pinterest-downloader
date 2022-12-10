@@ -45,8 +45,8 @@ const crawler = new PlaywrightCrawler({
     maxRequestsPerMinute: 100,
 });
 
-crawler.addRequests(startUrls.map((url) => ({ url })));
+// crawler.addRequests(startUrls.map((url) => ({ url })));
 
-await crawler.run();
+await crawler.run(startUrls);
 
 await Actor.exit()
