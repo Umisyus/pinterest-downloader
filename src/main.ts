@@ -26,6 +26,69 @@ export let imageDownloadStatusKeyValueStore = await KeyValueStore.open('complete
 
 let vals: any[] = []
 
+// await imageDownloadStatusKeyValueStore
+//     .forEachKey(async (key) => {
+//         let value: any = await imageDownloadStatusKeyValueStore.getValue(key)
+//         if (value?.isDownloaded)
+//             vals.push(value.url)
+//     })
+
+const client = new ApifyClient({ token });
+
+client.baseUrl = 'https://api.apify.com/v2/';
+client.token = token;
+
+// const dataSetName = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
+
+// export const imageset = ((await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: DOWNLOAD_LIMIT })).catch(console.error)
+//     .then((data) => data?.items ?? []) ?? []
+
+// let startUrls: string[] = []
+// try {
+//     // Extract all the image urls from the dataset
+//     startUrls = ((await imageset))?.map((item: any) => item?.images?.orig?.url) ?? [];
+
+//     log.info(`Total links: ${startUrls.length}`);
+// } catch (e: any) {
+//     console.error(`Failed to read links: ${e}`)
+// }
+
+// // Filter out any pins alreadym marked as downloaded
+// let delta = startUrls.filter((url) => !vals.includes(url))
+// log.info(`Total links downloaded: ${vals.length}`);
+// log.info(`Total links to download: ${delta.length}`);
+// startUrls = delta
+
+// const crawler = new PlaywrightCrawler({
+//     // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
+//     requestHandler: router,
+//     maxConcurrency: 10,
+//     minConcurrency: 2,
+//     maxRequestRetries: 3,
+//     maxRequestsPerMinute: 100,
+// });
+
+// crawler.addRequests(startUrls.map((url) => ({ url })));
+await downloadZip(client)
+// await crawler.run(startUrls).then(()=>downloadZip(client));
+
+await Actor.exit()
+
+async function downloadZip(client) {
+
+// Initialize the ApifyClient with API token
+// const client = new ApifyClient({
+//     token: '<YOUR_API_TOKEN>',
+// });
+
+// Prepare actor input
+
+const input =
+{
+  "keyValueStoreId": "7TxqCqthXuF9Qmykq",
+  "filesPerZipFile": 1000
+}
+const downloadsKVS = client.openKeyValueStore('')
 await imageDownloadStatusKeyValueStore
     .forEachKey(async (key) => {
         let value: any = await imageDownloadStatusKeyValueStore.getValue(key)
@@ -33,52 +96,15 @@ await imageDownloadStatusKeyValueStore
             vals.push(value.url)
     })
 
-const client = new ApifyClient({ token });
+(async () => {
+    // Run the actor and wait for it to finish
+    const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
 
-client.baseUrl = 'https://api.apify.com/v2/';
-client.token = token;
-
-const dataSetName = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
-
-export const imageset = ((await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: DOWNLOAD_LIMIT })).catch(console.error)
-    .then((data) => data?.items ?? []) ?? []
-
-let startUrls: string[] = []
-try {
-    // Extract all the image urls from the dataset
-    startUrls = ((await imageset))?.map((item: any) => item?.images?.orig?.url) ?? [];
-
-    log.info(`Total links: ${startUrls.length}`);
-} catch (e: any) {
-    console.error(`Failed to read links: ${e}`)
+    // Fetch and print actor results from the run's dataset (if any)
+    console.log('Results from dataset');
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    items.forEach((item) => {
+        console.dir(item);
+    });
+})();
 }
-
-// Filter out any pins alreadym marked as downloaded
-let delta = startUrls.filter((url) => !vals.includes(url))
-log.info(`Total links downloaded: ${vals.length}`);
-log.info(`Total links to download: ${delta.length}`);
-startUrls = delta
-
-const crawler = new PlaywrightCrawler({
-    // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
-    requestHandler: router,
-    maxConcurrency: 10,
-    minConcurrency: 2,
-    maxRequestRetries: 3,
-    maxRequestsPerMinute: 100,
-});
-
-// crawler.addRequests(startUrls.map((url) => ({ url })));
-
-await crawler.run(startUrls);
-
-await Actor.exit()
-
-// async function checkDownloaded(s: string) {
-//     let datasetNames = (await client.keyValueStores().list({ unnamed: false })).items.map(d => d.name);
-//     let boardNames = (await imageset).map(d => d.board.name);
-//     const filtered_datasets = datasetNames.filter((name) => name !== undefined ? boardNames.includes(name) : undefined).filter(Boolean)
-//     let [...pulled_sets] = await Promise.all(filtered_datasets.map(async (name) => (client.keyValueStore(name!))))
-//     pulled_sets.filter(Boolean).map(async d => d)
-//     let urls = startUrls
-// }
