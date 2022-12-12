@@ -82,10 +82,14 @@ async function downloadZip(client: ApifyClient) {
         // items.forEach((item: any) => {
         //     console.dir(item);
         // });
+        log.info(`Results are for ${kvsName} are in ${links.length} parts...`);
+        let counter = 0;
         for await (const _link of links) {
-            log.info(`You can download the results from the following link: ${_link}`)
+            counter++;
+            log.info(`You can download the results of ${kvsName} (part #${counter}) from the following link: \n${_link}`)
         }
 
+        console.dir(links)
 
         // Open the default key-value store
         // let kvs = await Actor.openKeyValueStore()
