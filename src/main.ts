@@ -41,18 +41,26 @@ async function downloadZip(client: ApifyClient) {
         return;
     }
 
+    const keyValuesStoresResult = accountKVS.items;
     // Get the ID and compare the name of each key-value store and run the actor
     // if the name is not in the exclusion list (EXCLUSIONS)
-    let [..._items] = accountKVS.items.filter((kvs) => !EXCLUSIONS.includes(kvs.name ?? kvs.name ?? ""))
+    let [..._items] = keyValuesStoresResult.filter((kvs) => !EXCLUSIONS.includes(kvs.name ?? kvs.title ?? ""))
+    const delta = _items.length - keyValuesStoresResult.length;
+
+    if (delta > 0) {
+        log.info(`Found ${_items.length} key-value stores while excluding ${delta} key-value stores...`);
+    }
 
     for await (const i of _items) {
         const input = {
             "keyValueStoreId": i.id,
-            "filesPerZipFile": 2000
+            "filesPerZipFile": 1000
         }
-        log.info(`Running actor on key-value store name: ${i.name} with ID: ${i.id} ...`);
+
+        log.info(`Running actor on key - value store name: ${i.name} with ID: ${i.id} ...`);
         const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
         const { items } = await client.dataset(run.defaultDatasetId).listItems();
+        log.info(`Retrieved ${items} results from ${i.name}...`)
 
         log.info('Actor run finished...');
         log.info('Results from dataset');
