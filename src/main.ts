@@ -5,7 +5,8 @@ import { randomUUID } from 'crypto';
 await Actor.init();
 let EXCLUSIONS = ['completed-downloads'];
 
-let { APIFY_TOKEN, ExcludedStores } = await Actor.getInput<any>();
+let { APIFY_TOKEN, ExcludedStores } = { APIFY_TOKEN: undefined, ExcludedStores: [] };
+
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
 
 EXCLUSIONS.concat(ExcludedStores ?? []);
@@ -15,7 +16,7 @@ if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
 }
 
-export let imageDownloadStatusKeyValueStore = await KeyValueStore.open('completed-downloads');
+// export let imageDownloadStatusKeyValueStore = await KeyValueStore.open('completed-downloads');
 
 const client = new ApifyClient({ token });
 
@@ -34,7 +35,7 @@ async function downloadZip(client: ApifyClient) {
     //     "filesPerZipFile": 1000
     // }
     log.info('Reading key value stores...');
-    const accountKVS = await client.keyValueStores().list();
+    const accountKVS = await client.keyValueStores().list({ offset: 4, limit: 1 });
 
     if (accountKVS.items.length == 0) {
         console.log('No key-value stores were found!');
@@ -56,18 +57,25 @@ async function downloadZip(client: ApifyClient) {
     for await (const i of _items) {
         const input = {
             "keyValueStoreId": i.id,
-            "filesPerZipFile": 1000
+            "filesPerZipFile": 500
         }
         let kvsName = i.name ?? i.title ?? i.id;
 
-        log.info(`Running actor on key - value store name: ${kvsName} with ID: ${i.id} ...`);
+        log.info(`Running actor on key-value store name: ${kvsName} with ID: ${i.id} ...`);
         const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
-        const { items } = await client.dataset(run.defaultDatasetId).listItems();
-        log.info(`Retrieved ${items.length} results from ${kvsName}...`)
+        log.info(`Actor finished with status: ${run.status}...`);
+        log.info(`Retrieving results...`);
+        // const [...items] = (await client.dataset(run.defaultDatasetId).listItems()).items;
+        const item = (await client.keyValueStore(run.defaultKeyValueStoreId).listKeys()).items.filter((i) => !(i.key.includes('INPUT')));
+        const items = await Promise.all(item.map(i => client.keyValueStore(run.defaultKeyValueStoreId).getRecord(i.key)));
 
+        log.info(`Retrieved ${items.length} results from ${kvsName}...`)
+        5
         log.info('Actor run finished...');
         log.info('Results from dataset');
-
+        items.forEach((item: any) => {
+            console.dir(item);
+        });
         // Open the default key-value store
         let kvs = await Actor.openKeyValueStore()
         // Save the results to the default key-value store
@@ -76,6 +84,7 @@ async function downloadZip(client: ApifyClient) {
 
         kvs.setValue(fileName, items).then(() => {
             log.info(`Saved ${fileName} to default key-value store...`)
+
         }).catch((err) => log.error(err.message));
     }
 }
