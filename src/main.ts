@@ -2,9 +2,12 @@
 import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
+let EXCLUSIONS = ['completed-downloads'];
 
-const { APIFY_TOKEN } = await Actor.getInput<any>();
+let [APIFY_TOKEN, ExcludedStores] = await Actor.getInput<any>();
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
+
+EXCLUSIONS.concat(ExcludedStores ?? []);
 
 if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     console.log('No APIFY_TOKEN provided!');
@@ -29,28 +32,30 @@ async function downloadZip(client: ApifyClient) {
     //     "keyValueStoreId": "7TxqCqthXuF9Qmykq",
     //     "filesPerZipFile": 1000
     // }
-
-    const accountKVS = await client.keyValueStores().list({ limit: 5 });
+    log.info('Reading key value stores...');
+    const accountKVS = await client.keyValueStores().list();
 
     if (accountKVS.items.length == 0) {
-        console.log('No downloads found!');
+        console.log('No key-value stores were found!');
         log.info('Abort...');
         return;
     }
 
-    // Open each key value store and run the actor
-    let [...items] = accountKVS.items
-        // .map(async (kvs) => await Actor.openKeyValueStore(kvs.id));
-        .map(async (kvs) => (kvs.id));
+    // Get the ID and compare the name of each key-value store and run the actor
+    // if the name is not in the exclusion list (EXCLUSIONS)
+    let [..._items] = accountKVS.items.filter((kvs) => !EXCLUSIONS.includes(kvs.name ?? kvs.name ?? ""))
 
-    for await (const i of items) {
+    for await (const i of _items) {
         const input = {
-            "keyValueStoreId": i,
+            "keyValueStoreId": i.id,
             "filesPerZipFile": 2000
         }
-
+        log.info(`Running actor on key-value store name: ${i.name} with ID: ${i.id} ...`);
         const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
         const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+        log.info('Actor run finished...');
+        log.info('Results from dataset');
         items.forEach((item) => {
             console.dir(item);
         });
