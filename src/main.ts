@@ -84,7 +84,7 @@ async function downloadZip(client: ApifyClient) {
         const fileName = `${kvsName ?? i.id}.zip`;
 
         for await (const i of items) {
-            await kvs.setValue(fileName, i, { contentType: "application/zip" }).then(() => {
+            await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
                 log.info(`Saved ${fileName} to default key-value store...`)
             }).catch((err) => log.error(err.message));
         }
