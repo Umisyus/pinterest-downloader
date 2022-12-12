@@ -71,7 +71,8 @@ async function downloadZip(client: ApifyClient) {
         log.info(`Retrieving results...`);
         const zipActorKVSID = run.defaultKeyValueStoreId;
         // const [...items] = (await client.dataset(run.defaultDatasetId).listItems()).items;
-        const item = (await client.keyValueStore(zipActorKVSID).listKeys()).items.filter((i) => !(i.key.includes('INPUT')));
+        const item = (await client.keyValueStore(zipActorKVSID).listKeys())
+            .items.filter((i) => !EXCLUSIONS.includes(i.key))
         const zipActorKVS = client.keyValueStore(zipActorKVSID);
         const items = await Promise.all(item.map(i => zipActorKVS.getRecord(i.key)));
 
