@@ -1,5 +1,6 @@
 // For more information, see https://crawlee.dev/
 import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
+import { randomUUID } from 'crypto';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 let EXCLUSIONS = ['completed-downloads'];
@@ -45,7 +46,8 @@ async function downloadZip(client: ApifyClient) {
     // Get the ID and compare the name of each key-value store and run the actor
     // if the name is not in the exclusion list (EXCLUSIONS)
     let [..._items] = keyValuesStoresResult.filter((kvs) => !EXCLUSIONS.includes(kvs.name ?? kvs.title ?? ""))
-    const delta = _items.length - keyValuesStoresResult.length;
+    // Get the difference between the original list and the filtered list
+    const delta = keyValuesStoresResult.length - _items.length;
 
     if (delta > 0) {
         log.info(`Found ${_items.length} key-value stores while excluding ${delta} key-value stores...`);
@@ -56,18 +58,27 @@ async function downloadZip(client: ApifyClient) {
             "keyValueStoreId": i.id,
             "filesPerZipFile": 1000
         }
+        let kvsName = i.name ?? i.title ?? i.id;
 
-        log.info(`Running actor on key - value store name: ${i.name} with ID: ${i.id} ...`);
+        log.info(`Running actor on key - value store name: ${kvsName} with ID: ${i.id} ...`);
         const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
         const { items } = await client.dataset(run.defaultDatasetId).listItems();
-        log.info(`Retrieved ${items} results from ${i.name}...`)
+        log.info(`Retrieved ${items.length} results from ${kvsName}...`)
 
         log.info('Actor run finished...');
         log.info('Results from dataset');
-        items.forEach((item) => {
-            console.dir(item);
-        });
+
+        // Open the default key-value store
+        let kvs = await Actor.openKeyValueStore()
+        // Save the results to the default key-value store
+        log.info(`Saving results to default key-value store...`)
+        const fileName = `${kvsName ?? i.id}.zip`;
+
+        kvs.setValue(fileName, items).then(() => {
+            log.info(`Saved ${fileName} to default key-value store...`)
+        }).catch((err) => log.error(err.message));
     }
+}
 
     // (async () => {
     //     // Run the actor and wait for it to finish
@@ -80,4 +91,3 @@ async function downloadZip(client: ApifyClient) {
     //         console.dir(item);
     //     });
     // })();
-}
