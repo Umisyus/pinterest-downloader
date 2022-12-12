@@ -36,7 +36,7 @@ async function downloadZip(client: ApifyClient) {
     //     "filesPerZipFile": 1000
     // }
     log.info('Reading key value stores...');
-    const accountKVS = await client.keyValueStores().list({  });
+    const accountKVS = await client.keyValueStores().list({});
 
     if (accountKVS.items.length == 0) {
         console.log('No key-value stores were found!');
@@ -66,27 +66,33 @@ async function downloadZip(client: ApifyClient) {
         const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
         log.info(`Actor finished with status: ${run.status}...`);
         log.info(`Retrieving results...`);
+        const zipActorKVSID = run.defaultKeyValueStoreId;
         // const [...items] = (await client.dataset(run.defaultDatasetId).listItems()).items;
-        const item = (await client.keyValueStore(run.defaultKeyValueStoreId).listKeys()).items.filter((i) => !(i.key.includes('INPUT')));
-        const items = await Promise.all(item.map(i => client.keyValueStore(run.defaultKeyValueStoreId).getRecord(i.key)));
+        const item = (await client.keyValueStore(zipActorKVSID).listKeys()).items.filter((i) => !(i.key.includes('INPUT')));
+        const zipActorKVS = client.keyValueStore(zipActorKVSID);
+        const items = await Promise.all(item.map(i => zipActorKVS.getRecord(i.key)));
+
+        const links = items.map(async i => (await Actor.openKeyValueStore(zipActorKVSID)).getPublicUrl(i?.key ?? ""))
 
         log.info(`Retrieved ${items.length} results from ${kvsName}...`)
-        5
+
         log.info('Actor run finished...');
 
         // items.forEach((item: any) => {
         //     console.dir(item);
         // });
-        // Open the default key-value store
-        let kvs = await Actor.openKeyValueStore()
-        // Save the results to the default key-value store
-        log.info(`Saving results to default key-value store...`)
-        const fileName = `${kvsName ?? i.id}.zip`;
+        log.info(`You can download the results from the following link: ${links}`)
 
-        for await (const i of items) {
-            await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
-                log.info(`Saved ${fileName} to default key-value store...`)
-            }).catch((err) => log.error(err.message));
-        }
+        // Open the default key-value store
+        // let kvs = await Actor.openKeyValueStore()
+        // // Save the results to the default key-value store
+        // log.info(`Saving results to default key-value store...`)
+        // const fileName = `${kvsName ?? i.id}.zip`;
+
+        // for await (const i of items) {
+        //     await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
+        //         log.info(`Saved ${fileName} to default key-value store...`)
+        //     }).catch((err) => log.error(err.message));
+        // }
     }
 }
