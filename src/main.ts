@@ -5,7 +5,8 @@ import { randomUUID } from 'crypto';
 await Actor.init();
 let EXCLUSIONS = ['completed-downloads'];
 
-let { APIFY_TOKEN, ExcludedStores } = { APIFY_TOKEN: undefined, ExcludedStores: [] };
+let { APIFY_TOKEN, ExcludedStores } = await Actor.getInput<any>()
+// { APIFY_TOKEN: undefined, ExcludedStores: [] };
 
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
 
@@ -72,20 +73,21 @@ async function downloadZip(client: ApifyClient) {
         log.info(`Retrieved ${items.length} results from ${kvsName}...`)
         5
         log.info('Actor run finished...');
-        log.info('Results from dataset');
-        items.forEach((item: any) => {
-            console.dir(item);
-        });
+
+        // items.forEach((item: any) => {
+        //     console.dir(item);
+        // });
         // Open the default key-value store
         let kvs = await Actor.openKeyValueStore()
         // Save the results to the default key-value store
         log.info(`Saving results to default key-value store...`)
         const fileName = `${kvsName ?? i.id}.zip`;
 
-        kvs.setValue(fileName, items).then(() => {
-            log.info(`Saved ${fileName} to default key-value store...`)
-
-        }).catch((err) => log.error(err.message));
+        for await (const i of items) {
+            await kvs.setValue(fileName, i, { contentType: "application/zip" }).then(() => {
+                log.info(`Saved ${fileName} to default key-value store...`)
+            }).catch((err) => log.error(err.message));
+        }
     }
 }
 
