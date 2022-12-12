@@ -10,6 +10,8 @@ let { APIFY_TOKEN, ExcludedStores } = await Actor.getInput<any>()
 
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
 
+console.log(`${ExcludedStores}`);
+
 EXCLUSIONS.concat(ExcludedStores ?? []);
 
 log.info(`Excluded stores: ${EXCLUSIONS}`);
