@@ -36,7 +36,7 @@ async function downloadZip(client: ApifyClient) {
     //     "filesPerZipFile": 1000
     // }
     log.info('Reading key value stores...');
-    const accountKVS = await client.keyValueStores().list({ offset: 4, limit: 1 });
+    const accountKVS = await client.keyValueStores().list({  });
 
     if (accountKVS.items.length == 0) {
         console.log('No key-value stores were found!');
@@ -90,15 +90,3 @@ async function downloadZip(client: ApifyClient) {
         }
     }
 }
-
-    // (async () => {
-    //     // Run the actor and wait for it to finish
-    //     const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
-
-    //     // Fetch and print actor results from the run's dataset (if any)
-    //     console.log('Results from dataset');
-    //     const { items } = await client.dataset(run.defaultDatasetId).listItems();
-    //     items.forEach((item: any) => {
-    //         console.dir(item);
-    //     });
-    // })();
