@@ -12,6 +12,7 @@ const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
 
 EXCLUSIONS.concat(ExcludedStores ?? []);
 
+log.info(`Excluded stores: ${EXCLUSIONS}`);
 if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     console.log('No APIFY_TOKEN provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
