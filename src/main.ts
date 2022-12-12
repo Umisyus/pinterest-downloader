@@ -71,10 +71,14 @@ async function downloadZip(client: ApifyClient) {
         log.info(`Retrieving results...`);
         const zipActorKVSID = run.defaultKeyValueStoreId;
         // const [...items] = (await client.dataset(run.defaultDatasetId).listItems()).items;
-        const item = (await client.keyValueStore(zipActorKVSID).listKeys())
-            .items.filter((i) => !EXCLUSIONS.includes(i.key))
+        const actorKVSKeys = (await client.keyValueStore(zipActorKVSID).listKeys()).items
+        //make sure we don't download certain results
+        log.info(actorKVSKeys.flatMap((i) => i.key).join("\n"))
+        let filteredActorKVSKeys = actorKVSKeys.filter((i) => !EXCLUSIONS.includes(i.key))
+        //filter out the results that arent allowed
+
         const zipActorKVS = client.keyValueStore(zipActorKVSID);
-        const items = await Promise.all(item.map(i => zipActorKVS.getRecord(i.key)));
+        const items = await Promise.all(filteredActorKVSKeys.map(i => zipActorKVS.getRecord(i.key)));
 
         const links = items.map(async i => (await Actor.openKeyValueStore(zipActorKVSID)).getPublicUrl(i?.key ?? ""))
 
@@ -91,7 +95,9 @@ async function downloadZip(client: ApifyClient) {
             counter++;
             log.info(`You can download the results of ${kvsName} (part #${counter}) from the following link: \n${_link}`)
         }
-
+        log.info(`Saving links to default key-value store...`)
+        const kvs = await Actor.openKeyValueStore();
+        await kvs.setValue(`${kvsName ?? i.id}-links`, links, { contentType: "application/json" })
         console.dir(links)
 
         // Open the default key-value store
