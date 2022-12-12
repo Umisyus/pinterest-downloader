@@ -15,7 +15,7 @@
       "title": "ExcludedStores",
       "type": "array",
       "description": "Any key-value store names to exlude from the zipping process",
-      "editor": "textfield"
+      "editor": "stringList"
     }
   },
   "required": [
