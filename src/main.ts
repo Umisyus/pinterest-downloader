@@ -46,14 +46,16 @@ async function zipToKVS(client: ApifyClient) {
     // Read all key-value stores
     let kvs1 = await client.keyValueStores().list({ offset: 1, limit: 2 })
     // Read all keys of the key-value store
-    for await (const kvs of kvs1.items) {
+    let filteredKVS = kvs1.items.filter((kvs) => !excluded.includes(kvs.name ?? kvs.title ?? ""))
+    for await (const kvs of filteredKVS) {
 
         // Get the ID and list all keys of the key-value store
         let fileName = "";
         let folderName = kvs.name ?? kvs.title ?? kvs.id;
 
         let item_names = await client.keyValueStore(kvs.id).listKeys();
-        for await (const item of item_names.items) {
+        let filtered = item_names.items.filter((item) => is_excluded(item));
+        for await (const item of filtered) {
             // Get the record of each key
             const record = await client.keyValueStore(kvs.id).getRecord(item.key);
             record?.key ? fileName = record?.key : fileName = randomUUID();
