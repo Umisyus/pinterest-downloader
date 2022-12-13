@@ -7,8 +7,8 @@ await Actor.init();
 let EXCLUSIONS = ['completed-downloads'];
 
 let { APIFY_TOKEN, ExcludedStores } =
-    //  await Actor.getInput<any>()
-    { APIFY_TOKEN: undefined, ExcludedStores: ['concept-art', 'cute-funny-animals'] };
+    await Actor.getInput<any>()
+// { APIFY_TOKEN: undefined, ExcludedStores: ['concept-art', 'cute-funny-animals'] };
 
 const excluded = EXCLUSIONS.concat(ExcludedStores ?? process.env.ExcludedStores ?? []);
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
@@ -70,7 +70,7 @@ async function downloadZip(client: ApifyClient) {
         let kvsName = i.name ?? i.title ?? i.id;
 
         log.info(`Running actor on key-value store name: ${kvsName} with ID: ${i.id} ...`);
-        const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input);
+        const run = await client.actor("jaroslavhejlek/zip-key-value-store").call(input, { memory: 2048, timeout: 720 });
         log.info(`Actor finished with status: ${run.status}...`);
         log.info(`Retrieving results...`);
         const zipActorKVSID = run.defaultKeyValueStoreId;
@@ -86,7 +86,7 @@ async function downloadZip(client: ApifyClient) {
 
         const links = await Promise.all(items.map(async i => (await Actor.openKeyValueStore(zipActorKVSID)).getPublicUrl(i?.key ?? "")))
 
-        log.info(`Retrieved ${items.length} results from ${kvsName}...`)
+        log.info(`Retrieved ${items.length} result(s) for ${kvsName} from actor...`)
 
         log.info('Actor run finished...');
 
