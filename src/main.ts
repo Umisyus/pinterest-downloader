@@ -1,5 +1,6 @@
 // For more information, see https://crawlee.dev/
 import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
+import { KeyValueListItem } from 'apify-client';
 import { randomUUID } from 'crypto';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
@@ -74,7 +75,7 @@ async function downloadZip(client: ApifyClient) {
         const actorKVSKeys = (await client.keyValueStore(zipActorKVSID).listKeys()).items
         //make sure we don't download certain results
         log.info(`ALL EXCLUSIONS: ${actorKVSKeys.flatMap((i) => i.key).join("\n")}`)
-        let filteredActorKVSKeys = actorKVSKeys.filter((i) => !EXCLUSIONS.includes(i.key))
+        let filteredActorKVSKeys = actorKVSKeys.filter((i) => is_excluded(i))
         //filter out the results that arent allowed
 
         const zipActorKVS = client.keyValueStore(zipActorKVSID);
@@ -115,3 +116,8 @@ async function downloadZip(client: ApifyClient) {
         }
     }
 }
+function is_excluded(i: KeyValueListItem): boolean {
+    log.info(`Checking if ${i.key} is excluded...`)
+    return !EXCLUSIONS.includes(i.key);
+}
+
