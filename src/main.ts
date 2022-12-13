@@ -98,7 +98,7 @@ async function downloadZip(client: ApifyClient) {
 
         log.info(`Saving links to default key-value store...`)
         const kvs = await Actor.openKeyValueStore();
-        await kvs.setValue(`${kvsName ?? i.id}-links`, { downlaodslinks: links.join() }, { contentType: "application/json" })
+        await kvs.setValue(`${kvsName ?? i.id}-links`, links.join())
 
         for await (const _link of links) {
             counter++;
