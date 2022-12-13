@@ -4,7 +4,7 @@ import { KeyValueListItem } from 'apify-client';
 import { randomUUID } from 'crypto';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
-let EXCLUSIONS = ['completed-downloads'];
+let EXCLUSIONS: string[] = [];
 
 let { APIFY_TOKEN, ExcludedStores } =
     await Actor.getInput<any>()
