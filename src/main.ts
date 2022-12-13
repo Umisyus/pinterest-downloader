@@ -61,7 +61,7 @@ async function downloadZip(client: ApifyClient) {
         log.info(`Processing ${_items.length} key-value stores while excluding the following ${delta} key-value stores...`);
         log.info(`Excluded key-value stores: ${excluded.join("\n")}`)
     }
-
+    let links: string[] = []
     for await (const i of _items) {
         const input = {
             "keyValueStoreId": i.id,
@@ -96,13 +96,16 @@ async function downloadZip(client: ApifyClient) {
         log.info(`Results for ${kvsName} are in ${links.length} part(s)...`);
         let counter = 0;
 
-        log.info(`Saving links to default key-value store...`)
+        log.info(`Saving links...`)
         const kvs = await Actor.openKeyValueStore();
-        await kvs.setValue(`${kvsName ?? i.id}-links`, await links.join())
+        // @ts-ignore
+        // await kvs.setValue(`${kvsName ?? i.id}-links`, await links.join())
+        await (await Actor.openDataset()).pushData(`${kvsName ?? i.id}-links`, await links.join())
 
+        links.push(...links)
         for await (const _link of links) {
             counter++;
-            log.info(`You can download the results of ${kvsName} (part #${counter}) from the following link: \n${_link}`)
+            log.info(`You can download the results of ${kvsName} (part #${counter}) from the following link: \n> ${_link}`)
         }
         // console.dir((await Promise.resolve(links).then(l => l)).join("\n"))
 
@@ -120,6 +123,7 @@ async function downloadZip(client: ApifyClient) {
         //     }
         // }
     }
+    log.info(`${links}`);
 }
 function is_excluded(i: KeyValueListItem): boolean {
     log.info(`Checking if ${i.key} is excluded...`)
