@@ -100,7 +100,7 @@ async function downloadZip(client: ApifyClient) {
         const kvs = await Actor.openKeyValueStore();
         // @ts-ignore
         // await kvs.setValue(`${kvsName ?? i.id}-links`, await links.join())
-        await (await Actor.openDataset()).pushData(`${kvsName ?? i.id}-links`, await { links: links.join() })
+        await (await Actor.openDataset()).pushData(`${kvsName ?? i.id}-links`, { links: links })
 
         links.push(...links)
         for await (const _link of links) {
