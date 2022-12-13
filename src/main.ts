@@ -46,7 +46,7 @@ await Actor.exit()
 async function zipToKVS(client: ApifyClient) {
     // let zip = new fflate.AsyncGzip({ level: 9, mem: 12, filename: 'hello.txt' });
 
-    const gzs = new AsyncGzip({ mem: 8 });
+    const gzs = new AsyncGzip({ level: 9, mem: 12, filename: 'hello.txt' });
     let wasCallbackCalled = false;
     let gzipData: any[] = []
     gzs.ondata = (err, chunk, _final) => {
@@ -109,8 +109,8 @@ async function zipToKVS(client: ApifyClient) {
         const kvsName = kvs.name ?? kvs.title ?? kvs.id;
         // Save the zip file to the key-value store
         log.info(`Saving zipped files to key-value store ${kvsName}...`)
-        // create an empty stream
-        let zipStream = new Blob(gzipData, { type: 'application/octet-stream' }).text();
+
+        let zipStream = await new Blob(gzipData).stream();
 
         await Actor.setValue(`${randomUUID()}_${folderName}`, zipStream, { contentType: 'application/zip' })
         log.info(`Finished saving zipped files to key-value store ${kvsName}...`)
