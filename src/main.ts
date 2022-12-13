@@ -55,6 +55,7 @@ async function zipToKVS(client: ApifyClient) {
 
         let item_names = await client.keyValueStore(kvs.id).listKeys({ limit: 100 });
         let filtered = item_names.items
+        log.info(`Zipping ${filtered.length} files from key-value store ${kvs.name ?? kvs.title ?? kvs.id}...`)
         // .filter((item) => is_excluded(item));
         for await (const item of filtered) {
             // Get the record of each key
@@ -65,7 +66,7 @@ async function zipToKVS(client: ApifyClient) {
                 const file = await client.keyValueStore(kvs.id).getRecord(item.key);
                 if (file && file?.value) {
                     log.info(`Adding file ${file?.key} to zip file...`);
-                    zip.file(`${folderName}/${fileName ?? randomUUID()} `, file.value as string, { binary: true });
+                    zip.file(`${folderName}/_${fileName ?? randomUUID()}.png`, file.value as string, { binary: true });
                 }
             }
         }
