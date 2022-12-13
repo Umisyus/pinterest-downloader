@@ -8,8 +8,13 @@ await Actor.init();
 let EXCLUSIONS: string[] = [];
 
 let { APIFY_TOKEN, ExcludedStores } =
-    await Actor.getInput<any>()
-// { APIFY_TOKEN: undefined, ExcludedStores: ['concept-art', 'cute-funny-animals'] };
+// await Actor.getInput<any>()
+{
+    APIFY_TOKEN: undefined, ExcludedStores:
+        [
+            'concept-art', 'cute-funny-animals'
+        ]
+};
 
 const excluded = EXCLUSIONS.concat(ExcludedStores ?? process.env.ExcludedStores ?? []);
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
@@ -31,7 +36,7 @@ const client = new ApifyClient({ token });
 client.baseUrl = 'https://api.apify.com/v2/';
 client.token = token;
 
-await downloadZip(client)
+// await downloadZip(client)
 await zipToKVS(client
 )
 await Actor.exit()
@@ -39,26 +44,25 @@ await Actor.exit()
 async function zipToKVS(client: ApifyClient) {
     let zip = JSZip()
     // Read all key-value stores
-    let kvs1 = await client.keyValueStores().list()
+    let kvs1 = await client.keyValueStores().list({ offset: 1, limit: 2 })
     // Read all keys of the key-value store
-    kvs1.items.forEach(async (kvs) => {
+    for await (const kvs of kvs1.items) {
 
         // Get the ID and list all keys of the key-value store
-        let folderName = ""
-        let item_names = await client.keyValueStore(kvs.id).listKeys()
+        let fileName = "";
+        let folderName = kvs.name ?? kvs.title ?? kvs.id;
 
+        let item_names = await client.keyValueStore(kvs.id).listKeys();
         for await (const item of item_names.items) {
             // Get the record of each key
-            const record = await client.keyValueStore(kvs.id).getRecord(item.key)
-
-            record?.key ? folderName = record?.key : folderName = randomUUID()
-
+            const record = await client.keyValueStore(kvs.id).getRecord(item.key);
+            record?.key ? fileName = record?.key : fileName = randomUUID();
             // If the record is a file, download it and save it to the key-value store
             if (record?.contentType === 'image/jpeg' || record?.contentType === 'image/png') {
-                const file = await client.keyValueStore(kvs.id).getRecord(item.key)
+                const file = await client.keyValueStore(kvs.id).getRecord(item.key);
                 if (file && file?.value) {
-                    log.info(`Adding file ${file?.key} to zip file...`)
-                    zip.file(file?.key ?? randomUUID(), Buffer.from(file.value.toString()).buffer)
+                    log.info(`Adding file ${file?.key} to zip file...`);
+                    zip.file(`${folderName}/${fileName ?? randomUUID()} `, file.value as string, { binary: true });
                 }
             }
         }
@@ -68,9 +72,10 @@ async function zipToKVS(client: ApifyClient) {
         // Save the zip file to the key-value store
         log.info(`Saving zipped files to key-value store ${kvsName}...`)
         let zipFile = await zip.generateAsync({ type: "nodebuffer" })
-        await Actor.setValue(folderName, zipFile)
+        await Actor.setValue(folderName, zipFile, { contentType: 'application/zip' })
         log.info(`Finished saving zipped files to key-value store ${kvsName}...`)
-    });
+    };
+
 }
 
 async function downloadZip(client: ApifyClient) {
