@@ -2,6 +2,7 @@
 import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
 import { KeyValueListItem } from 'apify-client';
 import { randomUUID } from 'crypto';
+import JSZip from 'jszip';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 let EXCLUSIONS: string[] = [];
@@ -31,8 +32,46 @@ client.baseUrl = 'https://api.apify.com/v2/';
 client.token = token;
 
 await downloadZip(client)
-
+await zipToKVS(client
+)
 await Actor.exit()
+
+async function zipToKVS(client: ApifyClient) {
+    let zip = JSZip()
+    // Read all key-value stores
+    let kvs1 = await client.keyValueStores().list()
+    // Read all keys of the key-value store
+    kvs1.items.forEach(async (kvs) => {
+
+        // Get the ID and list all keys of the key-value store
+        let folderName = ""
+        let item_names = await client.keyValueStore(kvs.id).listKeys()
+
+        for await (const item of item_names.items) {
+            // Get the record of each key
+            const record = await client.keyValueStore(kvs.id).getRecord(item.key)
+
+            record?.key ? folderName = record?.key : folderName = randomUUID()
+
+            // If the record is a file, download it and save it to the key-value store
+            if (record?.contentType === 'image/jpeg' || record?.contentType === 'image/png') {
+                const file = await client.keyValueStore(kvs.id).getRecord(item.key)
+                if (file && file?.value) {
+                    log.info(`Adding file ${file?.key} to zip file...`)
+                    zip.file(file?.key ?? randomUUID(), Buffer.from(file.value.toString()).buffer)
+                }
+            }
+        }
+
+        // Get the name of the key-value store
+        const kvsName = kvs.name ?? kvs.title ?? kvs.id;
+        // Save the zip file to the key-value store
+        log.info(`Saving zipped files to key-value store ${kvsName}...`)
+        let zipFile = await zip.generateAsync({ type: "nodebuffer" })
+        await Actor.setValue(folderName, zipFile)
+        log.info(`Finished saving zipped files to key-value store ${kvsName}...`)
+    });
+}
 
 async function downloadZip(client: ApifyClient) {
 
