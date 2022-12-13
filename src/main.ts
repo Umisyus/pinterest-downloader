@@ -6,9 +6,11 @@ import { randomUUID } from 'crypto';
 await Actor.init();
 let EXCLUSIONS = ['completed-downloads'];
 
-let { APIFY_TOKEN, ExcludedStores } = await Actor.getInput<any>()
-// { APIFY_TOKEN: undefined, ExcludedStores: [] };
+let { APIFY_TOKEN, ExcludedStores } =
+    //  await Actor.getInput<any>()
+    { APIFY_TOKEN: undefined, ExcludedStores: ['concept-art', 'cute-funny-animals'] };
 
+const excluded = EXCLUSIONS.concat(ExcludedStores ?? process.env.ExcludedStores ?? []);
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
 
 console.log(`${ExcludedStores}`);
@@ -51,12 +53,13 @@ async function downloadZip(client: ApifyClient) {
     const keyValuesStoresResult = accountKVS.items;
     // Get the ID and compare the name of each key-value store and run the actor
     // if the name is not in the exclusion list (EXCLUSIONS)
-    let [..._items] = keyValuesStoresResult.filter((kvs) => !EXCLUSIONS.includes(kvs.name ?? kvs.title ?? ""))
+    let [..._items] = keyValuesStoresResult.filter((kvs) => !excluded.includes(kvs.name ?? kvs.title ?? ""))
     // Get the difference between the original list and the filtered list
     const delta = keyValuesStoresResult.length - _items.length;
 
     if (delta > 0) {
-        log.info(`Found ${_items.length} key-value stores while excluding ${delta} key-value stores...`);
+        log.info(`Processing ${_items.length} key-value stores while excluding the following ${delta} key-value stores...`);
+        log.info(`Excluded key-value stores: ${excluded.join("\n")}`)
     }
 
     for await (const i of _items) {
@@ -73,11 +76,11 @@ async function downloadZip(client: ApifyClient) {
         const zipActorKVSID = run.defaultKeyValueStoreId;
         // const [...items] = (await client.dataset(run.defaultDatasetId).listItems()).items;
         const actorKVSKeys = (await client.keyValueStore(zipActorKVSID).listKeys()).items
-        //make sure we don't download certain results
-        log.info(`ALL EXCLUSIONS: ${actorKVSKeys.flatMap((i) => i.key).join("\n")}`)
-        let filteredActorKVSKeys = actorKVSKeys.filter((i) => is_excluded(i))
-        //filter out the results that arent allowed
 
+        // make sure we don't download certain results
+        let filteredActorKVSKeys = actorKVSKeys
+            // .filter((i) => i.key !== "INPUT")
+            .filter((i) => is_excluded(i))
         const zipActorKVS = client.keyValueStore(zipActorKVSID);
         const items = await Promise.all(filteredActorKVSKeys.map(i => zipActorKVS.getRecord(i.key)));
 
@@ -92,32 +95,39 @@ async function downloadZip(client: ApifyClient) {
         // });
         log.info(`Results are for ${kvsName} are in ${links.length} parts...`);
         let counter = 0;
+
+        log.info(`Saving links to default key-value store...`)
+        const kvs = await Actor.openKeyValueStore();
+        await kvs.setValue(`${kvsName ?? i.id}-links`, { downlaodslinks: links.join() }, { contentType: "application/json" })
+
         for await (const _link of links) {
             counter++;
             log.info(`You can download the results of ${kvsName} (part #${counter}) from the following link: \n${_link}`)
         }
-        log.info(`Saving links to default key-value store...`)
-        const kvs = await Actor.openKeyValueStore();
-        await kvs.setValue(`${kvsName ?? i.id}-links`, links.join(), { contentType: "application/json" })
-        console.dir(links)
+        console.dir(links.join("\n"))
 
-        // Open the default key - value store
-        // Save the results to the default key-value store
-        log.info(`Saving results to default key-value store...`)
-        const fileName = `${kvsName ?? i.id}.zip`;
+        // // Open the default key-value store
+        // // Save the results to the default key-value store
+        // log.info(`Saving results to default key-value store...`)
+        // const fileName = `${kvsName ?? i.id}.zip`;
 
-        log.info(`Saving zipped files to default key-value store...`)
-        for await (const i of items) {
-            if (i?.value) {
-                await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
-                    log.info(`Saved ${fileName} to default key-value store...`)
-                }).catch((err) => log.error(err.message));
-            }
-        }
+        // log.info(`Saving zipped files to default key-value store...`)
+        // for await (const i of items) {
+        //     if (i?.value) {
+        //         await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
+        //             log.info(`Saved ${fileName} to default key-value store...`)
+        //         }).catch((err) => log.error(err.message));
+        //     }
+        // }
     }
 }
 function is_excluded(i: KeyValueListItem): boolean {
     log.info(`Checking if ${i.key} is excluded...`)
-    return !EXCLUSIONS.includes(i.key);
+    if ('INPUT' == i.key) {
+        // Ignored by default
+        log.info(`Excluding ${i.key}...`)
+        return false;
+    }
+    return !excluded.includes(i.key);
 }
 
