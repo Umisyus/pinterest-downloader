@@ -84,7 +84,7 @@ async function downloadZip(client: ApifyClient) {
         const zipActorKVS = client.keyValueStore(zipActorKVSID);
         const items = await Promise.all(filteredActorKVSKeys.map(i => zipActorKVS.getRecord(i.key)));
 
-        const links = items.map(async i => (await Actor.openKeyValueStore(zipActorKVSID)).getPublicUrl(i?.key ?? ""))
+        const links = await Promise.all(items.map(async i => (await Actor.openKeyValueStore(zipActorKVSID)).getPublicUrl(i?.key ?? "")))
 
         log.info(`Retrieved ${items.length} results from ${kvsName}...`)
 
@@ -93,7 +93,7 @@ async function downloadZip(client: ApifyClient) {
         // items.forEach((item: any) => {
         //     console.dir(item);
         // });
-        log.info(`Results are for ${kvsName} are in ${links.length} parts...`);
+        log.info(`Results for ${kvsName} are in ${links.length} part(s)...`);
         let counter = 0;
 
         log.info(`Saving links to default key-value store...`)
@@ -104,7 +104,7 @@ async function downloadZip(client: ApifyClient) {
             counter++;
             log.info(`You can download the results of ${kvsName} (part #${counter}) from the following link: \n${_link}`)
         }
-        console.dir(links.join("\n"))
+        // console.dir((await Promise.resolve(links).then(l => l)).join("\n"))
 
         // // Open the default key-value store
         // // Save the results to the default key-value store
