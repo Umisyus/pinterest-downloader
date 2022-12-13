@@ -73,7 +73,7 @@ async function downloadZip(client: ApifyClient) {
         // const [...items] = (await client.dataset(run.defaultDatasetId).listItems()).items;
         const actorKVSKeys = (await client.keyValueStore(zipActorKVSID).listKeys()).items
         //make sure we don't download certain results
-        log.info(actorKVSKeys.flatMap((i) => i.key).join("\n"))
+        log.info(`ALL EXCLUSIONS: ${actorKVSKeys.flatMap((i) => i.key).join("\n")}`)
         let filteredActorKVSKeys = actorKVSKeys.filter((i) => !EXCLUSIONS.includes(i.key))
         //filter out the results that arent allowed
 
@@ -97,19 +97,21 @@ async function downloadZip(client: ApifyClient) {
         }
         log.info(`Saving links to default key-value store...`)
         const kvs = await Actor.openKeyValueStore();
-        await kvs.setValue(`${kvsName ?? i.id}-links`, links, { contentType: "application/json" })
+        await kvs.setValue(`${kvsName ?? i.id}-links`, links.join(), { contentType: "application/json" })
         console.dir(links)
 
-        // Open the default key-value store
-        // let kvs = await Actor.openKeyValueStore()
-        // // Save the results to the default key-value store
-        // log.info(`Saving results to default key-value store...`)
-        // const fileName = `${kvsName ?? i.id}.zip`;
+        // Open the default key - value store
+        // Save the results to the default key-value store
+        log.info(`Saving results to default key-value store...`)
+        const fileName = `${kvsName ?? i.id}.zip`;
 
-        // for await (const i of items) {
-        //     await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
-        //         log.info(`Saved ${fileName} to default key-value store...`)
-        //     }).catch((err) => log.error(err.message));
-        // }
+        log.info(`Saving zipped files to default key-value store...`)
+        for await (const i of items) {
+            if (i?.value) {
+                await kvs.setValue(fileName, i?.value, { contentType: "application/zip" }).then(() => {
+                    log.info(`Saved ${fileName} to default key-value store...`)
+                }).catch((err) => log.error(err.message));
+            }
+        }
     }
 }
