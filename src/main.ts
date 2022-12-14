@@ -3,7 +3,7 @@ import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
 import { KeyValueListItem } from 'apify-client';
 import { randomUUID } from 'crypto';
 import JSZip from 'jszip';
-import { AsyncGzip } from 'fflate';
+import { AsyncGzip, strToU8, zipSync } from 'fflate';
 import fs from 'fs';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
@@ -45,62 +45,61 @@ await Actor.exit()
 
 async function zipToKVS(client: ApifyClient) {
     // let zip = new fflate.AsyncGzip({ level: 9, mem: 12, filename: 'hello.txt' });
-
-    const gzs = new AsyncGzip({ level: 9, mem: 12, filename: 'hello.txt' });
+    let done = false;
+    const gzs = new AsyncGzip({ level: 0, mem: 4, filename: 'hello.txt' });
     let wasCallbackCalled = false;
-    let gzipData: any[] = []
-    gzs.ondata = (err, chunk, _final) => {
-        // Note the new err parameter
-        if (err) {
-            // Note that after this occurs, the stream becomes corrupt and must
-            // be discarded. You can't continue pushing chunks and expect it to
-            // work.
-            console.error(err);
-            return;
-        }
-        gzipData.push(chunk)
-        wasCallbackCalled = true;
-    }
-
-    /*
-
-    */
+    let toZip: any = {}
 
     // Read all key-value stores
     let kvs1 = await client.keyValueStores().list({ offset: 1, limit: 2 })
     // Read all keys of the key-value store
     let filteredActorKVSItem = kvs1.items.filter((kvs) => !excluded.includes(kvs.name ?? kvs.title ?? ""))
-    for await (const kvs of filteredActorKVSItem) {
-
+    for (let index = 0; index < filteredActorKVSItem.length; index++) {
+        const kvs = filteredActorKVSItem[index];
         // Get the ID and list all keys of the key-value store
         let fileName = "";
         let folderName = kvs.name ?? kvs.title ?? kvs.id;
 
-        let item_names = await client.keyValueStore(kvs.id).listKeys({});
+        let item_names = await client.keyValueStore(kvs.id).listKeys({ limit: 20 });
         let filteredKVSListItem = item_names.items
+        let lastItemPosition = false
+        const listLength = filteredKVSListItem.length;
         log.info(`Zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`)
         // .filter((item) => is_excluded(item));
-        for await (const kvsListItem of filteredKVSListItem) {
+        for (let index = 0; index < filteredKVSListItem.length; index++) {
+            const kvsListItem = filteredKVSListItem[index];
+
             // Get the record of each key
             const record = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
             record?.key ? fileName = record?.key : fileName = randomUUID();
             // If the record is a file, download it and save it to the key-value store
-            if (record?.contentType === 'image/jpeg' || record?.contentType === 'image/png') {
-                const file = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
-                if (file && file?.value) {
-                    const fName = `${folderName}/_${fileName ?? randomUUID()}.png`;
+            // if (record?.contentType === 'image/jpg' || record?.contentType === 'image/jpeg' || record?.contentType === 'image/png') {
+            const file = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
+            if (file && file?.value) {
+                const fName = `${folderName}/_${fileName ?? randomUUID()}.png`;
 
-                    log.info(`Adding file ${fName} to zip file...`);
-                    gzs.push(Buffer.from(file.value as string));
+                log.info(`Adding file ${fName} to zip file...`);
+                console.log(file.key, file.value);
+                const buffered = Buffer.from((file.value as string), 'binary');
+                toZip[`dir-${file.key}`] = { [file.key]: [buffered] }
 
-                    // is last item?
-                    const listLength = filteredKVSListItem.length;
-                    const lastItemPosition = filteredKVSListItem.indexOf(kvsListItem) === listLength - 1;
-                    if (lastItemPosition) {
-                        gzs.push(Buffer.from(file.value as string), true);
-                    }
-                }
+
+                log.info(`Finished adding file ${fName} to zip file...`);
             }
+            const zipped = zipSync(
+                toZip
+            );
+
+            let b = new Blob([zipped], { type: 'application/zip' })
+            await b.arrayBuffer().then(b => {
+                if (!fs.existsSync('test-folder')) fs.mkdirSync('test-folder')
+                fs.writeFileSync('test-folder/test2.zip', zipped)
+            })
+
+            console.log('Writing to file...');
+            fs.writeFileSync('./image-downloads.zip', zipped, { encoding: 'binary' });
+            console.log('Done!');
+            // }
         };
         // Done zipping
         log.info(`Finished zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`)
@@ -110,9 +109,7 @@ async function zipToKVS(client: ApifyClient) {
         // Save the zip file to the key-value store
         log.info(`Saving zipped files to key-value store ${kvsName}...`)
 
-        let zipStream = await new Blob(gzipData).stream();
-
-        await Actor.setValue(`${randomUUID()}_${folderName}`, zipStream, { contentType: 'application/zip' })
+        // await Actor.setValue(`${randomUUID()}_${folderName}`, big_data, { contentType: 'application/zip' })
         log.info(`Finished saving zipped files to key-value store ${kvsName}...`)
 
 
