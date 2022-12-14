@@ -7,25 +7,23 @@ import { AsyncGzip, strToU8, zipSync } from 'fflate';
 import fs from 'fs';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
-let EXCLUSIONS: string[] = [];
 
 let { APIFY_TOKEN, ExcludedStores } =
 // await Actor.getInput<any>()
 {
     APIFY_TOKEN: undefined, ExcludedStores:
         [
-            'concept-art', 'cute-funny-animals'
+            // 'concept-art', 'cute-funny-animals'
         ]
 };
 
-const excluded = EXCLUSIONS.concat(ExcludedStores ?? process.env.ExcludedStores ?? []);
+const excluded = new Array().concat(ExcludedStores ?? process.env.ExcludedStores as unknown as string[] ?? []);
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
 
-console.log(`${ExcludedStores}`);
+console.log(`Excluded: ${excluded.join(', ')}`);
 
-EXCLUSIONS.concat(ExcludedStores ?? []);
 
-log.info(`Excluded stores: ${EXCLUSIONS}`);
+log.info(`Excluded key-value stores: ${excluded}`);
 if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     console.log('No APIFY_TOKEN provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
@@ -49,7 +47,7 @@ async function zipToKVS(client: ApifyClient) {
     const gzs = new AsyncGzip({ level: 0, mem: 4, filename: 'hello.txt' });
     let wasCallbackCalled = false;
     let toZip: any = {}
-
+    let zipped: any = {}
     // Read all key-value stores
     let kvs1 = await client.keyValueStores().list({ offset: 1, limit: 2 })
     // Read all keys of the key-value store
@@ -81,28 +79,25 @@ async function zipToKVS(client: ApifyClient) {
                 log.info(`Adding file ${fName} to zip file...`);
                 console.log(file.key, file.value);
                 const buffered = Buffer.from((file.value as string), 'binary');
-                toZip[`dir-${file.key}`] = { [file.key]: [buffered] }
-
+                toZip[`${folderName}/${([file.key])}`] = [buffered];
 
                 log.info(`Finished adding file ${fName} to zip file...`);
             }
-            const zipped = zipSync(
+            zipped = zipSync(
                 toZip
             );
 
-            let b = new Blob([zipped], { type: 'application/zip' })
-            await b.arrayBuffer().then(b => {
-                if (!fs.existsSync('test-folder')) fs.mkdirSync('test-folder')
-                fs.writeFileSync('test-folder/test2.zip', zipped)
-            })
-
-            console.log('Writing to file...');
-            fs.writeFileSync('./image-downloads.zip', zipped, { encoding: 'binary' });
-            console.log('Done!');
-            // }
         };
         // Done zipping
         log.info(`Finished zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`)
+        console.log('Writing to file...');
+        let b = new Blob([zipped], { type: 'application/zip' })
+
+        const outFolder = 'test-folder';
+        if (!fs.existsSync(outFolder)) fs.mkdirSync(outFolder)
+
+        fs.writeFileSync(`${outFolder}/image-downloads.zip`, zipped, { encoding: 'binary' });
+        console.log('Done!');
 
         // Get the name of the key-value store
         const kvsName = kvs.name ?? kvs.title ?? kvs.id;
