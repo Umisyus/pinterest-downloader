@@ -7,14 +7,14 @@ let __dirname = path.dirname(process.argv[1]);
 const localFile = fs.readFileSync(path.resolve(__dirname + '/../images/Abstract Art/0b1c4669d46a2b2cefe13fb507709efe.jpg'))
 
 let structure = {}
-let files = [{ k: "name.png", v: localFile }, { k: "name2.png", v: localFile, k: "name3.png", v: localFile, k: "name4.png", v: localFile }]
+let files = [{ k: "name.png", v: localFile }, { k: "name2.png", v: localFile }, { k: "name3.png", v: localFile }, { k: "name4.png", v: localFile }]
 
 let i = 0
 let folderName = 'folder'
 
 let arr = []
 
-const toZip = {
+let toZip = {
     'dir1': {
         'nested': {
             // You can use Unicode in filenames
@@ -27,17 +27,21 @@ const toZip = {
     // PNG is pre-compressed; no need to waste time
     'superTinyFile.png': [localFile, { level: 0 }],
 };
-const zipped = fflate.zipSync(
-    toZip[localFile] = {localFile}
-);
-for (let f of files) {
-    zipped
+
+files.forEach(f => {
+    console.log(f.k, f.v.length);
+    toZip[`dir-${f.k}`] = { [f.k]: [f.v] }
     i++
-}
+})
+
+const zipped = fflate.zipSync(
+    toZip
+);
 let b = new Blob([zipped], { type: 'application/zip' })
 
 await b.arrayBuffer().then(b => {
-    fs.writeFileSync('test2.zip', zipped)
+    if (!fs.existsSync('test-folder')) fs.mkdirSync('test-folder')
+    fs.writeFileSync('test-folder/test2.zip', zipped)
 })
 
 
