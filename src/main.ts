@@ -1,14 +1,13 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
+import { Actor, ApifyClient, log } from 'apify';
 import { KeyValueListItem } from 'apify-client';
 import { randomUUID } from 'crypto';
-import JSZip from 'jszip';
-import { AsyncGzip, strToU8, zipSync } from 'fflate';
+import { zipSync } from 'fflate';
 import fs from 'fs';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
-let { APIFY_TOKEN, ExcludedStores } =
+let { APIFY_TOKEN, ExcludedStores, multi_zip = false } =
 // await Actor.getInput<any>()
 {
     APIFY_TOKEN: undefined, ExcludedStores:
@@ -39,10 +38,14 @@ await zipToKVS(client
 await Actor.exit()
 
 async function zipToKVS(client: ApifyClient) {
-
-    await writeManyZips();
-
-    await writeSingleZip();
+    console.time('zipToKVS');
+    if (multi_zip) {
+        await writeManyZips();
+    } else {
+        await writeSingleZip();
+    }
+    console.timeEnd('zipToKVS');
+    log.info('Finished zipping to key-value store!');
 
     async function writeManyZips() {
         let toZip: any = {};
