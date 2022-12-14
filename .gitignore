@@ -14,3 +14,7 @@ pinterest-download-data
 
 images
 images/*
+*.png
+*.jpg
+*.jpeg
+*.zip
