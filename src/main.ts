@@ -8,13 +8,14 @@ import fs from 'fs';
 await Actor.init();
 
 let { APIFY_TOKEN, ExcludedStores, multi_zip = false } =
-// await Actor.getInput<any>()
-{
-    APIFY_TOKEN: undefined, ExcludedStores:
-        [
-            // 'concept-art', 'cute-funny-animals'
-        ]
-};
+    await Actor.getInput<any>()
+// {
+//     APIFY_TOKEN: undefined, ExcludedStores:
+//         [
+//             // 'completed-downloads'
+//             // 'concept-art', 'cute-funny-animals'
+//         ]
+// };
 
 const excluded = new Array().concat(ExcludedStores ?? process.env.ExcludedStores as unknown as string[] ?? []);
 const token = APIFY_TOKEN ?? process.env.APIFY_TOKEN ?? '';
@@ -51,16 +52,15 @@ async function zipToKVS(client: ApifyClient) {
         let toZip: any = {};
         let zipped: any = {};
         // Read all key-value stores
-        let kvs1 = await client.keyValueStores().list({ offset: 1, limit: 2 });
-        // Read all keys of the key-value store
-        let filteredActorKVSItem = kvs1.items.filter((kvs) => !excluded.includes(kvs.name ?? kvs.title ?? ""));
+        let filteredActorKVSItem = await getKeyValueStoreList(client);
+
         for (let index = 0; index < filteredActorKVSItem.length; index++) {
             const kvs = filteredActorKVSItem[index];
             // Get the ID and list all keys of the key-value store
             let fileName = "";
             let folderName = kvs.name ?? kvs.title ?? kvs.id;
 
-            let item_names = await client.keyValueStore(kvs.id).listKeys({ limit: 20 });
+            let item_names = await client.keyValueStore(kvs.id).listKeys();
             let filteredKVSListItem = item_names.items;
             log.info(`Zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
             // .filter((item) => is_excluded(item));
@@ -113,17 +113,17 @@ async function zipToKVS(client: ApifyClient) {
         let folderName = "";
         let fileName = "";
         // Read all key-value stores
-        let kvs1 = await client.keyValueStores().list({ offset: 1, limit: 2 });
-        // Read all keys of the key-value store
-        let filteredActorKVSItem = kvs1.items.filter((kvs) => !excluded.includes(kvs.name ?? kvs.title ?? ""));
+        let filteredActorKVSItem = await getKeyValueStoreList(client);
+
         for (let index = 0; index < filteredActorKVSItem.length; index++) {
             const kvs = filteredActorKVSItem[index];
             // Get the ID and list all keys of the key-value store
             fileName = "";
             folderName = kvs.name ?? kvs.title ?? kvs.id;
 
-            let item_names = await client.keyValueStore(kvs.id).listKeys({ limit: 20 });
-            let filteredKVSListItem = item_names.items;
+            let item_names = await client.keyValueStore(kvs.id).listKeys();
+            let filteredKVSListItem = item_names.items.filter((item) => !excluded.includes(item.key));
+
             log.info(`Zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
             // .filter((item) => is_excluded(item));
             for (let index = 0; index < filteredKVSListItem.length; index++) {
@@ -182,6 +182,17 @@ async function zipToKVS(client: ApifyClient) {
 
         console.log('Done!');
     }
+}
+
+async function getKeyValueStoreList(client: ApifyClient) {
+    let kvs1 = await client.keyValueStores().list();
+    // Read all keys of the key-value store
+    log.info(`Found key-value stores: \n${kvs1.items.join(', ')}`);
+
+    let filteredActorKVSItem = kvs1.items.filter((kvs) => !excluded.includes(kvs.name ?? kvs.title ?? ""));
+    log.info(`Filtered key-value stores: \n${filteredActorKVSItem.map(k => k.name).join(', ')}`);
+
+    return filteredActorKVSItem;
 }
 
 async function saveToKVS(zipped: any, fileName: string = "image_downloads") {
