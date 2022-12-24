@@ -7,7 +7,7 @@ import fs from 'fs';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
-let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 100 } =
+let { APIFY_TOKEN, ExcludedStores, multi_zip = false, FILES_PER_ZIP = 100 } =
 // await Actor.getInput<any>()
 {
     APIFY_TOKEN: undefined, ExcludedStores:
@@ -75,20 +75,32 @@ async function zipToKVS(client: ApifyClient) {
                 for (let index = 0; index < items.length; index++) {
                     const kvsListItem = items[index];
 
-                    // Get the record of each key
-                    const record = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
-                    record?.key ? fileName = record?.key : fileName = randomUUID();
                     // Get the file in the record
                     // If the record is a file, download it and save it to the key-value store
                     // if (record?.contentType === 'image/jpg' || record?.contentType === 'image/jpeg' || record?.contentType === 'image/png') {
+
                     const file = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
                     if (file && file?.value) {
-                        const fName = `${folderName}/_${fileName ?? randomUUID()}.png`;
+                        let ext = 'png'
+
+                        fileName = file.key;
+                        // Get the file extension
+                        // Default to png if no extension is found
+                        if (fileName.includes('.')) {
+                            if (fileName.split('.')[0] === '') {
+                                fileName = randomUUID() + fileName;
+                            }
+                            ext = getExtension(fileName);
+
+                        }
+
+
+                        const fName = `${folderName}/_${fileName}.${ext}`;
 
                         log.info(`Adding file ${fName} to zip file...`);
-                        console.log(file.key, file.value);
+                        // console.log(file.key, file.value);
                         const buffered = Buffer.from((file.value as string), 'binary');
-                        toZip[`${folderName}/${([file.key])}`] = [buffered];
+                        toZip[`${folderName}/${([fName])}`] = [buffered];
 
                         log.info(`Finished adding file ${fName} to zip file...`);
                     } else { log.info(`File ${fileName} is not a file!`); }
@@ -96,53 +108,14 @@ async function zipToKVS(client: ApifyClient) {
                 // zip the files
                 zipped = zipSync(toZip);
                 // save the zip to kvs
-                await Actor.setValue(`${folderName}_${i}.zip`, Buffer.from(zipped), { contentType: 'application/zip' });
+                log.info(`Saving zip file ${folderName}_${i}.zip to key-value store...`);
+                await saveToFS(zipped, undefined, `${folderName}_${i}.zip`);
+                // await saveToKVS(zipped, `${folderName}_${i}.zip`);
                 // clear the zip
                 toZip = {};
 
             }
-            // for (let index = 0; index < filteredKVSListItem.length; index++) {
-            //     const kvsListItem = filteredKVSListItem[index];
 
-            //     // Get the record of each key
-            //     const record = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
-            //     record?.key ? fileName = record?.key : fileName = randomUUID();
-            //     // Get the file in the record
-            //     // If the record is a file, download it and save it to the key-value store
-            //     // if (record?.contentType === 'image/jpg' || record?.contentType === 'image/jpeg' || record?.contentType === 'image/png') {
-            //     const file = await client.keyValueStore(kvs.id).getRecord(kvsListItem.key);
-            //     if (file && file?.value) {
-            //         const fName = `${folderName}/_${fileName ?? randomUUID()}.png`;
-
-            //         log.info(`Adding file ${fName} to zip file...`);
-            //         console.log(file.key, file.value);
-            //         const buffered = Buffer.from((file.value as string), 'binary');
-            //         toZip[`${folderName}/${([file.key])}`] = [buffered];
-
-            //         log.info(`Finished adding file ${fName} to zip file...`);
-            //     } else { log.info(`File ${fileName} is not a valid file!`); }
-
-
-            // };
-
-            zipped = zipSync(
-                toZip
-            );
-
-            // Done zipping
-            log.info(`Finished zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
-            console.log('Writing to file...');
-            // Get the name of the key-value store
-            const kvsName = kvs.name ?? kvs.title ?? kvs.id;
-            // Save the zip file to the key-value store
-            log.info(`Saving zipped files to key-value store ${kvsName}...`);
-            // saveToFS(zipped, undefined, `${kvsName}.zip`);
-
-            await saveToKVS(zipped, `${randomUUID()}_${kvsName}`);
-            // await Actor.setValue(`${randomUUID()}_${folderName}`, big_data, { contentType: 'application/zip' })
-            log.info(`Finished saving zipped files to key-value store ${kvsName}...`);
-            // Reset the zip file
-            toZip = {};
         }
     }
     async function writeSingleZip() {
@@ -177,14 +150,14 @@ async function zipToKVS(client: ApifyClient) {
                     const fName = `${folderName}/_${fileName ?? randomUUID()}.png`;
 
                     log.info(`Adding file ${fName} to zip file...`);
-                    console.log(file.key, file.value);
+                    // console.log(file.key, file.value);
                     const buffered = Buffer.from((file.value as string), 'binary');
-                    toZip[`${folderName}/${([file.key])}`] = [buffered];
+                    toZip[`${folderName}/${([fName])}`] = [buffered];
 
-                    log.info(`Finished adding file ${fName} to zip file...`);
+                    // log.info(`Finished adding file ${fName} to zip file...`);
                 } else { log.info(`File ${fileName} is not a valid file!`); }
 
-
+                log.info(`${index}/${filteredKVSListItem.length} files added to zip file...`);
             };
 
             zipped = zipSync(
@@ -192,17 +165,19 @@ async function zipToKVS(client: ApifyClient) {
             );
             // Done zipping
             log.info(`Finished zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
-            console.log('Writing to file...');
+            console.log('Writing zip...');
             // Get the name of the key-value store
             // Do not reset the zip file
+
+            saveToFS(zipped, undefined, `${folderName}.zip`);
         }
 
         const kvsName = folderName
         // Save the zip file to the key-value store
         log.info(`Saving zipped files to key-value store...`);
-        // saveToFS(zipped);
+        saveToFS(zipped);
         // await Actor.setValue(`${randomUUID()}_${folderName}.zip`, zipped, { contentType: 'application/zip' })
-        await saveToKVS(zipped);
+        // await saveToKVS(zipped);
 
         log.info(`Finished saving zipped files to key-value store ${kvsName}...`);
     }
@@ -247,4 +222,8 @@ function is_excluded(i: KeyValueListItem): boolean {
         return false;
     }
     return !excluded.includes(i.key);
+}
+
+function getExtension(filename: string) {
+    return filename.split('.').pop() ?? '';
 }
