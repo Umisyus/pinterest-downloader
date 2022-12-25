@@ -217,7 +217,7 @@ async function archiveKVS(store: KeyValueStore, limit = 100) {
         log.info(`Got ${keys.length} keys from ${store.name ?? store.id} key-value store...`);
 
         let keylength = keys.length;
-        store.forEachKey(async (key, index) => {
+        keys.forEach(async (key, index) => {
             if (index >= limit) return;
 
             let value = await store.getValue(key) as any
