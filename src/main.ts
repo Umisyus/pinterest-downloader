@@ -214,19 +214,22 @@ async function archiveKVS(store: KeyValueStore, limit = 100) {
         let keys: string[] = []
         await store.forEachKey(async (key) => (<any> keys.push(key)))
         keys = keys.slice(0, limit)
-        log.info(`Got ${keys.length} keys from ${store.name ?? store.id} key-value store...`);
+        // log.info(`Got ${keys.length} keys from ${store.name ?? store.id} key-value store...`);
 
         let keylength = keys.length;
         keys.forEach(async (key, index) => {
-            if (index >= limit) return;
+            // if (index >= limit) return;
 
             let value = await store.getValue(key) as any
-            log.info(`Adding ${key} to archive...`);
-            if (!value) console.log(`#${index} was skipped because it was undefined!`, value);
+            // log.info(`Adding ${key} to archive...`);
+            if (!value.length || value.length < 1) console.log(`#${index} was skipped because it was empty!`, value);
+
+            console.log(`Value is ${value.length} bytes`);
+
 
             archive.append(value, { name: `${key}` })
             log.info(`Added #${index + 1}: ${key} to archive...`);
-            console.log(`#${index} of ${keylength} added to ...`);
+            // console.log(`#${index + 1} of ${keylength} added to ...`);
         })
 
         archive.finalize()
