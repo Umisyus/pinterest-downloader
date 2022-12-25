@@ -217,20 +217,35 @@ async function archiveKVS(store: KeyValueStore, limit = 100) {
         // log.info(`Got ${keys.length} keys from ${store.name ?? store.id} key-value store...`);
 
         let keylength = keys.length;
-        keys.forEach(async (key, index) => {
+        for (let index = 0; index < keys.length; index++) {
+            const key = keys[index];
+            // keys.forEach(async (key, index) => {
             // if (index >= limit) return;
 
             let value = await store.getValue(key) as any
             // log.info(`Adding ${key} to archive...`);
-            if (!value.length || value.length < 1) console.log(`#${index} was skipped because it was empty!`, value);
+            if (!value || value.length < 1) console.log(`#${index} was skipped because it was empty!`, value);
 
             console.log(`Value is ${value.length} bytes`);
-
 
             archive.append(value, { name: `${key}` })
             log.info(`Added #${index + 1}: ${key} to archive...`);
             // console.log(`#${index + 1} of ${keylength} added to ...`);
-        })
+        }
+
+        // store.forEachKey(async (key, index) => {
+        //     // if (index >= limit) return;
+
+        //     let value = await store.getValue(key) as Buffer
+        //     // log.info(`Adding ${key} to archive...`);
+        //     if (!value || value.length < 1) console.log(`#${index} was skipped because it was empty!`, value);
+
+        //     console.log(`Value is ${value.length} bytes`);
+
+        //     archive.append(value, { name: `${key}` })
+        //     log.info(`Added #${index + 1}: ${key} to archive...`);
+        //     // console.log(`#${index + 1} of ${keylength} added to ...`);
+        // })
 
         archive.finalize()
     })
