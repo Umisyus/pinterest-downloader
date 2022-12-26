@@ -5,10 +5,11 @@ import { randomUUID } from 'crypto';
 import { zipSync } from 'fflate';
 import create from 'archiver';
 import fs from 'fs';
+import { KeyValueStoreRecord } from '@crawlee/types';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
-let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 100 } =
+let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 10 } =
 // await Actor.getInput<any>()
 {
     APIFY_TOKEN: undefined, ExcludedStores:
@@ -49,34 +50,63 @@ async function zipToKVS(client: ApifyClient) {
     console.timeEnd('zipToKVS');
     log.info('Finished zipping to key-value store!');
 
+    // SOURCE: https://stackoverflow.com/a/54029307
+    function chunkArray(arr: KeyValueStoreRecord[], size: number): any[] {
+        return arr.length > size
+            ? [arr.slice(0, size), ...chunkArray(arr.slice(size), size)]
+            : [arr];
+    }
+
     async function writeManyZips() {
         // List all key-value stores
+        const defaultKVS = await Actor.openKeyValueStore()
+
         let kvs_items = (await client.keyValueStores().list({ offset: 1, limit: 2 })).items
             .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
         // Get the ID and list all keys of the key-value store
         for (const kvs of kvs_items) {
-            let kvs_item = await Actor.openKeyValueStore(kvs.id, { forceCloud: true });
-            // Get the value of each key and save it to the zip file
-            // await kvs_item.forEachKey(async (key) => {
-            //     let record = await kvs_item.getValue(key);
-            //     console.log({ record });
-            // })
 
-            let nom = `${randomUUID()}-${kvs.name ?? kvs.title ?? kvs.id}`
-            log.info(`Zipping ${nom} key-value store...`);
-            let ff = await archiveKVS(kvs_item, 10);
-            log.info(`Saving ${nom} to file system...`);
-            saveToFS(ff, undefined, `${nom}.zip`);
+            // Split zip file into chunks to fit under the 9 MB limit
+            let items = await getKVSValues(kvs.id, 100) as KeyValueStoreRecord[];
+            // slice into array into chunks of 10
+            let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
 
-            log.info(`Saving ${nom} to key-value store...`);
-            await saveToKVS(ff, nom);
+            for (let [index, chunk] of a_chunks.entries()) {
+                // for (let index = 0; index < items.length; index++) {
+                // Humans count from 1
+                index++;
 
-            console.log(ff.length);
+                let nom = `${randomUUID()}-${kvs.name ?? kvs.title ?? kvs.id}-${index}`
+                log.info(`Zipping ${nom} key-value store...`);
 
+                let ff = await archiveKVS2(chunk);
+
+                log.info(`Saving chunk #${index} as ${nom} to file system...`);
+                saveToFS(ff, undefined, `${nom}.zip`);
+
+                log.info(`Saving chunk #${index} as ${nom} to key-value store...`);
+                await saveToKVS(ff, nom).then(async () => {
+                    await Actor.pushData({
+                        download: defaultKVS.getPublicUrl(nom)
+                    })
+                });
+
+                console.log(ff.length);
+                // }
+            }
         }
 
     }
 }
+
+async function getKVSValues(kvs_id: string, limit: number) {
+    let items = (await client.keyValueStore(kvs_id).listKeys({ limit: limit })).items
+        .map(async (key) => {
+            return await (client.keyValueStore(kvs_id)).getRecord(key.key);
+        })
+    return Promise.all(items);
+}
+
 async function writeSingleZip() {
     let toZip: any = {};
     let zipped: any = {};
@@ -171,6 +201,7 @@ async function saveToKVS(zipped: any, fileName: string = "image_downloads") {
     const b = Buffer.from(zipped)
     log.info(`ZIP: NAME: ${fileName} LENGTH IN BYTES: ${b.length}`)
     await Actor.setValue(`${fileName}`, b, { contentType: 'application/zip' });
+    log.info(`${fileName} was saved to KVS successfully!`)
 }
 
 function is_excluded(i: KeyValueListItem): boolean {
@@ -187,7 +218,7 @@ function getExtension(filename: string) {
     return filename.split('.').pop() ?? '';
 }
 
-async function archiveKVS(store: KeyValueStore, limit = 100) {
+async function archiveKVS(store: KeyValueStore, limit: number | undefined = FILES_PER_ZIP) {
     const buffers: Uint8Array[] = [];
 
     await new Promise<void>(async (resolve, reject) => {
@@ -213,10 +244,13 @@ async function archiveKVS(store: KeyValueStore, limit = 100) {
         // Get all keys from the key-value store
         let keys: string[] = []
         await store.forEachKey(async (key) => (<any> keys.push(key)))
-        keys = keys.slice(0, limit)
+
+        // Limit the number of files to zip
+        if (FILES_PER_ZIP && FILES_PER_ZIP > 0) {
+            keys = keys.slice(0, limit)
+        }
         // log.info(`Got ${keys.length} keys from ${store.name ?? store.id} key-value store...`);
 
-        let keylength = keys.length;
         for (let index = 0; index < keys.length; index++) {
             const key = keys[index];
             // keys.forEach(async (key, index) => {
@@ -248,6 +282,41 @@ async function archiveKVS(store: KeyValueStore, limit = 100) {
         // })
 
         archive.finalize()
+    })
+    return Buffer.concat(buffers)
+}
+
+async function archiveKVS2(store: any[], limit: number | undefined = FILES_PER_ZIP) {
+    const buffers: Uint8Array[] = [];
+
+    await new Promise<void>(async (resolve, reject) => {
+
+        const archive = create('zip', {
+            zlib: { level: 0 } // Sets the compression level.
+        });
+
+        archive.on('data', (chunk: Uint8Array) => {
+            buffers.push(chunk)
+        });
+
+        archive.on('end', () => {
+            console.log('End called');
+            resolve();
+        });
+
+        archive.on('error', reject);
+        // Append each file from the key-value store to the archive
+        store.forEach(async (item, index) => {
+
+            if (!item.value || item.value.length < 1) console.log(`#${index} was skipped because it was empty!`, item.value);
+
+            console.log(`Value is ${item.value.length} bytes`);
+
+            archive.append(item.value, { name: `${item.key}` })
+            log.info(`Added #${index + 1}: ${item.key} to archive...`);
+        })
+
+        await archive.finalize()
     })
     return Buffer.concat(buffers)
 }
