@@ -68,11 +68,20 @@ async function zipToKVS(client: ApifyClient) {
             .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
         // Get the ID and list all keys of the key-value store
         for (const kvs of kvs_items) {
-
+            log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
+            let items: any[] = []
             // Split zip file into chunks to fit under the 9 MB limit
-            let items = await getKVSValues(kvs.id, 100) as KeyValueStoreRecord[];
+
+            console.log('Fetching items...');
+            let kvsOffsetKey = undefined;
+            let fromAPI = await getKVSValues(kvs.id, 1000, kvsOffsetKey) as KeyValueStoreRecord[];
+            items.push(...fromAPI)
+
             // slice into array into chunks of 10
             let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
+
+            let split_length = [...a_chunks.entries()].length;
+            log.info(`${items.length} files were split into ${split_length} chunks...`);
 
             for (let [index, chunk] of a_chunks.entries()) {
                 // Humans count from 1
@@ -101,12 +110,20 @@ async function zipToKVS(client: ApifyClient) {
     }
 }
 
-async function getKVSValues(kvs_id: string, limit: number) {
-    let items = (await client.keyValueStore(kvs_id).listKeys({ limit: limit })).items
+async function getKVSValues(kvs_id: string, limit: number | undefined = undefined, lastKey?: string | undefined) {
+    let items: any[] = [];
+
+    let ii = (await client.keyValueStore(kvs_id).listKeys({ limit: limit, exclusiveStartKey: lastKey })).items
         .map(async (key) => {
-            return await (client.keyValueStore(kvs_id)).getRecord(key.key);
+            let val = await (client.keyValueStore(kvs_id)).getRecord(key.key);
+            // wait 1 second to avoid rate limit
+            await new Promise<void>(resolve => setTimeout((resolve), 5000))
+            console.log("Got item: " + val?.key);
+
+            return val;
         })
-    return Promise.all(items);
+
+    return Promise.all(ii);
 }
 
 async function writeSingleZip() {
