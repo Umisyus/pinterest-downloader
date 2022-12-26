@@ -61,7 +61,10 @@ async function zipToKVS(client: ApifyClient) {
         // List all key-value stores
         const defaultKVS = await Actor.openKeyValueStore()
 
-        let kvs_items = (await client.keyValueStores().list({ offset: 1, limit: 2 })).items
+        let kvs_items = (await client.keyValueStores().list({
+            // Optional limit and offset
+            // offset: 1, limit: 2
+        })).items
             .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
         // Get the ID and list all keys of the key-value store
         for (const kvs of kvs_items) {
@@ -72,7 +75,6 @@ async function zipToKVS(client: ApifyClient) {
             let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
 
             for (let [index, chunk] of a_chunks.entries()) {
-                // for (let index = 0; index < items.length; index++) {
                 // Humans count from 1
                 index++;
 
@@ -92,7 +94,7 @@ async function zipToKVS(client: ApifyClient) {
                 });
 
                 console.log(ff.length);
-                // }
+
             }
         }
 
