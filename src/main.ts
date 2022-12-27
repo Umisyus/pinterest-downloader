@@ -51,10 +51,28 @@ async function zipToKVS(client: ApifyClient) {
     log.info('Finished zipping to key-value store!');
 
     // SOURCE: https://stackoverflow.com/a/54029307
+    // Split the chunks based on file size
     function chunkArray(arr: KeyValueStoreRecord[], size: number): any[] {
         return arr.length > size
             ? [arr.slice(0, size), ...chunkArray(arr.slice(size), size)]
             : [arr];
+    }
+
+    function manualChunk(array: KeyValueStoreRecord[], sizeLimit: number = 9 * 100_000_000) {
+        let results: KeyValueStoreRecord[][] = [];
+        let chunk: KeyValueStoreRecord[] = []
+        let sizeCount = 0;
+
+        for (let index = 0; index < array.length; index++) {
+            const element = array[index];
+            if (element.value.length + sizeCount > sizeLimit) {
+                chunk = []
+                results.push(chunk)
+            } else {
+                chunk.push(element);
+            }
+        }
+        return results;
     }
 
     async function writeManyZips() {
@@ -78,7 +96,8 @@ async function zipToKVS(client: ApifyClient) {
             items.push(...fromAPI)
 
             // slice into array into chunks of 10
-            let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
+            // let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
+            let a_chunks = manualChunk(items, 9 * 100_000_000)
 
             let split_length = [...a_chunks.entries()].length;
             log.info(`${items.length} files were split into ${split_length} chunks...`);
@@ -305,7 +324,7 @@ async function archiveKVS(store: KeyValueStore, limit: number | undefined = FILE
     return Buffer.concat(buffers)
 }
 
-async function archiveKVS2(store: any[], limit: number | undefined = FILES_PER_ZIP) {
+async function archiveKVS2(imageArray: any[], limit: number | undefined = FILES_PER_ZIP) {
     const buffers: Uint8Array[] = [];
 
     await new Promise<void>(async (resolve, reject) => {
@@ -325,14 +344,15 @@ async function archiveKVS2(store: any[], limit: number | undefined = FILES_PER_Z
 
         archive.on('error', reject);
         // Append each file from the key-value store to the archive
-        store.forEach(async (item, index) => {
+        imageArray.forEach(async (item, index) => {
 
-            if (!item.value || item.value.length < 1) console.log(`#${index} was skipped because it was empty!`, item.value);
+            if (!item.value || item.value.length < 1) { console.log(`#${index} was skipped because it was empty!`, item.value); }
+            else {
+                console.log(`Value is ${item.value.length} bytes`);
 
-            console.log(`Value is ${item.value.length} bytes`);
-
-            archive.append(item.value, { name: `${item.key}` })
-            log.info(`Added #${index + 1}: ${item.key} to archive...`);
+                archive.append(item.value, { name: `${item.key}` })
+                log.info(`Added #${index + 1}: ${item.key} to archive...`);
+            }
         })
 
         await archive.finalize()
