@@ -82,7 +82,7 @@ async function zipToKVS(client: ApifyClient) {
             }
         }
 
-        return results;
+        return results.length > 0 ? results : [array];
     }
 
     async function writeManyZips() {
@@ -91,7 +91,7 @@ async function zipToKVS(client: ApifyClient) {
 
         let kvs_items = (await client.keyValueStores().list({
             // Optional limit and offset
-            // offset: 1, limit: 2
+            // offset: 3, limit: 1
         })).items
             .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
         // Get the ID and list all keys of the key-value store
@@ -101,8 +101,7 @@ async function zipToKVS(client: ApifyClient) {
             // Split zip file into chunks to fit under the 9 MB limit
 
             console.log('Fetching items...');
-            let kvsOffsetKey = undefined;
-            let fromAPI = await getKVSValues(kvs.id, 100, kvsOffsetKey) as KeyValueStoreRecord[];
+            let fromAPI = await getKVSValues(kvs.id) as KeyValueStoreRecord[];
             items.push(...fromAPI)
 
             // slice into array into chunks of 10
