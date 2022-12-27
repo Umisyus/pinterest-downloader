@@ -17,5 +17,7 @@ images/*
 *.png
 *.jpg
 *.jpeg
+*.gif
 *.zip
 images-folder/*
+image-downloads/*
