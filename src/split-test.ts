@@ -58,7 +58,7 @@ async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILE
     let ALL_ITEMS: Buffer[] = [];
     let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
     let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
-
+    log.info(`Found ${count} total key(s)`)
     do {
 
         let [...images] = [...(await loopItems(KVS_ID, items, client))];
@@ -70,7 +70,9 @@ async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILE
         }
         else break
 
+        // Zip and upload
         let chunked = manualChunk(images)
+        log.info(`Processing ${chunked.length} chunk(s)`)
         for await (const ch of chunked) {
             await archiveKVS2(ch).then(async (zip) => {
 
