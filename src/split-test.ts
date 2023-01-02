@@ -33,7 +33,7 @@ import { keys } from 'crawlee';
     //         value: (await defkvs.getValue(key) as any).value.data
     //     })))
     // })
-    let images = await GetKVSValues(KVS_ID!, API_TOKEN, 100)
+    let images = await GetKVSValues(KVS_ID!, API_TOKEN, 50)
     // items.push(...images);
     // log.info(`Got ${items.length} key(s)`)
 
@@ -75,7 +75,7 @@ async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILE
             await archiveKVS2(ch).then(async (zip) => {
 
                 if (zip) {
-                    log.info(`Writing ${images.length} key(s) to KVS`)
+                    log.info(`Writing ${ch.length} key(s) to KVS`)
                     await Actor.setValue(`${KVS_ID}-${randomUUID()}`, zip, {
                         contentType: 'application/zip'
                     })
@@ -106,14 +106,13 @@ async function loopItems(KVS_ID: string, keys: KeyValueListItem[], client: Apify
 // console.log(chunks);
 
 function manualChunk(array: KeyValueStoreRecord<any>[], sizeLimit = 9 * 1_000_000) {
-    let results = []
+    let results: any[] = []
     let chunk = []
     let sizeCount = 0;
 
     for (let index = 0; index < array.length; index++) {
         const element = array[index];
         sizeCount += element.value.length;
-
 
         const bool = sizeCount < sizeLimit;
 
@@ -123,12 +122,21 @@ function manualChunk(array: KeyValueStoreRecord<any>[], sizeLimit = 9 * 1_000_00
             results.push(chunk)
             chunk = []
             sizeCount = 0;
-            results.filter(x => x.length === 1).forEach(_x => chunk.push(element))
+
         }
 
+
+
         if (index === array.length - 1 && sizeCount < sizeLimit) {
-            results.push(chunk)
+            // results.push(chunk)
+            // Find any unadded items
+            if (array.flat().filter(o => !results.flat().includes(o))) {
+                chunk = []
+                chunk.push(...array.flat().filter(o => !results.flat().includes(o)))
+                results.push(chunk)
+            }
         }
+
     }
     return results;
 }
