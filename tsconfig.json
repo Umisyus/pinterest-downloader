@@ -9,5 +9,5 @@
     },
     "include": [
         "./src/**/*"
-    ]
+, "js/zip.ts"    ]
 }

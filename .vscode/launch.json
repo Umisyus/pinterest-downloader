@@ -17,14 +17,11 @@
             ]
         },
         {
+            "name": "Run TSC Before Launch",
             "type": "node",
             "request": "launch",
-            "name": "Launch Downloader",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}/src/link-download.ts",
-            "preLaunchTask": "tsc: build - tsconfig.json",
+            // "preLaunchTask": "build",
+            "program": "${workspaceFolder}/dist/src/${fileBasenameNoExtension}.js",
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
             ]
