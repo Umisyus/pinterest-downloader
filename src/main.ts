@@ -6,7 +6,7 @@ import { zipSync } from 'fflate';
 import create from 'archiver';
 import fs from 'fs';
 import { KeyValueStoreRecord } from '@crawlee/types';
-import { sliceArrayBySize } from './split-test';
+import { sliceArrayBySize } from './split-test.js';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
@@ -55,7 +55,7 @@ async function zipToKVS(client: ApifyClient) {
 
         let kvs_items = (await client.keyValueStores().list({
             // Optional limit and offset
-            offset: 1, limit: 1
+            // offset: 1, limit: 1
         })).items
             .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
         // Get the ID and list all keys of the key-value store
@@ -66,60 +66,11 @@ async function zipToKVS(client: ApifyClient) {
             // Split zip file into chunks to fit under the 9 MB limit
 
             console.log('Fetching items...');
-            // let fromAPI = await getKVSValues(kvs.id, 50) as KeyValueStoreRecord[];
-            // items.push(...fromAPI)
-
-            // // slice the array into chunks based on the trasnfer size limit
-            // // let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
-            // let a_chunks = arraySplit(items) as KeyValueStoreRecord[][];
-
-            // const entries = a_chunks.entries();
-            // let split_length = [...entries].length;
-            // log.info(`${items.length} files were split into ${split_length} chunks...`);
-            let a_chunks = IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
-
-            for await (const ch of a_chunks) {
-                let nomDuFichier = `${randomUUID()}-${kvs.name ?? kvs.title ?? kvs.id}-${index + 1}`
-                await processParts(ch, nomDuFichier)
-            }
+            IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
         }
 
     }
 }
-// function arraySplit(array: KeyValueStoreRecord[], sizeLimit = 8.5 * 1_000_000) {
-//     let results: KeyValueStoreRecord[][] = []
-//     let chunk: KeyValueStoreRecord[] = []
-//     let sizeCount = 0;
-
-//     for (let index = 0; index < array.length; index++) {
-//         const element = array[index];
-//         sizeCount += element.value.length;
-
-//         const bool = sizeCount < sizeLimit;
-
-//         if (bool) {
-//             chunk.push(element);
-//         } else {
-//             results.push((chunk as KeyValueStoreRecord[]))
-//             chunk = []
-//             sizeCount = 0;
-
-//         }
-//         if (index === array.length - 1 && sizeCount < sizeLimit) {
-//             const spares = array.flat().filter(o => !results.flat().includes(o));
-//             // Find any unadded items
-//             if (spares && spares.length > 0) {
-//                 chunk.push(...spares)
-//                 results.push(chunk)
-//                 // sizeCount += chunk.reduce((a, b) => a + b.value.length, 0);
-//                 chunk = []
-
-//             }
-//         }
-
-//     }
-//     return results;
-// }
 
 async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let client = new ApifyClient({ token: API_TOKEN });
@@ -139,10 +90,6 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
         // DON'T DO THIS!
         await Promise.all(chunked.map((ch) => processParts(ch, `${KVS_ID}-${randomUUID()}`)))
 
-        // for await (const ch of chunked) {
-        //     yield ch
-        //     log.info(`${currentCount += ch.length}/${count} key(s) processed`)
-        // }
         nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
 
         if (nextExclusiveStartKey !== null) {

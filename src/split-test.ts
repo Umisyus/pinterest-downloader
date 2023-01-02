@@ -55,7 +55,7 @@ import { keys } from 'crawlee';
 
 export async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let client = new ApifyClient({ token: API_TOKEN });
-    let ALL_ITEMS: Buffer[] = [];
+    // let ALL_ITEMS: Buffer[] = [];
     let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
     let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
     log.info(`Found ${count} total key(s)`)
@@ -92,7 +92,7 @@ export async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefine
     } while (nextExclusiveStartKey)
 
     log.info(`Processed all items`)
-    return ALL_ITEMS;
+    // return ALL_ITEMS;
 
 
 }
