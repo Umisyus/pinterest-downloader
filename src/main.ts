@@ -77,20 +77,20 @@ async function zipToKVS(client: ApifyClient) {
             // Split zip file into chunks to fit under the 9 MB limit
 
             console.log('Fetching items...');
-            let fromAPI = await getKVSValues(kvs.id, 50) as KeyValueStoreRecord[];
-            items.push(...fromAPI)
+            // let fromAPI = await getKVSValues(kvs.id, 50) as KeyValueStoreRecord[];
+            // items.push(...fromAPI)
 
-            // slice the array into chunks based on the trasnfer size limit
-            // let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
-            let a_chunks = manualChunk(items) as KeyValueStoreRecord[][];
+            // // slice the array into chunks based on the trasnfer size limit
+            // // let a_chunks = chunkArray(items, FILES_PER_ZIP) as KeyValueStoreRecord[][];
+            // let a_chunks = arraySplit(items) as KeyValueStoreRecord[][];
 
-            const entries = a_chunks.entries();
-            let split_length = [...entries].length;
-            log.info(`${items.length} files were split into ${split_length} chunks...`);
+            // const entries = a_chunks.entries();
+            // let split_length = [...entries].length;
+            // log.info(`${items.length} files were split into ${split_length} chunks...`);
+            let a_chunks = IteratorGetKVSValues(kvs.id, APIFY_TOKEN, 500);
 
-            for (let index = 0; index < a_chunks.length; index++) {
-                let chunk = a_chunks[index];
-
+            for await (const chunk of a_chunks) {
+                log.info(`Current # of items: ${chunk.length}`)
                 // Humans count from 1
                 let nom = `${randomUUID()}-${kvs.name ?? kvs.title ?? kvs.id}-${index + 1}`
                 log.info(`Zipping ${nom} key-value store...`);
@@ -113,7 +113,7 @@ async function zipToKVS(client: ApifyClient) {
 
     }
 }
-function manualChunk(array: KeyValueStoreRecord[], sizeLimit = 9 * 1_000_000) {
+function arraySplit(array: KeyValueStoreRecord[], sizeLimit = 9 * 1_000_000) {
     let results: KeyValueStoreRecord[][] = []
     let chunk: KeyValueStoreRecord[] = []
     let sizeCount = 0;
@@ -160,6 +160,89 @@ async function getKVSValues(kvs_id: string, limit: number | undefined = undefine
     }
 
     return items;
+}
+async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+    let client = new ApifyClient({ token: API_TOKEN });
+    let ALL_ITEMS: Buffer[] = [];
+    let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
+    let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
+    log.info(`Found ${count} total key(s)`)
+    do {
+
+        let [...images] = [...(await loopItems(KVS_ID, items, client))];
+
+        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
+        if (nextExclusiveStartKey !== null) {
+            items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
+        }
+        else break
+
+        let chunked = arraySplit(images)
+        log.info(`Processing ${chunked.length} chunk(s)`)
+        for await (const ch of chunked) {
+            await archiveKVS2(ch).then(async (zip) => {
+
+                if (zip) {
+                    log.info(`Writing ${ch.length} key(s) to KVS`)
+                    await Actor.setValue(`${KVS_ID}-${randomUUID()}`, zip, {
+                        contentType: 'application/zip'
+                    })
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
+
+        }
+
+    } while (nextExclusiveStartKey)
+
+    log.info(`Processed all items`)
+    return ALL_ITEMS;
+}
+async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+    let client = new ApifyClient({ token: API_TOKEN });
+    let ALL_ITEMS: Buffer[] = [];
+    let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
+    let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
+    log.info(`Found ${count} total key(s)`)
+    do {
+
+        let [...images] = [...(await loopItems(KVS_ID, items, client))];
+
+        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
+        if (nextExclusiveStartKey !== null) {
+            items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
+        }
+        else break
+
+        let chunked = arraySplit(images)
+        log.info(`Processing ${chunked.length} chunk(s)`)
+        for await (const ch of chunked) {
+            yield ch
+        }
+
+    } while (nextExclusiveStartKey)
+
+    log.info(`Processed all items`)
+    return ALL_ITEMS;
+}
+async function loopItems(KVS_ID: string, keys: KeyValueListItem[], client: ApifyClient) {
+    let items: KeyValueStoreRecord[] = []
+    for await (const it of keys) {
+        await delay(0.2);
+        items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
+    }
+    return items;
+}
+async function delay(s: number) {
+    return new Promise<void>((resolve) => {
+        log.info(`Waiting ${s} second(s)`);
+        setTimeout(() => {
+            resolve();
+        }, s * 1000);
+    });
 }
 
 async function writeSingleZip() {
