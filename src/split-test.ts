@@ -15,10 +15,12 @@ import archiver from 'archiver';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { KeyValueListItem, KeyValueStoreRecord } from 'apify-client';
-import { keys } from 'crawlee';
+import { chunk, keys } from 'crawlee';
+
 // Actor.init().then(async () => {
 (async () => {
     await Actor.init()
+
     let defkvs = await Actor.openKeyValueStore('data-kvs')
 
     let items: any[] = []
@@ -33,7 +35,7 @@ import { keys } from 'crawlee';
     //         value: (await defkvs.getValue(key) as any).value.data
     //     })))
     // })
-    let images = await GetKVSValues(KVS_ID!, API_TOKEN, 50)
+    await GetKVSValues2Test(KVS_ID!, API_TOKEN, 250)
     // items.push(...images);
     // log.info(`Got ${items.length} key(s)`)
 
@@ -91,10 +93,37 @@ export async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefine
         else break
     } while (nextExclusiveStartKey)
 
+}
+export async function GetKVSValues2Test(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+    let client = new ApifyClient({ token: API_TOKEN });
+    // let ALL_ITEMS: Buffer[] = [];
+    let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
+    let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
+    log.info(`Found ${count} total key(s)`)
+
+    do {
+        // Find a way to yield the images instead of waiting for all of them to be processed
+        let split = chunk(items, 100)
+        let images = await Promise.all(split.map((it) => loopItems(KVS_ID, it, client)));
+        // let [...images] = await loopItems(KVS_ID, items, client);
+
+        let chunked = [...images.map(i => sliceArrayBySize(i))].flat()
+        log.info(`Processing ${chunked.length} chunk(s)`)
+
+        // DON'T DO THIS!
+        await Promise.all(chunked.map((ch) => processParts(ch, `${KVS_ID}-${randomUUID()}`)))
+
+        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
+        if (nextExclusiveStartKey !== null) {
+            items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
+        }
+        else break
+
+    } while (nextExclusiveStartKey)
+
     log.info(`Processed all items`)
-    // return ALL_ITEMS;
-
-
+    await Actor.exit()
 }
 async function loopItems(KVS_ID: string, keys: KeyValueListItem[], client: ApifyClient) {
     let items: KeyValueStoreRecord<any>[] = []
@@ -204,4 +233,21 @@ async function delay(s: number) {
             resolve();
         }, s * 1000);
     });
+}
+async function processParts(chunks: KeyValueStoreRecord<any>[], nomDuFichier: string): Promise<void> {
+    log.info(`Current # of items: ${chunks.length}`)
+
+    let ff = await archiveKVS2(chunks);
+
+    log.info(`Saving file ${nomDuFichier} to key-value store...`);
+    await saveToKVS(ff, nomDuFichier).then(async () => {
+        await Actor.pushData({
+            download: (await Actor.openKeyValueStore()).getPublicUrl(nomDuFichier)
+        })
+    });
+}
+async function saveToKVS(zipped: Buffer, fileName: string = "image_downloads") {
+    log.info(`ZIP's NAME: ${fileName} Zip's LENGTH IN BYTES: ${zipped.length}`)
+    await Actor.setValue(`${fileName}`, zipped, { contentType: 'application/zip' });
+    log.info(`${fileName} was saved to KVS successfully!`)
 }

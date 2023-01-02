@@ -6,11 +6,11 @@ import { zipSync } from 'fflate';
 import create from 'archiver';
 import fs from 'fs';
 import { KeyValueStoreRecord } from '@crawlee/types';
-import { sliceArrayBySize } from './split-test.js';
+import { GetKVSValues, GetKVSValues2Test, sliceArrayBySize } from './split-test.js';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
-let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 100 } =
+let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 100, fast = false } =
 // await Actor.getInput<any>()
 {
     APIFY_TOKEN: undefined, ExcludedStores:
@@ -66,7 +66,12 @@ async function zipToKVS(client: ApifyClient) {
             // Split zip file into chunks to fit under the 9 MB limit
 
             console.log('Fetching items...');
-            IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
+            if (fast) {
+                //  IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
+                await GetKVSValues2Test(kvs.id, APIFY_TOKEN, FILES_PER_ZIP);
+            } else {
+                await GetKVSValues(kvs.id, APIFY_TOKEN, 50);
+            }
         }
 
     }
