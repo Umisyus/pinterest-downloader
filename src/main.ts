@@ -10,7 +10,7 @@ import { sliceArrayBySize } from './split-test';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
-let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 10 } =
+let { APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 100 } =
 // await Actor.getInput<any>()
 {
     APIFY_TOKEN: undefined, ExcludedStores:
