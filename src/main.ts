@@ -133,7 +133,7 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
         // Find a way to yield the images instead of waiting for all of them to be processed
         let [...images] = await loopItems(KVS_ID, items, client);
 
-        let chunked = sliceArrayBySize(images, 9)
+        let chunked = sliceArrayBySize(images)
         log.info(`Processing ${chunked.length} chunk(s)`)
 
         // DON'T DO THIS!

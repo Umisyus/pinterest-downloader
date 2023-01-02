@@ -197,20 +197,6 @@ async function archiveKVS2(imageArray: any[]) {
     })
     return Buffer.concat(buffers)
 }
-
-
-function splitArray(array: any[], FILES_PER_ZIP: number = 50, MAX_SIZE_IN_BYTES = 9 * 1_000_000) {
-    let results = [];
-
-    for (var i = 0; i < array.length; i += FILES_PER_ZIP) {
-        results.push(array.slice(i, i + FILES_PER_ZIP));
-    }
-    console.log(results.length);
-
-    return results;
-}
-
-
 async function delay(s: number) {
     return new Promise<void>((resolve) => {
         log.info(`Waiting ${s} second(s)`);
