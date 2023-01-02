@@ -76,7 +76,7 @@ async function zipToKVS(client: ApifyClient) {
             // const entries = a_chunks.entries();
             // let split_length = [...entries].length;
             // log.info(`${items.length} files were split into ${split_length} chunks...`);
-            let a_chunks = IteratorGetKVSValues(kvs.id, APIFY_TOKEN, 100);
+            let a_chunks = IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
 
             for await (const ch of a_chunks) {
                 let nomDuFichier = `${randomUUID()}-${kvs.name ?? kvs.title ?? kvs.id}-${index + 1}`
