@@ -63,15 +63,10 @@ async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILE
 
         let [...images] = [...(await loopItems(KVS_ID, items, client))];
 
-        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
 
-        if (nextExclusiveStartKey !== null) {
-            items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
-        }
-        else break
 
         // Zip and upload
-        let chunked = manualChunk(images)
+        let chunked = sliceArrayBySize(images, 9)
         log.info(`Processing ${chunked.length} chunk(s)`)
         for await (const ch of chunked) {
             await archiveKVS2(ch).then(async (zip) => {
@@ -88,6 +83,12 @@ async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILE
 
         }
 
+        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
+        if (nextExclusiveStartKey !== null) {
+            items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
+        }
+        else break
     } while (nextExclusiveStartKey)
 
     log.info(`Processed all items`)
@@ -106,6 +107,27 @@ async function loopItems(KVS_ID: string, keys: KeyValueListItem[], client: Apify
 // let stuff = [...Array(100).keys()].map(i => ({ key: `Key ${i}`, value: Math.ceil(Math.random() * 3) * 1_000_000 }))
 // let chunks = manualChunk(stuff)
 // console.log(chunks);
+
+export function sliceArrayBySize(values: any, maxSizeMB: number = 9.5) {
+    let totalSizeMB = 0;
+    const slicedArrays = [];
+    let slicedValues = [];
+    for (const value of values) {
+        const valueSizeMB = value.value.length;
+        if (totalSizeMB + valueSizeMB > (maxSizeMB * 1_000_000)) {
+            slicedArrays.push(slicedValues);
+            slicedValues = [];
+            totalSizeMB = 0;
+        }
+        slicedValues.push(value);
+        totalSizeMB += valueSizeMB;
+    }
+    if (slicedValues.length > 0) {
+        slicedArrays.push(slicedValues);
+    }
+    return slicedArrays;
+}
+
 
 function manualChunk(array: KeyValueStoreRecord<any>[], sizeLimit = 9 * 1_000_000) {
     let results: any[] = []
