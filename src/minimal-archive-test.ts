@@ -2,11 +2,13 @@ import { Actor, log } from "apify";
 await Actor.init();
 
 log.info("Creating archive...");
-let numbers = Array(104_620_000).map((i) => i * 3_000_000)
+let arrayOfNumbers = new Array(115_620_000).fill(1);
 log.info("Archive created");
-let zip = Buffer.from([...numbers]).toString("base64");
+let buffer = Buffer.from(arrayOfNumbers)
+log.info("Encoding archive...");
+let zip = buffer.toString("base64");
 log.info("Archive encoded");
-console.log(zip.length);
+
 log.info("Saving Archive to KVS...");
 await Actor.setValue("numbers.test", zip, { contentType: "application/zip" });
 log.info("Archive saved");
