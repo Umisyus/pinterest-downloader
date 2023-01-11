@@ -21,7 +21,7 @@
             "type": "node",
             "request": "launch",
             // "preLaunchTask": "build",
-            "program": "${workspaceFolder}/dist/src/${fileBasenameNoExtension}.js",
+            "program": "${workspaceFolder}/dist/${fileBasenameNoExtension}.js",
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
             ]
