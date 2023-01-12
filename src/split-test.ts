@@ -144,7 +144,7 @@ export async function GetKVSValues2Test(KVS_ID: string, API_TOKEN?: string | und
     } while (nextExclusiveStartKey)
 
     log.info(`Processed all items`)
-    await Actor.exit()
+    // await Actor.exit()
 }
 async function loopItems(KVS_ID: string, keys: KeyValueListItem[], client: ApifyClient) {
     let items: KeyValueStoreRecord<any>[] = []
@@ -265,7 +265,7 @@ async function archiveKVS2(imageArray: any[]) {
     })
     return Buffer.concat(buffers)
 }
-async function delay(s: number) {
+export async function delay(s: number) {
     return new Promise<void>((resolve) => {
         log.info(`Waiting ${s} second(s)`);
         setTimeout(() => {
