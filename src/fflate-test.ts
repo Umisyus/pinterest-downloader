@@ -7,6 +7,7 @@ import { KeyValueListItem, KeyValueStoreRecord } from 'apify-client';
 import fflate, { AsyncZipDeflate, AsyncZipOptions, AsyncZippable, strFromU8, strToU8, Zip, zip as zipCallback } from 'fflate';
 import * as fs from 'fs';
 import pako from 'pako';
+import AdmZip from 'adm-zip'
 
 import { delay, GetKVSValues2Test, sliceArrayBySize } from './split-test.js';
 // All of the async APIs use a node-style callback as so:
@@ -68,9 +69,9 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
 
     if (!client) {
         for await (const it of keys) {
-            await delay(0.2);
+            // await delay(0.2);
             // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
-            items.push(await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!) as KeyValueStoreRecord<any>);
+            items.push(await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!) as KeyValueStoreRecord<Buffer>);
         }
     }
     yield items
@@ -85,7 +86,7 @@ export async function* GetKVSValues2Test2(KVS_ID: string, API_TOKEN?: string | u
         await kvs?.forEachKey(async (k) => {
             let val = await kvs?.getValue(k) as Buffer
             if (k && val)
-                keys.push({ key: k } as KeyValueListItem)
+                keys.push({ key: k })
         })
 
 
@@ -135,56 +136,92 @@ export const zip = (
     });
 };
 
-// export const fileToArrayBuffer = (file: File): Promise<Uint8Array> => {
-//     return new Promise(async (resolve, reject) => {
-//         try {
-//             let fileByteArray: Uint8Array;
-//             fileByteArray = strToU8(await file.text())
-//             return resolve(fileByteArray);
-//         }
-//         catch (e) {
-//             reject(e)
-//         }
-//     });
-
-// }
-
 let f = GetKVSValues2Test2("data-kvs", undefined)
 
-await zipPako(f).then(async res => {
-    log.info("Writing file to disk")
-    fs.writeFileSync('hello.test.zip', Buffer.from(res));
-    await Actor.exit()
-})
+// Generate structure of the zip file
+let zipObj: any = {}
 
-async function zipPako(files: AsyncGenerator<KeyValueStoreRecord<Buffer>[], void, unknown>): Promise<Uint8Array> {
-    return new Promise(async (res, rej) => {
+for await (const i of f) {
+    for await (const ff of i) {
+        // file name (string) : file contents (Buffer)
+        zipObj[ff.key] = Uint8Array.from(((<any> ff.value).data))
+    }
+}
 
-        let zp = new pako.Deflate()
-        let i = 0;
-        let final = false;
+await zip(zipObj as AsyncZippable, { level: 6 })
+    .then(async res => {
+        log.info("Writing file to disk")
+        await fs.promises.writeFile('hello.test.zip', (res))
 
-        for await (let file of files) {
-            let len = file.length
-            for (let index = 0; index < file.length; index++) {
-                const ff = file[index];
+            .then(async () => console.log("Written to disk"))
+            .then(async () => await Actor.exit())
+    })
 
-                log.info(`Zipping ${ff.key}`)
-                let data = (ff.value as any).data
-                const fileBuffer = new Uint8Array(data);
+// async function zipPako(files: AsyncGenerator<KeyValueStoreRecord<Buffer>[], void, unknown>): Promise<Uint8Array> {
+//     // return new Promise(async (res, rej) => {
 
-                if (index == len - 1) {
-                    final = true;
-                }
+//     //     let zp = new pako.Deflate()
+//     //     let final = false;
 
-                zp.push(fileBuffer, final)
+//     //     for await (let file of files) {
+//     //         let len = file.length
+//     //         for (let index = 0; index < file.length; index++) {
+//     //             const ff = file[index];
 
-                if (zp.err > 0) {
-                    rej("ERROR: " + Error("invalid file! " + ff.key))
-                }
-            }
-        }
-        let result = zp.result
-        res(result)
+//     //             log.info(`Zipping ${ff.key}`)
+//     //             // let data = (ff.value as any).data as Buffer
+//     //             let data = Buffer.from((ff.value as any).data)
+
+//     //             const fileBuffer = new Uint8Array(data);
+
+//     //             if (index == len - 1) {
+//     //                 final = true;
+//     //             }
+
+//     //             zp.push(fileBuffer, final)
+
+//     //             if (zp.err > 0) {
+//     //                 rej("ERROR: " + Error("invalid file! " + ff.key))
+//     //             }
+
+//     //             if (zp.msg) console.log(zp.msg);
+//     //         }
+//     //     }
+
+//     //     // zp.onEnd(0)
+//     //     let result = zp.result
+//     //     res(result)
+//     // })
+//     return new Promise(async (res, rej) => {
+
+//         let zp = new pako.Deflate()
+//         let chunks = []
+
+//         for await (let file of files) {
+//             let len = file.length
+//             for (let index = 0; index < file.length; index++) {
+//                 const ff = file[index];
+
+//                 log.info(`Zipping ${ff.key}`)
+//                 // let data = (ff.value as any).data as Buffer
+//                 let data = Buffer.from((ff.value as any).data)
+
+//                 const fileBuffer = new Uint8Array(data);
+
+//                 chunks.push(fileBuffer)
+//             }
+//             zp.push(chunks.toString(), true)
+
+//             if (zp.msg) console.log(zp.msg);
+//         }
+
+//         // zp.onEnd(0)
+//         let result = zp.result
+//         res(result)
+//     })
+// }
+async function zipADM(files: AsyncGenerator<KeyValueStoreRecord<Buffer>[], void, unknown>): Promise<Uint8Array> {
+    return new Promise((res, rej) => {
+
     })
 }

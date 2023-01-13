@@ -4,6 +4,7 @@
     "type": "module",
     "description": "This is an example of a Crawlee project.",
     "dependencies": {
+        "adm-zip": "^0.5.10",
         "apify": "*",
         "archiver": "^5.3.1",
         "bluebird": "^3.7.2",
@@ -15,6 +16,7 @@
     },
     "devDependencies": {
         "@apify/tsconfig": "^0.1.0",
+        "@types/adm-zip": "^0.5.0",
         "@types/archiver": "^5.3.1",
         "@types/pako": "^2.0.0",
         "ts-node": "^10.8.0",

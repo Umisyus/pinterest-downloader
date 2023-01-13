@@ -3,11 +3,18 @@
     "compilerOptions": {
         "module": "ESNext",
         "target": "ESNext",
-        "outDir": "dist",
+        "outDir": "dist/src",
         "noUnusedLocals": false,
-        "lib": ["DOM"]
+        "strict": true,
+        "lib": [
+            "DOM"
+        ]
     },
     "include": [
-        "./src/**/*"
-, "js/zip.ts"    ]
+        "./src/**/*",
+        "js/zip.ts"
+    ],
+    "exclude": [
+        "node_modules/**/*"
+    ]
 }
