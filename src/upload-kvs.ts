@@ -7,7 +7,7 @@ await saveLocalKVSToRemoteKVS("data-kvs", "data-kvs");
 
 async function saveLocalKVSToRemoteKVS(local_kvs_id: string, remote_kvs_id: string) {
     let local_kvs = await Actor.openKeyValueStore(local_kvs_id);
-    let client = new ApifyClient({ token: process.env.TOKEN });
+    let client = new ApifyClient({ token: process.env.APIFY_TOKEN });
     let create_kvs = (await client.keyValueStores().getOrCreate(remote_kvs_id)).id;
     let remote_kvs = client.keyValueStore(create_kvs)
 
