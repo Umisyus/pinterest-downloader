@@ -10,53 +10,7 @@ import pako from 'pako';
 import AdmZip from 'adm-zip'
 
 import { delay, GetKVSValues2Test, sliceArrayBySize } from './split-test.js';
-// All of the async APIs use a node-style callback as so:
-
-// Streaming ZIP archives can accept asynchronous streams. This automatically
-// uses multicore compression.
-// let files = [{ name: 'file1.txt', data: "Hello 1" }, { name: 'file2.txt', data: "Hello 2" }, { name: 'file3.txt', data: "Hello 3" }]
-// // const zip = new fflate.Zip();
-
-// zip.ondata = (err: any, chunk: any, final: any) => {
-//     if (err) {
-//         console.error(err);
-//         return;
-//     }
-//     console.log(chunk);
-//     if (final) {
-//         console.log('Done!');
-//     }
-// };
-
-// // The JSON and BMP are compressed in parallel
-// let chunks: any[] = [];
-// const exampleFile2 = new fflate.AsyncZipDeflate('example2.bmp', { level: 9 });
-// exampleFile2.ondata = (err: any, chunk: any, final: any) => {
-//     if (err) {
-//         console.error(err);
-//         return;
-//     }
-//     console.log(chunk);
-//     chunks.push(chunk);
-
-//     if (final) {
-//         console.log('Done!');
-//     }
-// };
-
-// // zip.add(exampleFile2);
-// for (let index = 0; index < files.length; index++) {
-//     const file = files[index];
-
-//     exampleFile2.push(fflate.strToU8(file.data));
-// }
-
-// exampleFile2.push(fflate.strToU8(`hello world!!!!`), true);
-// zip.end();
-
-// console.log(exampleFile2.size)
-
-// fs.writeFileSync('test.zip', Buffer.from(chunks));
+let KVS_ID = "concept-art"
 async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], client?: ApifyClient) {
     let items: KeyValueStoreRecord<Buffer>[] = []
     if (client) {
@@ -149,7 +103,8 @@ export const zip = (
         });
     });
 };
-let f = GetKVSValues2Test2("data-kvs", "apify_api_3iCxZVl26wJd5gSFBhP9zJgR5moNuW14COwU")
+const token = process.env.APIFY_TOKEN ?? fs.readFile('./storage/token.json', (_, data) => JSON.parse(data.toString()).token) ?? undefined
+let f = GetKVSValues2Test2(KVS_ID, token)
 
 // Generate structure of the zip file
 let zipObj: any = {}
