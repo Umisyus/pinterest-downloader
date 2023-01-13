@@ -79,46 +79,47 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
 export async function* GetKVSValues2Test2(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let keys: { key: string }[] = []
     if (!Actor.isAtHome()) {
+        log.info("Reading from local KVS...")
+
         let kvs = await Actor.openKeyValueStore(KVS_ID)
             .catch(() => console.error("Could not open local store!"));
 
-
         await kvs?.forEachKey(async (k) => {
-            let val = await kvs?.getValue(k) as Buffer
-            if (k && val)
-                keys.push({ key: k })
+            keys.push({ key: k })
         })
 
+        // Loop over items from local KVS
+        yield (await loopItemsIterArray(KVS_ID, keys as KeyValueListItem[]).next()).value as KeyValueStoreRecord<Buffer>[]
 
+    } else {
+        log.info("Reading from remote KVS...")
+        let client = new ApifyClient({ token: API_TOKEN });
+        // let ALL_ITEMS: Buffer[] = [];
+        let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
+        let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
+        log.info(`Found ${count} total key(s)`)
+
+        do {
+            /* Get images 200 keys at a time, zip & save */
+
+            // Find a way to yield the images instead of waiting for all of them to be processed
+            let split = sliceArrayBySize(items, 15)
+            // Get all images from KVS
+            for await (const e of split) {
+                // yield (await loopItemsIterArray(KVS_ID, e, client).next())
+                yield (await loopItemsIterArray(KVS_ID, e as KeyValueListItem[]).next()).value as KeyValueStoreRecord<Buffer>[]
+            }
+
+            nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
+            if (nextExclusiveStartKey !== null) {
+                items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
+            }
+            else break
+
+        } while (nextExclusiveStartKey)
     }
-    yield (await loopItemsIterArray(KVS_ID, keys as KeyValueListItem[]).next()).value as KeyValueStoreRecord<Buffer>[] ?? []
-    // else {
-    //     let client = new ApifyClient({ token: API_TOKEN });
-    //     // let ALL_ITEMS: Buffer[] = [];
-    //     let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
-    //     let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
-    //     log.info(`Found ${count} total key(s)`)
-
-    //     do {
-    //         /* Get images 200 keys at a time, zip & save */
-
-    //         // Find a way to yield the images instead of waiting for all of them to be processed
-    //         let split = sliceArrayBySize(items, 15)
-    //         // Get all images from KVS
-    //         for await (const e of split) {
-    //             yield loopItemsIterArray(KVS_ID, e ?? [], client)
-    //         }
-
-    //         nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
-
-    //         if (nextExclusiveStartKey !== null) {
-    //             items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
-    //         }
-    //         else break
-
-    //     } while (nextExclusiveStartKey)
-    // }
-    // log.info(`Processed all items`)
+    log.info(`Processed all items`)
     // await Actor.exit()
 }
 
@@ -135,7 +136,6 @@ export const zip = (
         });
     });
 };
-
 let f = GetKVSValues2Test2("data-kvs", undefined)
 
 // Generate structure of the zip file
@@ -156,72 +156,3 @@ await zip(zipObj as AsyncZippable, { level: 6 })
             .then(async () => console.log("Written to disk"))
             .then(async () => await Actor.exit())
     })
-
-// async function zipPako(files: AsyncGenerator<KeyValueStoreRecord<Buffer>[], void, unknown>): Promise<Uint8Array> {
-//     // return new Promise(async (res, rej) => {
-
-//     //     let zp = new pako.Deflate()
-//     //     let final = false;
-
-//     //     for await (let file of files) {
-//     //         let len = file.length
-//     //         for (let index = 0; index < file.length; index++) {
-//     //             const ff = file[index];
-
-//     //             log.info(`Zipping ${ff.key}`)
-//     //             // let data = (ff.value as any).data as Buffer
-//     //             let data = Buffer.from((ff.value as any).data)
-
-//     //             const fileBuffer = new Uint8Array(data);
-
-//     //             if (index == len - 1) {
-//     //                 final = true;
-//     //             }
-
-//     //             zp.push(fileBuffer, final)
-
-//     //             if (zp.err > 0) {
-//     //                 rej("ERROR: " + Error("invalid file! " + ff.key))
-//     //             }
-
-//     //             if (zp.msg) console.log(zp.msg);
-//     //         }
-//     //     }
-
-//     //     // zp.onEnd(0)
-//     //     let result = zp.result
-//     //     res(result)
-//     // })
-//     return new Promise(async (res, rej) => {
-
-//         let zp = new pako.Deflate()
-//         let chunks = []
-
-//         for await (let file of files) {
-//             let len = file.length
-//             for (let index = 0; index < file.length; index++) {
-//                 const ff = file[index];
-
-//                 log.info(`Zipping ${ff.key}`)
-//                 // let data = (ff.value as any).data as Buffer
-//                 let data = Buffer.from((ff.value as any).data)
-
-//                 const fileBuffer = new Uint8Array(data);
-
-//                 chunks.push(fileBuffer)
-//             }
-//             zp.push(chunks.toString(), true)
-
-//             if (zp.msg) console.log(zp.msg);
-//         }
-
-//         // zp.onEnd(0)
-//         let result = zp.result
-//         res(result)
-//     })
-// }
-async function zipADM(files: AsyncGenerator<KeyValueStoreRecord<Buffer>[], void, unknown>): Promise<Uint8Array> {
-    return new Promise((res, rej) => {
-
-    })
-}
