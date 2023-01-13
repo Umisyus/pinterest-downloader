@@ -67,7 +67,7 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
         }
     }
 
-    if (!client) {
+    if (!client && !Actor.isAtHome()) {
         for await (const it of keys) {
             // await delay(0.2);
             // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
@@ -76,9 +76,9 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
     }
     yield items
 }
-export async function* GetKVSValues2Test2(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+export async function* GetKVSValues2Test2(KVS_ID: string, APIFY_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let keys: { key: string }[] = []
-    if (!Actor.isAtHome()) {
+    if (Actor.isAtHome()) {
         log.info("Reading from local KVS...")
 
         let kvs = await Actor.openKeyValueStore(KVS_ID)
@@ -93,10 +93,23 @@ export async function* GetKVSValues2Test2(KVS_ID: string, API_TOKEN?: string | u
 
     } else {
         log.info("Reading from remote KVS...")
-        let client = new ApifyClient({ token: API_TOKEN });
+        let client = new ApifyClient({
+            token: APIFY_TOKEN
+        });
+
+        /*
+        CLIENT KVS LIST KEYS
+        GET FIRST KVS ID
+        */
+
+        let list = await client.keyValueStores().list()
+        let itemsz = list.items
+        console.log(itemsz.map(({ name, title, username, id }) => ({ name, title, username, id })));
+        let kvs_id = itemsz[0].id
+
         // let ALL_ITEMS: Buffer[] = [];
-        let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
-        let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
+        let { nextExclusiveStartKey, items } = (await client.keyValueStore(kvs_id).listKeys({ limit: FILES_PER_ZIP }));
+        let count = (await client.keyValueStore(kvs_id).listKeys({ limit: FILES_PER_ZIP })).count;
         log.info(`Found ${count} total key(s)`)
 
         do {
@@ -107,17 +120,17 @@ export async function* GetKVSValues2Test2(KVS_ID: string, API_TOKEN?: string | u
             // Get all images from KVS
             for await (const e of split) {
                 // yield (await loopItemsIterArray(KVS_ID, e, client).next())
-                yield (await loopItemsIterArray(KVS_ID, e as KeyValueListItem[]).next()).value as KeyValueStoreRecord<Buffer>[]
+                yield (await loopItemsIterArray(kvs_id, e as KeyValueListItem[], client).next()).value as KeyValueStoreRecord<Buffer>[]
             }
 
-            nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
-
             if (nextExclusiveStartKey !== null) {
-                items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
+                nextExclusiveStartKey = ((await (client.keyValueStore(kvs_id).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
+                items = ((await (client.keyValueStore(kvs_id).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
             }
             else break
 
-        } while (nextExclusiveStartKey)
+        } while (nextExclusiveStartKey !== null)
     }
     log.info(`Processed all items`)
     // await Actor.exit()
@@ -136,7 +149,7 @@ export const zip = (
         });
     });
 };
-let f = GetKVSValues2Test2("data-kvs", undefined)
+let f = GetKVSValues2Test2("data-kvs", "apify_api_3iCxZVl26wJd5gSFBhP9zJgR5moNuW14COwU")
 
 // Generate structure of the zip file
 let zipObj: any = {}
@@ -144,7 +157,7 @@ let zipObj: any = {}
 for await (const i of f) {
     for await (const ff of i) {
         // file name (string) : file contents (Buffer)
-        zipObj[ff.key] = Uint8Array.from(((<any> ff.value).data))
+        zipObj[ff.key] = Uint8Array.from(((<any> ff.value).value.data))
     }
 }
 
