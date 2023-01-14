@@ -10,7 +10,10 @@ import pako from 'pako';
 import AdmZip from 'adm-zip'
 
 import { delay, GetKVSValues2Test, sliceArrayBySize } from './split-test.js';
-let KVS_ID = "concept-art"
+
+
+let KVS_ID = "data-kvs"
+
 async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], client?: ApifyClient) {
     let items: KeyValueStoreRecord<Buffer>[] = []
     if (client) {
@@ -112,7 +115,7 @@ let zipObj: any = {}
 for await (const i of f) {
     for await (const ff of i) {
         // file name (string) : file contents (Buffer)
-        zipObj[ff.key] = Uint8Array.from(((<any> ff.value).value.data))
+        zipObj[ff.key] = Uint8Array.from(((<any>ff.value).value.data))
     }
 }
 
