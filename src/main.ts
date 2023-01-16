@@ -2,11 +2,11 @@
 import { Actor, ApifyClient, KeyValueStore, log, } from 'apify';
 import { KeyValueListItem } from 'apify-client';
 import { randomUUID } from 'crypto';
-import { zipSync } from 'fflate';
-import create from 'archiver';
-import fs from 'fs';
+import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
+import * as fs from "fs";
 import { KeyValueStoreRecord } from '@crawlee/types';
 import { GetKVSValues, GetKVSValues2Test, sliceArrayBySize } from './split-test.js';
+import { create } from 'archiver';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init();
 
@@ -67,7 +67,7 @@ async function zipToKVS(client: ApifyClient) {
 
             console.log('Fetching items...');
             if (fast) {
-                //  IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
+                IteratorGetKVSValues(kvs.id, APIFY_TOKEN, FILES_PER_ZIP ?? 100);
                 await GetKVSValues2Test(kvs.id, APIFY_TOKEN, FILES_PER_ZIP);
             } else {
                 await GetKVSValues(kvs.id, APIFY_TOKEN, 50);
@@ -77,11 +77,13 @@ async function zipToKVS(client: ApifyClient) {
     }
 }
 
-async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+/* get items, split them into MB-sized chunks, processed in parallel */
+async function IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let client = new ApifyClient({ token: API_TOKEN });
-    let ALL_ITEMS: Buffer[] = [];
+
     let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
     let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
+    let index = 0;
 
     log.info(`Found ${count} total key(s)`)
     // let currentCount = 0;
@@ -93,20 +95,20 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
         log.info(`Processing ${chunked.length} chunk(s)`)
 
         // DON'T DO THIS!
-        await Promise.all(chunked.map((ch) => processParts(ch, `${KVS_ID}-${randomUUID()}`)))
-
-        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+        await Promise.all(chunked.map((ch) => processParts(ch, `${KVS_ID}-${randomUUID()}-${index++}`)))
 
         if (nextExclusiveStartKey !== null) {
+            nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
+
             items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
         }
         else break
 
     } while (nextExclusiveStartKey)
-
     log.info(`Processed all items`)
-    return ALL_ITEMS;
+    index = 0
 }
+
 async function loopItems(KVS_ID: string, keys: KeyValueListItem[], client: ApifyClient) {
     let items: KeyValueStoreRecord[] = []
     for await (const it of keys) {
@@ -167,9 +169,8 @@ async function writeSingleZip() {
             log.info(`${index}/${filteredKVSListItem.length} files added to zip file...`);
         };
 
-        zipped = zipSync(
-            toZip
-        );
+        zipped = await zip(toZip);
+
         // Done zipping
         log.info(`Finished zipping ${filteredKVSListItem.length} files from ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
         console.log('Writing zip...');
@@ -194,7 +195,7 @@ function saveToFS(zipped: any, outFolder = 'images-folder', fileName = 'image-do
     try {
         if (!fs.existsSync(outFolder)) fs.mkdirSync(outFolder);
 
-        fs.writeFileSync(path, zipped, { encoding: 'binary' });
+        fs.writeFileSync(path, zipped);
     }
     catch (e) {
         console.error(e)
@@ -220,9 +221,6 @@ async function saveToKVS(zipped: Buffer, fileName: string = "image_downloads") {
     await Actor.setValue(`${fileName}`, zipped, { contentType: 'application/zip' });
     log.info(`${fileName} was saved to KVS successfully!`)
 }
-
-
-
 
 async function archiveKVS2(imageArray: any[], _limit: number | undefined = FILES_PER_ZIP) {
     const buffers: Uint8Array[] = [];
@@ -256,15 +254,44 @@ async function archiveKVS2(imageArray: any[], _limit: number | undefined = FILES
     })
     return Buffer.concat(buffers)
 }
+
 async function processParts(chunks: KeyValueStoreRecord[], nomDuFichier: string): Promise<void> {
     log.info(`Current # of items: ${chunks.length}`)
 
-    let ff = await archiveKVS2(chunks);
+    // Generate structure of the zip file
+    let zipFile = await zipFiles(chunks);
 
     log.info(`Saving file ${nomDuFichier} to key-value store...`);
-    await saveToKVS(ff, nomDuFichier).then(async () => {
+    await saveToKVS(zipFile, nomDuFichier).then(async () => {
         await Actor.pushData({
             download: (await Actor.openKeyValueStore()).getPublicUrl(nomDuFichier)
         })
     });
+}
+
+export const zip = (
+    data: AsyncZippable,
+    options: AsyncZipOptions = { level: 0 }
+): Promise<Uint8Array> => {
+    return new Promise((resolve, reject) => {
+        zipCallback(data, options, (err, resultData) => {
+            if (err) { console.warn("err = ", err); reject(err); }
+            console.log("data = ", resultData);
+
+            return resolve(resultData);
+        });
+    });
+};
+
+async function zipFiles(items: KeyValueStoreRecord[]) {
+    let zipObj: any = {};
+
+    for await (const item of items) {
+        // file name (string) : file contents (Buffer)
+        zipObj[item.key] = Uint8Array.from(((<any>item.value).value.data));
+    }
+
+    let ff = await zip(zipObj);
+    let zipFile = Buffer.from(ff);
+    return zipFile;
 }

@@ -11,11 +11,11 @@
 //     return results;
 // }
 import { Actor, ApifyClient, log } from 'apify';
-import archiver from 'archiver';
-import fs from 'fs';
+
 import { randomUUID } from 'crypto';
 import { KeyValueListItem, KeyValueStoreRecord } from 'apify-client';
-import { chunk, keys } from 'crawlee';
+import { chunk, chunkBySize, keys } from 'crawlee';
+import * as archiver from 'archiver';
 
 // Actor.init().then(async () => {
 (async () => {
@@ -96,7 +96,7 @@ export async function GetKVSValues(KVS_ID: string, API_TOKEN?: string | undefine
 }
 export async function GetKVSValues2Test(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let client = new ApifyClient({ token: API_TOKEN });
-    // let ALL_ITEMS: Buffer[] = [];
+
     let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
     let count = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP })).count;
     log.info(`Found ${count} total key(s)`)
@@ -105,40 +105,24 @@ export async function GetKVSValues2Test(KVS_ID: string, API_TOKEN?: string | und
         /* Get images 200 keys at a time, zip & save */
 
         // Find a way to yield the images instead of waiting for all of them to be processed
-        let split = sliceArrayBySize(items, 15)
+        let split = chunk(items, 15)
         // Get all images from KVS
 
         split.forEach(async (e) => {
             // Zip array of items iteratively
             await loopItemsIterArray(KVS_ID, e ?? [], client).next().then(async (e) => {
-                return await processParts(e.value as any[], KVS_ID);
+            
+                await processParts(e.value as any[], KVS_ID);
             }).then(async () => {
                 log.info(`Archived ${e.length} key(s)`)
             })
         })
 
-        // Zip items iteratively
-        // await loopItemsIter(KVS_ID, split.pop()!, client).next().then(async (e) => {
-        //     a.append((e?.value?.value as unknown as Buffer), { name: e!.value!.key })
-        // }).then(async () => {
-        //     await a.finalize();
-        //     log.info(`Archived ${items.length} key(s)`)
-        // })
-
-        // loopItemsIter(KVS_ID, it, client);
-        // await processParts(sliceArrayBySize(e, 20).flat(), KVS_ID);
-
-        // let chunked = [...images.map(i => sliceArrayBySize(i, 20))].flat()
-        // log.info(`Processing ${chunked.length} chunk(s)`)
-
-        // DON'T DO THIS!
-        // await Promise.all(chunked.map((ch) => processParts(ch, `${KVS_ID}-${randomUUID()}`)))
-
-        nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
-
         if (nextExclusiveStartKey !== null) {
+            nextExclusiveStartKey = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).nextExclusiveStartKey;
             items = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP })))).items
         }
+
         else break
 
     } while (nextExclusiveStartKey)
@@ -172,16 +156,13 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
     }
     yield items
 }
-// let stuff = [...Array(100).keys()].map(i => ({ key: `Key ${i}`, value: Math.ceil(Math.random() * 3) * 1_000_000 }))
-// let chunks = manualChunk(stuff)
-// console.log(chunks);
 
-export function sliceArrayBySize(values: any[], maxSizeMB: number = 9.5) {
+export function sliceArrayBySize(values: KeyValueStoreRecord<Buffer>[], maxSizeMB: number = 9.5) {
     let totalSizeMB = 0;
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = value.length;
+        const valueSizeMB = value.value.length;
         if (totalSizeMB + valueSizeMB > (maxSizeMB * 1_000_000)) {
             slicedArrays.push(slicedValues);
             slicedValues = [];

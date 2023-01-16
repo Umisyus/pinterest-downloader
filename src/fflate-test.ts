@@ -4,12 +4,11 @@
 // CLI flag, and will fail entirely on Node below v10.
 import { ApifyClient, log, Actor } from 'apify';
 import { KeyValueListItem, KeyValueStoreRecord } from 'apify-client';
-import fflate, { AsyncZipDeflate, AsyncZipOptions, AsyncZippable, strFromU8, strToU8, Zip, zip as zipCallback } from 'fflate';
+import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
 import * as fs from 'fs';
-import pako from 'pako';
-import AdmZip from 'adm-zip'
 
-import { delay, GetKVSValues2Test, sliceArrayBySize } from './split-test.js';
+import { delay } from './split-test.js';
+import { chunk } from 'crawlee';
 
 
 let KVS_ID = "data-kvs"
@@ -35,7 +34,7 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
 }
 export async function* GetKVSValues2Test2(KVS_ID: string, APIFY_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let keys: { key: string }[] = []
-    if (Actor.isAtHome()) {
+    if (!Actor.isAtHome()) {
         log.info("Reading from local KVS...")
 
         let kvs = await Actor.openKeyValueStore(KVS_ID)
@@ -64,17 +63,17 @@ export async function* GetKVSValues2Test2(KVS_ID: string, APIFY_TOKEN?: string |
         console.log(itemsz.map(({ name, title, username, id }) => ({ name, title, username, id })));
         let kvs_id = itemsz[0].id
 
-        // let ALL_ITEMS: Buffer[] = [];
-        let { nextExclusiveStartKey, items } = (await client.keyValueStore(kvs_id).listKeys({ limit: FILES_PER_ZIP }));
-        let count = (await client.keyValueStore(kvs_id).listKeys({ limit: FILES_PER_ZIP })).count;
+        let remote_store = client.keyValueStore(kvs_id);
+        let { nextExclusiveStartKey, items } = (await remote_store.listKeys({ limit: FILES_PER_ZIP = 100 }));
+        let count = (await remote_store.listKeys({ limit: FILES_PER_ZIP })).count;
         log.info(`Found ${count} total key(s)`)
 
         do {
-            /* Get images 200 keys at a time, zip & save */
+            let split = chunk(items, FILES_PER_ZIP)
 
-            // Find a way to yield the images instead of waiting for all of them to be processed
-            let split = sliceArrayBySize(items, 15)
             // Get all images from KVS
+            log.info(`Processing ${items.length} set(s) of ${FILES_PER_ZIP} items...`)
+
             for await (const e of split) {
                 // yield (await loopItemsIterArray(KVS_ID, e, client).next())
                 yield (await loopItemsIterArray(kvs_id, e as KeyValueListItem[], client).next()).value as KeyValueStoreRecord<Buffer>[]
@@ -90,7 +89,6 @@ export async function* GetKVSValues2Test2(KVS_ID: string, APIFY_TOKEN?: string |
         } while (nextExclusiveStartKey !== null)
     }
     log.info(`Processed all items`)
-    // await Actor.exit()
 }
 
 export const zip = (
@@ -106,7 +104,7 @@ export const zip = (
         });
     });
 };
-const token = process.env.APIFY_TOKEN ?? fs.readFile('./storage/token.json', (_, data) => JSON.parse(data.toString()).token) ?? undefined
+const token = process.env.APIFY_TOKEN ?? fs.readFile('./storage/token.json', (_, data) => data ? JSON.parse(data.toString()).token : undefined) ?? undefined
 let f = GetKVSValues2Test2(KVS_ID, token)
 
 // Generate structure of the zip file
@@ -122,7 +120,7 @@ for await (const i of f) {
 await zip(zipObj as AsyncZippable, { level: 6 })
     .then(async res => {
         log.info("Writing file to disk")
-        await fs.promises.writeFile('hello.test.zip', (res))
+        await fs.promises.writeFile(`${KVS_ID}.test.zip`, res)
 
             .then(async () => console.log("Written to disk"))
             .then(async () => await Actor.exit())
