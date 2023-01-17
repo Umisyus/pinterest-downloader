@@ -111,7 +111,7 @@ export async function GetKVSValues2Test(KVS_ID: string, API_TOKEN?: string | und
         split.forEach(async (e) => {
             // Zip array of items iteratively
             await loopItemsIterArray(KVS_ID, e ?? [], client).next().then(async (e) => {
-            
+
                 await processParts(e.value as any[], KVS_ID);
             }).then(async () => {
                 log.info(`Archived ${e.length} key(s)`)

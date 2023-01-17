@@ -11,7 +11,7 @@ async function saveLocalKVSToRemoteKVS(local_kvs_id: string, remote_kvs_id: stri
     let create_kvs = (await client.keyValueStores().getOrCreate(remote_kvs_id)).id;
     let remote_kvs = client.keyValueStore(create_kvs)
 
-    await Actor.openKeyValueStore('data-kvs', { forceCloud: true })
+    await Actor.openKeyValueStore(local_kvs_id, { forceCloud: true })
         .then(async (kvs) => {
             await local_kvs.forEachKey(async (k) => {
                 let v = await local_kvs.getValue(k);
@@ -21,4 +21,3 @@ async function saveLocalKVSToRemoteKVS(local_kvs_id: string, remote_kvs_id: stri
             });
         });
 }
-
