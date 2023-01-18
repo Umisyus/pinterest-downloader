@@ -11,23 +11,27 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
     if (client) {
         for await (const it of keys) {
             await delay(0.2);
+            const item = await client.keyValueStore(KVS_ID).getRecord(it.key!, { buffer: true }) as KeyValueStoreRecord<any>;
             // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
-            items.push(await client.keyValueStore(KVS_ID).getRecord(it.key!) as KeyValueStoreRecord<any>);
+            items.push(item);
         }
     }
 
     if (!client && !Actor.isAtHome()) {
         for await (const it of keys) {
+            const item = await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!) as KeyValueStoreRecord<Buffer>;
             // await delay(0.2);
             // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
-            items.push(await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!) as KeyValueStoreRecord<Buffer>);
+            items.push(item);
         }
     }
     yield items
 }
 export async function* GetKVSValues2Test2(KVS_ID: string, APIFY_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
     let keys: { key: string }[] = []
-    if (!Actor.isAtHome()) {
+    let isAtHome = Actor.isAtHome()
+
+    if (!isAtHome) {
         log.info("Reading from local KVS...")
 
         let kvs = await Actor.openKeyValueStore(KVS_ID)
@@ -65,10 +69,9 @@ export async function* GetKVSValues2Test2(KVS_ID: string, APIFY_TOKEN?: string |
             let split = chunk(items, FILES_PER_ZIP)
 
             // Get all images from KVS
-            log.info(`Processing ${items.length} set(s) of ${FILES_PER_ZIP} items...`)
+            log.info(`Processing ${split.length} set(s) of ${FILES_PER_ZIP} items...`)
 
             for await (const e of split) {
-                // yield (await loopItemsIterArray(KVS_ID, e, client).next())
                 yield (await loopItemsIterArray(kvs_id, e as KeyValueListItem[], client).next()).value as KeyValueStoreRecord<Buffer>[]
             }
 
@@ -180,7 +183,13 @@ let zipObj: any = {}
 for await (const i of f) {
     for await (const ff of i) {
         // file name (string) : file contents (Buffer)
-        zipObj[ff.key] = Uint8Array.from(((<any>ff.value).data))
+        // let kvs_record = (<any> ff.value.value.data) as Buffer
+        let kvs_record = (<any> ff.value)
+        if (Actor.isAtHome()) {
+            zipObj[ff.key] = Uint8Array.from(kvs_record)
+        } else {
+            zipObj[ff.key] = Uint8Array.from(<Buffer> kvs_record.data)
+        }
     }
 }
 
