@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import { chunk } from 'crawlee';
 
 let KVS_ID = "data-kvs"
+let ZIP_FILE_NAME = ''
 
 async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], client?: ApifyClient): AsyncGenerator<KeyValueStoreRecord<Buffer>[]> {
     let items: KeyValueStoreRecord<any>[] = []
@@ -60,6 +61,8 @@ export async function* GetKVSValuesIterator(KVS_ID: string, APIFY_TOKEN?: string
 
         let list = (await client.keyValueStores().list()).items
         let kvs = list.find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID)
+        
+        ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
 
         const kvs_id = kvs?.id!;
         let remote_store = client.keyValueStore(kvs_id);
@@ -209,7 +212,7 @@ await zip(zipObj as AsyncZippable, { level: 9 })
 
         log.info("Writing file to KVS")
         await KeyValueStore.open()
-            .then(async (store) => await store.setValue("test", Buffer.from(res), { contentType: "application/zip" }))
+            .then(async (store) => await store.setValue(ZIP_FILE_NAME, Buffer.from(res), { contentType: "application/zip" }))
             .then(() => log.info("Written to KVS"))
             .finally(async () => await Actor.exit())
     })
