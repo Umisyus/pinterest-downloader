@@ -58,11 +58,10 @@ export async function* GetKVSValuesIterator(KVS_ID: string, APIFY_TOKEN?: string
         GET FIRST KVS ID
         */
 
-        let list = await client.keyValueStores().list()
-        let itemsz = list.items
-        console.log(itemsz.map(({ name, title, username, id }) => ({ name, title, username, id })));
-        let kvs_id = itemsz[0].id
+        let list = (await client.keyValueStores().list()).items
+        let kvs = list.find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID)
 
+        const kvs_id = kvs?.id!;
         let remote_store = client.keyValueStore(kvs_id);
         let { nextExclusiveStartKey, items } = (await remote_store.listKeys({ limit: FILES_PER_ZIP = 100 }));
         let count = (await remote_store.listKeys({ limit: FILES_PER_ZIP })).count;
@@ -72,7 +71,7 @@ export async function* GetKVSValuesIterator(KVS_ID: string, APIFY_TOKEN?: string
             let split = chunk(items, FILES_PER_ZIP)
 
             // Get all images from KVS
-            log.info(`Processing ${split.length} set(s) of ${FILES_PER_ZIP} items...`)
+            log.info(`Processing ${split.length} set(s) of ${FILES_PER_ZIP} (${count} total) items...`)
 
             for await (const e of split) {
                 yield (loopItemsIterArray(kvs_id, e as KeyValueListItem[], client))
@@ -200,7 +199,7 @@ for await (const records of f) {
         }
     }
 }
-
+log.info("Generating zip file...")
 await zip(zipObj as AsyncZippable, { level: 9 })
     .then(async res => {
         log.info("Writing file to disk")
