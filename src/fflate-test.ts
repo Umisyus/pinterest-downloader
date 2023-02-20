@@ -4,8 +4,9 @@ import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
 import * as fs from 'fs';
 import { chunk } from 'crawlee';
 import { bufferToStream } from './kvs-test.js';
+import { randomUUID } from "crypto";
 // let KVS_ID = "wykmmXcaTrNgYfJWm"
-let KVS_ID = "data-kvs"
+let KVS_ID = "data-kvs-copy"
 // let KVS_ID = "YmY3H1ypC9ZUOhDbH"// - umisyus/data-kvs
 let ZIP_FILE_NAME = ''
 
@@ -167,7 +168,7 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string, API_TOKEN?: string | u
 
     // Get all keys
     await client.forEachKey(handleKey)
-    // localItems.map(key => ({ key: key } as KeyValueListItem))
+
 
     let totalCount = localItems.length;
     ZIP_FILE_NAME = KVS_ID
@@ -177,12 +178,26 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string, API_TOKEN?: string | u
     do {
         // Find a way to yield the images instead of waiting for all of them to be processed
         let images = loopItemsIterArray(KVS_ID, localItems);
+        log.info("Getting images...")
         for await (const i of images) {
 
-            let chunked = sliceArrayBySize(i, 100)
-            log.info(`Processing ${chunked.length} chunk(s)`)
+            const chunked = sliceArrayBySize(i, 100)
 
-            for await (const ch of chunked) {
+            let mem = [...chunked[0].slice()]
+            let slicedValues = [...mem.slice().reverse()];
+            slicedValues = slicedValues.map(record => {
+                record.key = randomUUID().slice(0, 5) + record.key
+                return record
+            })
+
+            let arr = [slicedValues.concat(chunked[0]).reverse()]
+            log.info(`Got ${i.length} images...`)
+
+            log.info(`Processing ${arr.length} chunk(s)`)
+
+            for await (const ch of arr) {
+                // modify the values
+                // only keep the half intact
                 yield ch
                 runningCount += ch.length
             }
@@ -280,10 +295,11 @@ async function main() {
 log.info("Starting script")
 await Actor.init()
 
-log.info("Reading token from file")
+// log.info("Reading token from file")
 const token = //(
     process.env.APIFY_TOKEN // ??
 // fs.readFile('./storage/token.json', (_, data) =>
 // data ? JSON.parse(data.toString()).token : undefined)) ?? undefined
 
 await main();
+await Actor.exit()
