@@ -1,11 +1,11 @@
 import { Actor, log } from "apify";
 import { KeyValueStore } from "crawlee";
 import { Readable } from "stream";
-await Actor.init();
+// await Actor.init();
 
-await newFunction();
+// await newFunction();
 
-await Actor.exit();
+// await Actor.exit();
 
 // let { Actor, log } = await import("apify");
 async function newFunction(FILE_SIZE = 50_000_000 /* Size in Megabytes */) {
@@ -36,9 +36,9 @@ async function newFunction(FILE_SIZE = 50_000_000 /* Size in Megabytes */) {
     // await Actor.exit();
 };
 
-await newFunction(45_000_000)
+// await newFunction(45_000_000)
 
-function bufferToStream(base64: Buffer) {
+export function bufferToStream(base64: Buffer) {
     let readableStream = new Readable();
     readableStream.push(base64);
 

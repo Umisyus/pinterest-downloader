@@ -8,7 +8,7 @@
         "apify": "*",
         "archiver": "^5.3.1",
         "bluebird": "^3.7.2",
-        "crawlee": "^3.1.5-beta.8",
+        "crawlee": "^3.2.2",
         "fflate": "^0.7.4",
         "node-fetch": "^3.3.0",
         "pako": "^2.1.0",
