@@ -4,9 +4,9 @@ import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
 import * as fs from 'fs';
 import { chunk } from 'crawlee';
 import { bufferToStream } from './kvs-test.js';
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes, randomInt } from "crypto";
 // let KVS_ID = "wykmmXcaTrNgYfJWm"
-let KVS_ID = "data-kvs-copy"
+let KVS_ID = "data-kvs"
 // let KVS_ID = "YmY3H1ypC9ZUOhDbH"// - umisyus/data-kvs
 let ZIP_FILE_NAME = ''
 
@@ -18,8 +18,8 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
             // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
             if (item) {
-                if ((<any> item.value)?.value?.data) {
-                    item.value = (<any> item.value).value.data
+                if ((<any>item.value)?.value?.data) {
+                    item.value = (<any>item.value).value.data
                 }
                 items.push(item);
             }
@@ -170,7 +170,7 @@ export function sliceArrayBySize(values: KeyValueStoreRecord<Buffer>[], maxSizeM
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = (<any> value.value)?.data?.length;
+        const valueSizeMB = (<any>value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > (maxSizeMB * 1_000_000)) {
             slicedArrays.push(slicedValues);
             slicedValues = [];

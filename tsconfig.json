@@ -5,7 +5,7 @@
         "target": "ESNext",
         "outDir": "dist/src",
         "noUnusedLocals": false,
-        "strict": true,
+        "strict": false,
         "lib": [
             "DOM"
         ]
