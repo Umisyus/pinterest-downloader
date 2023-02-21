@@ -6,7 +6,7 @@ import { chunk } from 'crawlee';
 import { bufferToStream } from './kvs-test.js';
 import { randomUUID } from "crypto";
 // let KVS_ID = "wykmmXcaTrNgYfJWm"
-let KVS_ID = "data-kvs-copy"
+let KVS_ID = "data-kvs"
 // let KVS_ID = "YmY3H1ypC9ZUOhDbH"// - umisyus/data-kvs
 let ZIP_FILE_NAME = ''
 
@@ -120,21 +120,16 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string, API_TOKEN?: string | u
         log.info(`Getting ${localItems.length} images...`)
         for await (const i of images) {
 
-            const chunked = sliceArrayBySize(i, 100)
+            const chunked = sliceArrayBySize(i, 1)
 
-            let mem = [...chunked[0].slice()]
-            let slicedValues = [...mem.slice().reverse()];
-            slicedValues.map(record => {
-                record.key = randomUUID().slice(0, 5) + record.key
-                return record
-            })
-
-            let arr = [slicedValues.concat(mem).reverse()]
             log.info(`Got ${i.length} images...`)
 
-            log.info(`Processing ${arr.length} chunk(s)`)
-
-            for await (const ch of arr) {
+            log.info(`Processing ${chunked.length} chunk(s)`)
+            let ii = 0
+            let l = chunked.length
+            for await (const ch of chunked) {
+                ii++;
+                log.info(`Chunk #${ii} of ${l}`)
                 yield ch
                 runningCount += ch.length
             }
@@ -156,7 +151,7 @@ export function sliceArrayBySize(values: KeyValueStoreRecord<Buffer>[], maxSizeM
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = value.value.length;
+        const valueSizeMB = (<any> value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > (maxSizeMB * 1_000_000)) {
             slicedArrays.push(slicedValues);
             slicedValues = [];
