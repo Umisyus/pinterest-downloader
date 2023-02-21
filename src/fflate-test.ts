@@ -53,7 +53,7 @@ export function zip(
     });
 };
 /* Returns an array of values split by their size in megabytes. */
-async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB?: number) {
     if (Actor.isAtHome() == false) {
         let client = new ApifyClient({ token: API_TOKEN });
 
@@ -72,7 +72,7 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             let images = loopItemsIterArray(KVS_ID, items, client);
             for await (const i of images) {
 
-                let chunked = sliceArrayBySize(i, 100)
+                let chunked = sliceArrayBySize(i, MAX_ZIP_SIZE_MB)
                 log.info(`Processing ${chunked.length} chunk(s)`)
 
                 for await (const ch of chunked) {
@@ -201,7 +201,7 @@ async function saveToFS(zip_file_name: string, res: Uint8Array) {
     log.info("Saved" + zip_file_name + " to disk");
 }
 async function main() {
-    let f = IteratorGetKVSValues(KVS_ID, token, 10);
+    let f = IteratorGetKVSValues(KVS_ID, token, 1000, 150);
     // Generate structure of the zip file
     let isAtHome = Actor.isAtHome();
 
