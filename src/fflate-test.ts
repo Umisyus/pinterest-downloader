@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import { chunk } from 'crawlee';
 import { bufferToStream } from './kvs-test.js';
 import { randomUUID, randomBytes, randomInt } from "crypto";
-// let KVS_ID = "wykmmXcaTrNgYfJWm"
-let KVS_ID = "data-kvs"
+let KVS_ID = "wykmmXcaTrNgYfJWm"
+// let KVS_ID = "data-kvs"
 // let KVS_ID = "YmY3H1ypC9ZUOhDbH"// - umisyus/data-kvs
 let ZIP_FILE_NAME = ''
 
@@ -64,6 +64,8 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
         ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
 
         let runningCount = 0;
+
+        log.info(`Processing ${items.length} items`)
 
         do {
             // Find a way to yield the images instead of waiting for all of them to be processed
@@ -199,7 +201,7 @@ async function saveToFS(zip_file_name: string, res: Uint8Array) {
     log.info("Saved" + zip_file_name + " to disk");
 }
 async function main() {
-    let f = IteratorGetKVSValuesLocal(KVS_ID, undefined);
+    let f = IteratorGetKVSValues(KVS_ID, token, 10);
     // Generate structure of the zip file
     let isAtHome = Actor.isAtHome();
 
@@ -214,7 +216,7 @@ async function main() {
             log.info(`records: ${records.length}`)
 
             let kvs_record: any = record.value;
-            if (token && isAtHome == true) {
+            if (token || isAtHome == true) {
                 // on apify
 
                 zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
