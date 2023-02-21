@@ -6,7 +6,7 @@ import { chunk } from 'crawlee';
 import { bufferToStream } from './kvs-test.js';
 import { randomUUID } from "crypto";
 // let KVS_ID = "wykmmXcaTrNgYfJWm"
-let KVS_ID = "data-kvs"
+let KVS_ID = "data-kvs-copy"
 // let KVS_ID = "YmY3H1ypC9ZUOhDbH"// - umisyus/data-kvs
 let ZIP_FILE_NAME = ''
 
@@ -77,7 +77,6 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
                     yield ch
                 }
             }
-            // console.log("nextExclusiveStartKey = ", nextExclusiveStartKey);
 
             if (nextExclusiveStartKey !== null) {
                 let resp = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP }))))
@@ -101,7 +100,7 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string, API_TOKEN?: string | u
 
     let client = await Actor.openKeyValueStore(KVS_ID)
     let localItems: any[] = []
-    async function handleKey(key: string): Promise<void> {
+    function handleKey(key: string) {
         localItems.push({ key })
     }
 
@@ -115,34 +114,54 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string, API_TOKEN?: string | u
     let runningCount = 0;
 
     do {
+        let parcelList = chunk(localItems, 1000)
         // Find a way to yield the images instead of waiting for all of them to be processed
-        let images = loopItemsIterArray(KVS_ID, localItems);
-        log.info(`Getting ${localItems.length} images...`)
-        for await (const i of images) {
+        for (let index = 0; index < parcelList.length; index++) {
+            const element = parcelList[index];
 
-            const chunked = sliceArrayBySize(i, 1)
+            let images = loopItemsIterArray(KVS_ID, element);
+            log.info(`Getting ${element.length} of ${localItems.length} images...`)
+            for await (const i of images) {
 
-            log.info(`Got ${i.length} images...`)
+                const chunked = sliceArrayBySize(i, 250)
 
-            log.info(`Processing ${chunked.length} chunk(s)`)
-            let ii = 0
-            let l = chunked.length
-            for await (const ch of chunked) {
-                ii++;
-                log.info(`Chunk #${ii} of ${l}`)
-                yield ch
-                runningCount += ch.length
+                log.info(`Got ${i.length} images...`)
+
+                log.info(`Processing ${chunked.length} chunk(s)`)
+                let ii = 0
+                let l = chunked.length
+
+                // Duplicate the data
+                // let mem = [...chunked[0].slice()]
+                // let slicedValues = [...mem.slice().reverse()];
+                // slicedValues.map(record => {
+                //     record.key = randomUUID().slice(0, 5) + record.key
+                //     return record
+                // })
+                // let arr = [slicedValues.concat(mem).reverse()]
+
+                // for await (const ch of arr) {
+
+                /*
+                Because the dataset is a lot of duplicate data with different names,
+                the data is saved duplicated with the above code. Otherwise, the data
+                is written as not duplicated. Use the above code to duplicate the data on local runs.
+                */
+                for await (const ch of chunked) {
+
+                    ii++;
+                    log.info(`Chunk #${ii} of ${runningCount}`)
+                    yield ch
+                    runningCount += ch.length
+                }
             }
         }
-
         log.info(`Processed ${runningCount} items`)
-        // remove items
-        localItems.length - runningCount
 
     } while (runningCount < totalCount)
 
     log.info(`Processed all local items`)
-    // await Actor.exit()
+
 }
 
 
@@ -192,10 +211,12 @@ async function main() {
     for await (const records of f) {
         // file name (string) : file contents (Buffer)
         for await (const record of records) {
+            log.info(`records: ${records.length}`)
+
             let kvs_record: any = record.value;
             if (token && isAtHome == true) {
                 // on apify
-                // zipObj[record.key + '.png'] = Uint8Array.from(kvs_record.value.data as Buffer);
+
                 zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
             } else {
                 // on local machine
@@ -206,7 +227,7 @@ async function main() {
 
         i++;
         log.info("Generating zip file...");
-        await zip(zipObj as AsyncZippable, { level: 9, mem: 9 })
+        await zip(zipObj as AsyncZippable, { level: 9, mem: 8 })
             .then(async (res) => {
                 log.info("Writing file to disk");
                 const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
@@ -214,10 +235,7 @@ async function main() {
                 if (!fs.existsSync('./test-zips')) { fs.mkdirSync('./test-zips'); }
                 let stream = bufferToStream(Buffer.from(res))
 
-                // await Actor.setValue(zip_file_name, stream, { contentType: "application/octet-stream" })
                 await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
-
-                // await saveToFS(zip_file_name, res);
 
             });
         zipObj = {};
