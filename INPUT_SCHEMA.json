@@ -16,6 +16,24 @@
       "type": "array",
       "description": "Any key-value store names to exlude from the zipping process",
       "editor": "stringList"
+    },
+    "IncludedStores": {
+      "title": "IncludedStores",
+      "type": "array",
+      "description": "Any key-value store names to include in the zipping process",
+      "editor": "stringList"
+    },
+    "FILES_PER_ZIP": {
+      "title": "FILES_PER_ZIP",
+      "type": "string",
+      "description": "Number of items in each ZIP file",
+      "editor": "textfield"
+    },
+    "MAX_SIZE_MB": {
+      "title": "MAX_SIZE_MB",
+      "type": "string",
+      "description": "Size in Megabytes of each ZIP file",
+      "editor": "textfield"
     }
   },
   "required": [

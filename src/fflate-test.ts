@@ -1,18 +1,61 @@
-import { ApifyClient, log, Actor, KeyValueStore, KeyConsumer } from 'apify';
+import { ApifyClient, log, Actor } from 'apify';
 import { KeyValueListItem, KeyValueStoreRecord } from 'apify-client';
 import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
 import * as fs from 'fs';
 import { chunk } from 'crawlee';
 import { bufferToStream } from './kvs-test.js';
-import { randomUUID, randomBytes, randomInt } from "crypto";
-let KVS_ID = "wykmmXcaTrNgYfJWm"
-// let KVS_ID = "data-kvs"
-// let KVS_ID = "YmY3H1ypC9ZUOhDbH"// - umisyus/data-kvs
+
 let ZIP_FILE_NAME = ''
+
+let showDebugInfo = false
+
+export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB?: number) {
+    let f = IteratorGetKVSValues(KVS_ID, API_TOKEN, FILES_PER_ZIP, MAX_ZIP_SIZE_MB);
+    // Generate structure of the zip file
+    let isAtHome = Actor.isAtHome();
+
+    let i = 0;
+    let zipObj: any = {};
+
+    log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
+
+    for await (const records of f) {
+        // file name (string) : file contents (Buffer)
+        for await (const record of records) {
+
+            let kvs_record: any = record.value;
+            if (API_TOKEN || isAtHome == true) {
+                // on apify
+
+                zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
+            } else {
+                // on local machine
+                zipObj[record.key] = Uint8Array.from(kvs_record.data);
+            }
+
+        }
+
+        i++;
+        log.info("Generating zip file...");
+        await zip(zipObj as AsyncZippable, { level: 9, mem: 8 })
+            .then(async (res) => {
+                log.info("Writing file to disk");
+                const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
+
+                if (!fs.existsSync('./test-zips')) { fs.mkdirSync('./test-zips'); }
+                let stream = bufferToStream(Buffer.from(res))
+
+                await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
+
+            });
+        zipObj = {};
+    }
+}
 
 async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], client?: ApifyClient): AsyncGenerator<KeyValueStoreRecord<Buffer>[]> {
     let items: KeyValueStoreRecord<any>[] = []
     if (client) {
+        let i = 0
         for await (const it of keys) {
             await delay(0.2);
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
@@ -21,7 +64,10 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
                 if ((<any>item.value)?.value?.data) {
                     item.value = (<any>item.value).value.data
                 }
+                ++i
                 items.push(item);
+
+                log.info(`#${i} of ${keys.length}`)
             }
         }
     }
@@ -45,13 +91,14 @@ export function zip(
 ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         zipCallback(data, options, (err, data) => {
-            console.warn("err = ", err, "err data = ", data);
-            console.log("data = ", data);
+            // console.warn("err = ", err, "err data = ", data);
+            // console.log("data = ", data);
             if (err) return reject(err);
             return resolve(data);
         });
     });
 };
+
 /* Returns an array of values split by their size in megabytes. */
 async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB?: number) {
     if (Actor.isAtHome() == false) {
@@ -65,7 +112,7 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
 
         let runningCount = 0;
 
-        log.info(`Processing ${items.length} items`)
+        log.info(`Processing ${items.length} of ${totalCount} total items.`)
 
         do {
             // Find a way to yield the images instead of waiting for all of them to be processed
@@ -93,12 +140,15 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             }
         } while (items.length > 0)
     }
-
+    else {
+        log.info(`Not on Apify, processing locally`)
+        IteratorGetKVSValuesLocal(KVS_ID)
+    }
     log.info(`Processed all items`)
     await Actor.exit()
 }
 /* Returns an array of values split by their size in megabytes. */
-async function* IteratorGetKVSValuesLocal(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number) {
+async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
 
     let client = await Actor.openKeyValueStore(KVS_ID)
     let localItems: any[] = []
@@ -189,7 +239,7 @@ export function sliceArrayBySize(values: KeyValueStoreRecord<Buffer>[], maxSizeM
 
 export async function delay(s: number) {
     return new Promise<void>((resolve) => {
-        log.info(`Waiting ${s} second(s)`);
+        // log.info(`Waiting ${s} second(s)`);
         setTimeout(() => {
             resolve();
         }, s * 1000);
@@ -200,58 +250,32 @@ async function saveToFS(zip_file_name: string, res: Uint8Array) {
         .then(async () => console.log("Written to disk"));
     log.info("Saved" + zip_file_name + " to disk");
 }
-async function main() {
-    let f = IteratorGetKVSValues(KVS_ID, token, 1000, 150);
-    // Generate structure of the zip file
-    let isAtHome = Actor.isAtHome();
 
-    let i = 0;
-    let zipObj: any = {};
+// log.info("Starting script")
+// await Actor.init()
 
-    log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
+// // log.info("Reading token from file")
 
-    for await (const records of f) {
-        // file name (string) : file contents (Buffer)
-        for await (const record of records) {
-            log.info(`records: ${records.length}`)
+// console.log(`Detected ${os.cpus().length} of ${os.cpus()[0].model} model CPUs`);
+// console.log(os.totalmem());
+// log.info(`Total memory: ${os.totalmem() / 1_000_000} GB`)
+// console.log(os.freemem())
+// console.time("Time")
 
-            let kvs_record: any = record.value;
-            if (token || isAtHome == true) {
-                // on apify
 
-                zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
-            } else {
-                // on local machine
-                zipObj[record.key] = Uint8Array.from(kvs_record.data);
-            }
+// await zipKVS().then(() => {
+//     log.info("Done")
+//     console.timeEnd("Time");
 
-        }
+//     stats();
+// });
 
-        i++;
-        log.info("Generating zip file...");
-        await zip(zipObj as AsyncZippable, { level: 9, mem: 8 })
-            .then(async (res) => {
-                log.info("Writing file to disk");
-                const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
 
-                if (!fs.existsSync('./test-zips')) { fs.mkdirSync('./test-zips'); }
-                let stream = bufferToStream(Buffer.from(res))
+// await Actor.exit()
 
-                await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
+function stats() {
+    if (showDebugInfo) {
+        console.log(Object.entries(process.memoryUsage()).map(k => k[0] + ": " + k[1] / 1000000 + " MB").join(", "));
 
-            });
-        zipObj = {};
     }
 }
-
-log.info("Starting script")
-await Actor.init()
-
-// log.info("Reading token from file")
-const token = //(
-    process.env.APIFY_TOKEN // ??
-// fs.readFile('./storage/token.json', (_, data) =>
-// data ? JSON.parse(data.toString()).token : undefined)) ?? undefined
-
-await main();
-await Actor.exit()
