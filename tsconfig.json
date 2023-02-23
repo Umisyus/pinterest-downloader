@@ -6,6 +6,7 @@
         "outDir": "dist/src",
         "noUnusedLocals": false,
         "strict": false,
+            "skipLibCheck": true,
         "lib": [
             "DOM"
         ]
