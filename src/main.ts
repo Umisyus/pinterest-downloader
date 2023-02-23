@@ -71,7 +71,7 @@ async function zipToKVS(client: ApifyClient) {
         }
         else {
             // List all key-value stores
-            log.info('No KVD ID was provided...');
+            log.info('No KVS ID was provided...');
             log.info('Fetching all key-value stores...');
             let kvs_items = (await client.keyValueStores().list()).items
                 .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));

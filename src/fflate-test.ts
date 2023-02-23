@@ -101,7 +101,7 @@ export function zip(
 
 /* Returns an array of values split by their size in megabytes. */
 async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB?: number) {
-    if (Actor.isAtHome() == false) {
+    if (Actor.isAtHome() == true) {
         let client = new ApifyClient({ token: API_TOKEN });
 
         let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
