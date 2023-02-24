@@ -9,7 +9,7 @@ import { zipKVS } from './fflate-test.js';
 
 await Actor.init();
 
-let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = undefined, MAX_SIZE_MB = 100 } =
+let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = undefined, MAX_SIZE_MB = 200 } =
 //await Actor.getInput<any>()
 
 {

@@ -42,7 +42,7 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
 
         i++;
         log.info("Generating zip file...");
-        await zip(zipObj as AsyncZippable, { level: 9, mem: 8 })
+        await zip(zipObj as AsyncZippable, { level: 0 })
             .then(async (res) => {
                 log.info("Writing file to disk");
                 const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
@@ -124,28 +124,31 @@ export function zip(
 };
 
 /* Returns an array of values split by their size in megabytes. */
-async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP: number = 10, MAX_ZIP_SIZE_MB: number = 100) {
+async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP: number = 100, MAX_ZIP_SIZE_MB: number = 200) {
 
     let client = new ApifyClient({ token: API_TOKEN });
 
     let kvs = (await client.keyValueStores().list()).items.find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID)
     let totalCount = (await client.keyValueStore(KVS_ID).listKeys()).count;
 
-    let { nextExclusiveStartKey, items: currentItems } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
+    let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(KVS_ID)
+        .listKeys({ limit: FILES_PER_ZIP }));
+
     ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
 
     let runningCount = 0;
     // Find a way to yield the images instead of waiting for all of them to be processed
 
-    log.info(`Processing ${currentItems.length} of ${totalCount} total items.`)
+    log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
     // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB 
     log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
     let items = []
     let currentSize = 0;
 
+
     do {
         // Find a way to yield the images instead of waiting for all of them to be processed
-        let images = loopItemsIter(KVS_ID, currentItems, client);
+        let images = loopItemsIter(KVS_ID, kvsItemKeys, client);
         for await (const i of images) {
             // Get the size of the current item
             let size = i.value.length
@@ -155,7 +158,7 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             items.push(i)
             // If the current size is greater than the max size, yield the items and reset the items array
             if (currentSize >= MAX_ZIP_SIZE_MB * 1_000_000) {
-
+                // Yield the items then reset the items array
                 yield items
                 items = []
                 currentSize = 0
@@ -170,9 +173,9 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             let resp = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP }))))
             nextExclusiveStartKey = resp.nextExclusiveStartKey
 
-            currentItems = resp.items
+            items = resp.items
 
-            runningCount += currentItems.length
+            runningCount += items.length
             log.info(`Processed ${runningCount} of ${totalCount} items`)
 
         } else {
@@ -181,9 +184,9 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
                 yield items
             }
             // Clear the items
-            currentItems = []
+            items = []
         }
-    } while (currentItems.length > 0)
+    } while (items.length > 0)
 
 
     log.info(`Processed all items`)
