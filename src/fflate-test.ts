@@ -9,8 +9,8 @@ let ZIP_FILE_NAME = ''
 
 let showDebugInfo = false
 
-export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB?: number) {
-    let f = IteratorGetKVSValues(KVS_ID, API_TOKEN, FILES_PER_ZIP, MAX_ZIP_SIZE_MB);
+export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB: number = 250) {
+    let f: AsyncGenerator | any = null;
     // Generate structure of the zip file
     let isAtHome = Actor.isAtHome();
 
@@ -18,6 +18,11 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
     let zipObj: any = {};
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
+    if (!isAtHome /* TEMPORARY LOCAL TEST */) {
+        f = IteratorGetKVSValues(KVS_ID, API_TOKEN, FILES_PER_ZIP, MAX_ZIP_SIZE_MB)
+    } else {
+        f = IteratorGetKVSValuesLocal(KVS_ID)
+    }
 
     for await (const records of f) {
         // file name (string) : file contents (Buffer)
@@ -85,6 +90,26 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
     yield items
 }
 
+async function* loopItemsIter(KVS_ID: string, keys: KeyValueListItem[], client?: ApifyClient): AsyncGenerator<KeyValueStoreRecord<Buffer>> {
+    if (client) {
+        let i = 0
+        for await (const it of keys) {
+            await delay(0.2);
+            const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
+
+            if (item) {
+                if ((<any>item.value)?.value?.data) {
+                    item.value = (<any>item.value).value.data
+                }
+                ++i
+                yield item as any;
+
+                log.info(`#${i} of ${keys.length}`)
+            }
+        }
+    }
+}
+
 export function zip(
     data: AsyncZippable,
     options: AsyncZipOptions = { level: 0 }
@@ -100,50 +125,71 @@ export function zip(
 };
 
 /* Returns an array of values split by their size in megabytes. */
-async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB?: number) {
-    if (Actor.isAtHome() == true) {
-        let client = new ApifyClient({ token: API_TOKEN });
+async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP: number = 10, MAX_ZIP_SIZE_MB: number = 100) {
 
-        let { nextExclusiveStartKey, items } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
-        let totalCount = (await client.keyValueStore(KVS_ID).listKeys()).count;
+    let client = new ApifyClient({ token: API_TOKEN });
 
-        let kvs = (await client.keyValueStores().list()).items.find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID)
-        ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
+    let kvs = (await client.keyValueStores().list()).items.find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID)
+    let totalCount = (await client.keyValueStore(KVS_ID).listKeys()).count;
 
-        let runningCount = 0;
+    let { nextExclusiveStartKey, items: currentItems } = (await client.keyValueStore(KVS_ID).listKeys({ limit: FILES_PER_ZIP }));
+    ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
 
-        log.info(`Processing ${items.length} of ${totalCount} total items.`)
+    let runningCount = 0;
+    // Find a way to yield the images instead of waiting for all of them to be processed
 
-        do {
-            // Find a way to yield the images instead of waiting for all of them to be processed
-            let images = loopItemsIterArray(KVS_ID, items, client);
-            for await (const i of images) {
+    log.info(`Processing ${currentItems.length} of ${totalCount} total items.`)
+    // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB 
+    log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
+    let items = []
+    let currentSize = 0;
 
-                let chunked = sliceArrayBySize(i, MAX_ZIP_SIZE_MB)
-                log.info(`Processing ${chunked.length} chunk(s)`)
 
-                for await (const ch of chunked) {
-                    yield ch
-                }
-            }
+    /* TEST */
+    nextExclusiveStartKey = 'wings-of-fire-Tumblr.png'
+    do {
+        // Find a way to yield the images instead of waiting for all of them to be processed
+        let images = loopItemsIter(KVS_ID, currentItems, client);
+        for await (const i of images) {
+            // Get the size of the current item
+            let size = i.value.length
+            // Add the size to the current size
+            currentSize += size
+            // Add the item to the items array
+            items.push(i)
+            // If the current size is greater than the max size, yield the items and reset the items array
+            if (currentSize >= MAX_ZIP_SIZE_MB * 1_000_000) {
 
-            if (nextExclusiveStartKey !== null) {
-                let resp = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP }))))
-                nextExclusiveStartKey = resp.nextExclusiveStartKey
-                items = resp.items
-
-                runningCount += items.length
-                log.info(`Processed ${runningCount} of ${totalCount} items`)
-
-            } else {
+                yield items
                 items = []
+                currentSize = 0
             }
-        } while (items.length > 0)
-    }
-    else {
-        log.info(`Not on Apify, processing locally`)
-        IteratorGetKVSValuesLocal(KVS_ID)
-    }
+
+        }
+
+        if (nextExclusiveStartKey != undefined
+            && nextExclusiveStartKey != null
+            && nextExclusiveStartKey.length !== 0) {
+            // Get the next set of items and update the nextExclusiveStartKey
+            let resp = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP }))))
+            nextExclusiveStartKey = resp.nextExclusiveStartKey
+
+            currentItems = resp.items
+
+            runningCount += currentItems.length
+            log.info(`Processed ${runningCount} of ${totalCount} items`)
+
+        } else {
+            // If there are no more items, yield the remaining items
+            if (nextExclusiveStartKey === null && items.length > 0) {
+                yield items
+            }
+            // Clear the items
+            currentItems = []
+        }
+    } while (currentItems.length > 0)
+
+
     log.info(`Processed all items`)
     await Actor.exit()
 }
@@ -202,9 +248,9 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
                 for await (const ch of chunked) {
 
                     ii++;
-                    log.info(`Chunk #${ii} of ${runningCount}`)
                     yield ch
                     runningCount += ch.length
+                    log.info(`Chunk #${ii} of ${runningCount}`)
                 }
             }
         }
