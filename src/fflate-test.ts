@@ -18,7 +18,7 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
     let zipObj: any = {};
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
-    if (!isAtHome /* TEMPORARY LOCAL TEST */) {
+    if (isAtHome) {
         f = IteratorGetKVSValues(KVS_ID, API_TOKEN, FILES_PER_ZIP, MAX_ZIP_SIZE_MB)
     } else {
         f = IteratorGetKVSValuesLocal(KVS_ID)
@@ -144,9 +144,6 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
     let items = []
     let currentSize = 0;
 
-
-    /* TEST */
-    nextExclusiveStartKey = 'wings-of-fire-Tumblr.png'
     do {
         // Find a way to yield the images instead of waiting for all of them to be processed
         let images = loopItemsIter(KVS_ID, currentItems, client);
