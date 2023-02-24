@@ -47,7 +47,6 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
                 log.info("Writing file to disk");
                 const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
 
-                if (!fs.existsSync('./test-zips')) { fs.mkdirSync('./test-zips'); }
                 let stream = bufferToStream(Buffer.from(res))
 
                 await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
