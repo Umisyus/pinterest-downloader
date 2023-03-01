@@ -18,7 +18,7 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, MAX
     let zipObj: any = {};
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
-    if (!isAtHome) {
+    if (isAtHome) {
         f = IteratorGetKVSValues(KVS_ID, API_TOKEN, 10, MAX_ZIP_SIZE_MB)
     } else {
         f = IteratorGetKVSValuesLocal(KVS_ID)
