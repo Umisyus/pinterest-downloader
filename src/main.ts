@@ -7,19 +7,19 @@ import { zipKVS } from './fflate-test.js';
 await Actor.init();
 
 let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 1000, MAX_SIZE_MB = 250 } =
-//await Actor.getInput<any>()
+    await Actor.getInput<any>()
 
-{
+// {
 
-    KVS_ID: ["wykmmXcaTrNgYfJWm"],// - umisyus/data-kvs
-    APIFY_TOKEN: process.env.APIFY_TOKEN,
-    ExcludedStores:
-        [
-            'completed-downloads'
-            // 'concept-art', 'cute-funny-animals'
-        ],
+//     KVS_ID: ["wykmmXcaTrNgYfJWm"],// - umisyus/data-kvs
+//     APIFY_TOKEN: process.env.APIFY_TOKEN,
+//     ExcludedStores:
+//         [
+//             'completed-downloads'
+//             // 'concept-art', 'cute-funny-animals'
+//         ],
 
-};
+// };
 
 const excluded = new Array().concat(ExcludedStores ?? process.env.ExcludedStores as unknown as string[] ?? []);
 
