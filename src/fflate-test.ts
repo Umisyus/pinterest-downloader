@@ -70,7 +70,6 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
         for await (const it of keys) {
             await delay(0.2);
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
-            // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
             if (item) {
                 if ((<any>item.value)?.value?.data) {
                     item.value = (<any>item.value).value.data
@@ -86,8 +85,7 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
     if (!client && !Actor.isAtHome()) {
         for await (const it of keys) {
             const item = await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!)
-            // await delay(0.2);
-            // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
+
             if (item) {
                 items.push(item as KeyValueStoreRecord<any>);
             }
@@ -110,16 +108,6 @@ async function* loopItemsIter(KVS_ID: string, keys: KeyValueListItem[], client?:
 
                 log.info(`#${i} of ${keys.length}`)
             }
-            // if (item) {
-            //     if ((<any>item.value)?.value?.data) {
-            //         item.value = (<any>item.value).value.data
-
-            //         ++i
-            //         yield item as KeyValueStoreRecord<any>;
-
-            //         log.info(`#${i} of ${keys.length}`)
-            //     }
-            // }
         }
     }
 }
@@ -130,8 +118,6 @@ export function zip(
 ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         zipCallback(data, options, (err, data) => {
-            // console.warn("err = ", err, "err data = ", data);
-            // console.log("data = ", data);
             if (err) return reject(err);
             return resolve(data);
         });
