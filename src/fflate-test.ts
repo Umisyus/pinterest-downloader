@@ -138,15 +138,12 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
     ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
 
     let runningCount = 0;
-    // Find a way to yield the images instead of waiting for all of them to be processed
-
     log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
     // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB 
     log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
     let items: KeyValueStoreRecord<any>[] = []
 
     let currentSize = 0;
-
 
     do {
         // Find a way to yield the images instead of waiting for all of them to be processed
@@ -162,6 +159,8 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             if (currentSize >= MAX_ZIP_SIZE_MB * 1_000_000) {
                 // Yield the items then reset the items array
                 yield items
+
+                runningCount += items.length
                 items = []
                 currentSize = 0
             }
@@ -178,8 +177,8 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             // Update list of keys
             kvsItemKeys = resp.items
 
-            runningCount += items.length
-            log.info(`Processed ${items.length} of ${totalCount} items`)
+
+            log.info(`Processed ${runningCount} of ${totalCount} items`)
 
         } else {
             // If there are no more items, yield the remaining items
@@ -191,10 +190,10 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
         }
     } while (items.length > 0)
 
-
     log.info(`Processed all items`)
-    await Actor.exit()
+    log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${ZIP_FILE_NAME} (${KVS_ID})`)
 }
+
 /* Returns an array of values split by their size in megabytes. */
 async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
 

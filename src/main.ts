@@ -6,14 +6,13 @@ import * as fs from "fs";
 import { zipKVS } from './fflate-test.js';
 await Actor.init();
 
-let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 1000, MAX_SIZE_MB = 250 } =
+let { IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 1000, MAX_SIZE_MB = 2 } =
     await Actor.getInput<any>()
 
 // {
-
-//     KVS_ID: ["wykmmXcaTrNgYfJWm"],// - umisyus/data-kvs
-//     APIFY_TOKEN: process.env.APIFY_TOKEN,
-//     ExcludedStores:
+//     IncludedStores: ["wykmmXcaTrNgYfJWm"],// - umisyus/data-kvs
+//     APIFY_TOKEN: process.env.APIFY_TOKEN
+//     , ExcludedStores:
 //         [
 //             'completed-downloads'
 //             // 'concept-art', 'cute-funny-animals'
@@ -24,6 +23,7 @@ let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true
 const excluded = new Array().concat(ExcludedStores ?? process.env.ExcludedStores as unknown as string[] ?? []);
 
 log.info(`Excluded key-value stores: ${excluded.join(', ')}`);
+
 if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     console.log('No APIFY_TOKEN provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
@@ -35,10 +35,10 @@ const client = new ApifyClient({ token: APIFY_TOKEN });
 client.baseUrl = 'https://api.apify.com/v2/';
 client.token = APIFY_TOKEN;
 
-await zipToKVS(client)
+await zipToKVS()
 await Actor.exit()
 
-async function zipToKVS(client: ApifyClient) {
+async function zipToKVS() {
     console.time('zipToKVS');
     if (multi_zip) {
         await writeManyZips();
@@ -47,46 +47,44 @@ async function zipToKVS(client: ApifyClient) {
     }
     console.timeEnd('zipToKVS');
     log.info('Finished zipping to key-value store!');
+}
+
+async function writeManyZips() {
+
+    IncludedStores = IncludedStores.filter((item) => !excluded.includes(item));
 
 
-    async function writeManyZips() {
+    if (IncludedStores && IncludedStores.length > 0) {
+        // List all key-value stores
 
-        IncludedStores = IncludedStores.filter((item) => !excluded.includes(item));
+        // Get the ID and list all keys of the key-value store
+        for (let index = 0; index < IncludedStores.length; index++) {
+            const kvs = IncludedStores[index];
+            log.info(`Zipping ${kvs} key-value store...`);
+            // Split zip file into chunks to fit under the 9 MB limit
 
-
-        if (IncludedStores && IncludedStores.length > 0) {
-            // List all key-value stores
-
-            // Get the ID and list all keys of the key-value store
-            for (let index = 0; index < IncludedStores.length; index++) {
-                const kvs = IncludedStores[index];
-                log.info(`Zipping ${kvs} key-value store...`);
-                // Split zip file into chunks to fit under the 9 MB limit
-
-                console.log('Fetching items...');
-                await zipKVS(kvs, APIFY_TOKEN, MAX_SIZE_MB)
-            }
+            console.log('Fetching items...');
+            await zipKVS(kvs, APIFY_TOKEN, MAX_SIZE_MB)
         }
-        else {
-            // List all key-value stores
-            log.info('No KVS ID was provided...');
-            log.info('Fetching all key-value stores...');
-            let kvs_items = (await client.keyValueStores().list()).items
-                .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
+    }
+    else {
+        // List all key-value stores
+        log.info('No KVS ID was provided...');
+        log.info('Fetching all key-value stores...');
+        let kvs_items = (await client.keyValueStores().list()).items
+            .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
 
-            // Get the ID and list all keys of the key-value store
-            for (let index = 0; index < kvs_items.length; index++) {
-                const kvs = kvs_items[index];
-                log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
-                // Split zip file into chunks to fit under the 9 MB limit
+        // Get the ID and list all keys of the key-value store
+        for (let index = 0; index < kvs_items.length; index++) {
+            const kvs = kvs_items[index];
+            log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
+            // Split zip file into chunks to fit under the 9 MB limit
 
-                console.log('Fetching items...');
-                await zipKVS(kvs.id, APIFY_TOKEN, MAX_SIZE_MB)
-            }
+            console.log('Fetching items...');
+            await zipKVS(kvs.id, APIFY_TOKEN, MAX_SIZE_MB)
         }
     }
 }
-
 async function writeSingleZip() {
     let toZip: any = {};
     let zipped: any = {};
