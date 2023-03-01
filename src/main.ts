@@ -1,15 +1,12 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, KeyValueStore, log, } from 'apify';
-import { KeyValueListItem } from 'apify-client';
+import { Actor, ApifyClient, log, } from 'apify';
 import { randomUUID } from 'crypto';
 import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
 import * as fs from "fs";
-import { KeyValueStoreRecord } from '@crawlee/types';
 import { zipKVS } from './fflate-test.js';
-
 await Actor.init();
 
-let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = undefined, MAX_SIZE_MB = 200 } =
+let { KVS_ID: IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 1000, MAX_SIZE_MB = 250 } =
 //await Actor.getInput<any>()
 
 {
@@ -67,7 +64,7 @@ async function zipToKVS(client: ApifyClient) {
                 // Split zip file into chunks to fit under the 9 MB limit
 
                 console.log('Fetching items...');
-                await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB)
+                await zipKVS(kvs, APIFY_TOKEN, MAX_SIZE_MB)
             }
         }
         else {
@@ -84,7 +81,7 @@ async function zipToKVS(client: ApifyClient) {
                 // Split zip file into chunks to fit under the 9 MB limit
 
                 console.log('Fetching items...');
-                await zipKVS(kvs.id, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB)
+                await zipKVS(kvs.id, APIFY_TOKEN, MAX_SIZE_MB)
             }
         }
     }

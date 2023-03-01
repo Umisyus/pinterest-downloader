@@ -9,7 +9,7 @@ let ZIP_FILE_NAME = ''
 
 let showDebugInfo = false
 
-export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB: number = 250) {
+export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, MAX_ZIP_SIZE_MB: number = 250) {
     let f: AsyncGenerator | any = null;
     // Generate structure of the zip file
     let isAtHome = Actor.isAtHome();
@@ -18,8 +18,8 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
     let zipObj: any = {};
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
-    if (isAtHome) {
-        f = IteratorGetKVSValues(KVS_ID, API_TOKEN, FILES_PER_ZIP, MAX_ZIP_SIZE_MB)
+    if (!isAtHome) {
+        f = IteratorGetKVSValues(KVS_ID, API_TOKEN, 10, MAX_ZIP_SIZE_MB)
     } else {
         f = IteratorGetKVSValuesLocal(KVS_ID)
     }
@@ -30,9 +30,16 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
 
             let kvs_record: any = record.value;
             if (API_TOKEN || isAtHome == true) {
-                // on apify
 
-                zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
+                if (record.key && kvs_record) {
+                    // on apify
+                    log.info(`Writing ${record.key} to zip file...`)
+                    zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
+                }
+                else {
+                    log.info(`Skipping ${record.key}...`)
+                }
+
             } else {
                 // on local machine
                 zipObj[record.key] = Uint8Array.from(kvs_record.data);
@@ -94,17 +101,25 @@ async function* loopItemsIter(KVS_ID: string, keys: KeyValueListItem[], client?:
         let i = 0
         for await (const it of keys) {
             await delay(0.2);
-            const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
+            const item: KeyValueStoreRecord<any> = await client.keyValueStore(KVS_ID).getRecord(it.key!)
 
-            if (item) {
-                if ((<any>item.value)?.value?.data) {
-                    item.value = (<any>item.value).value.data
-                }
+            if (item.value) {
+
                 ++i
-                yield item as any;
+                yield item;
 
                 log.info(`#${i} of ${keys.length}`)
             }
+            // if (item) {
+            //     if ((<any>item.value)?.value?.data) {
+            //         item.value = (<any>item.value).value.data
+
+            //         ++i
+            //         yield item as KeyValueStoreRecord<any>;
+
+            //         log.info(`#${i} of ${keys.length}`)
+            //     }
+            // }
         }
     }
 }
@@ -124,7 +139,7 @@ export function zip(
 };
 
 /* Returns an array of values split by their size in megabytes. */
-async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP: number = 100, MAX_ZIP_SIZE_MB: number = 200) {
+async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP: number = 1000, MAX_ZIP_SIZE_MB: number = 200) {
 
     let client = new ApifyClient({ token: API_TOKEN });
 
@@ -142,7 +157,8 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
     log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
     // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB 
     log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
-    let items = []
+    let items: KeyValueStoreRecord<any>[] = []
+
     let currentSize = 0;
 
 
@@ -173,10 +189,11 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
             let resp = ((await (client.keyValueStore(KVS_ID).listKeys({ exclusiveStartKey: nextExclusiveStartKey, limit: FILES_PER_ZIP }))))
             nextExclusiveStartKey = resp.nextExclusiveStartKey
 
-            items = resp.items
+            // Update list of keys
+            kvsItemKeys = resp.items
 
             runningCount += items.length
-            log.info(`Processed ${runningCount} of ${totalCount} items`)
+            log.info(`Processed ${items.length} of ${totalCount} items`)
 
         } else {
             // If there are no more items, yield the remaining items
