@@ -52,11 +52,16 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, MAX
         await zip(zipObj as AsyncZippable, { level: 0 })
             .then(async (res) => {
                 log.info("Writing file to disk");
-                const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
+                const zip_file_name = `${KVS_ID ?? ZIP_FILE_NAME}-${i}`;
 
                 let stream = bufferToStream(Buffer.from(res))
 
                 await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
+                let url = (await Actor.openKeyValueStore()).getPublicUrl(KVS_ID)
+                log.info(`Saved zip as ${zip_file_name}.zip to ${url}`)
+                await Actor.pushData({
+                    [(`${zip_file_name}`)]: url
+                })
 
             });
         zipObj = {};
@@ -296,33 +301,4 @@ async function saveToFS(zip_file_name: string, res: Uint8Array) {
     await fs.promises.writeFile('./test-zips/' + zip_file_name + '.zip', res)
         .then(async () => console.log("Written to disk"));
     log.info("Saved" + zip_file_name + " to disk");
-}
-
-// log.info("Starting script")
-// await Actor.init()
-
-// // log.info("Reading token from file")
-
-// console.log(`Detected ${os.cpus().length} of ${os.cpus()[0].model} model CPUs`);
-// console.log(os.totalmem());
-// log.info(`Total memory: ${os.totalmem() / 1_000_000} GB`)
-// console.log(os.freemem())
-// console.time("Time")
-
-
-// await zipKVS().then(() => {
-//     log.info("Done")
-//     console.timeEnd("Time");
-
-//     stats();
-// });
-
-
-// await Actor.exit()
-
-function stats() {
-    if (showDebugInfo) {
-        console.log(Object.entries(process.memoryUsage()).map(k => k[0] + ": " + k[1] / 1000000 + " MB").join(", "));
-
-    }
 }
