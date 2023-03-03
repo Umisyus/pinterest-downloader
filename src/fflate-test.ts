@@ -115,9 +115,7 @@ async function* loopItemsIterArray(
 
     if (!client && !Actor.isAtHome()) {
         for await (const it of keys) {
-            const item = await (
-                await Actor.openKeyValueStore(KVS_ID)
-            ).getValue(it.key!);
+            const item = await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!)
 
             if (item) {
                 items.push(item as KeyValueStoreRecord<any>);
@@ -136,15 +134,18 @@ async function* loopItemsIter(
         let i = 0;
         for await (const it of keys) {
             await delay(0.2);
-            const item: KeyValueStoreRecord<any> = await client
-                .keyValueStore(KVS_ID)
-                .getRecord(it.key!);
+            const item: KeyValueStoreRecord<any> = await client.keyValueStore(KVS_ID).getRecord(it.key!)
 
             if (item.value) {
-                ++i;
-                yield item;
 
-                log.info(`#${i} of ${keys.length}`);
+                ++i
+                yield item;
+                if (item.value) {
+                    ++i;
+                    yield item;
+
+                    log.info(`#${i} of ${keys.length}`);
+                }
             }
         }
     }
@@ -177,23 +178,23 @@ async function* IteratorGetKVSValues(
     );
     let totalCount = (await client.keyValueStore(KVS_ID).listKeys()).count;
 
-    let { nextExclusiveStartKey, items: kvsItemKeys } = await client
-        .keyValueStore(KVS_ID)
-        .listKeys({ limit: FILES_PER_ZIP });
+    let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(KVS_ID)
+        .listKeys({ limit: FILES_PER_ZIP }));
 
-    ZIP_FILE_NAME = kvs?.name ?? kvs?.title ?? kvs?.id ?? KVS_ID;
+    ZIP_FILE_NAME = (kvs?.name ?? kvs?.title ?? kvs?.id) ?? KVS_ID
 
     let runningCount = 0;
-    log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`);
+    log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
     // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
-    log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`);
-    let items: KeyValueStoreRecord<any>[] = [];
+    log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
+    let items: KeyValueStoreRecord<any>[] = []
 
     let currentSize = 0;
 
     do {
         // Find a way to yield the images instead of waiting for all of them to be processed
         let images = loopItemsIter(KVS_ID, kvsItemKeys, client);
+
         for await (const i of images) {
 
             let value = (<any> i.value).value;
@@ -218,8 +219,10 @@ async function* IteratorGetKVSValues(
             if (isLimitReached || isSizeLimitReached) {
                 // Yield the items then reset the items array
                 yield items;
-
+                // Yield the items then reset the items array
                 runningCount += items.length;
+
+                runningCount += items.length
                 items = [];
                 currentSize = 0;
             }
@@ -256,6 +259,7 @@ async function* IteratorGetKVSValues(
         `Processed a total of ${runningCount} out of ${totalCount} items in ${ZIP_FILE_NAME} (${KVS_ID})`
     );
 }
+
 
 /* Returns an array of values split by their size in megabytes. */
 async function* IteratorGetKVSValuesLocal(KVS_ID: string) {

@@ -71,51 +71,47 @@ async function zipToKVS() {
     }
     console.timeEnd("zipToKVS");
     log.info("Finished zipping to key-value store!");
-}
 
-async function writeManyZips() {
-    if (IncludedStores && IncludedStores.length > 0) {
-        IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
+    async function writeManyZips() {
+        if (IncludedStores && IncludedStores.length > 0) {
+            IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
 
-        // List all key-value stores
-
-        // Get the ID and list all keys of the key-value store
-        for (let index = 0; index < IncludedStores.length; index++) {
-            const kvs = IncludedStores[index];
-            log.info(`Zipping ${kvs} key-value store...`);
-            // Split zip file into chunks to fit under the 9 MB limit
-
-            console.log("Fetching items...");
-            await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
-        }
-    } else {
-        // List all key-value stores
-        log.info("No KVS ID was provided...");
-        log.info("Fetching all key-value stores...");
-        if (isAtHome) {
-            let kvs_items = (await client.keyValueStores().list()).items.filter(
-                (item) => !excluded.includes(item.name ?? item.title ?? item.id)
-            );
-
-            // Get the ID and list all keys of the key-value store
-            for (let index = 0; index < kvs_items.length; index++) {
-                const kvs = kvs_items[index];
-                log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
+            for (let index = 0; index < IncludedStores.length; index++) {
+                const kvs = IncludedStores[index];
+                log.info(`Zipping ${kvs} key-value store...`);
                 // Split zip file into chunks to fit under the 9 MB limit
-
+                // Get the ID and list all keys of the key-value store
                 console.log("Fetching items...");
-                await zipKVS(kvs.id, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
+                await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
             }
-        }
-        else {
-            // Locally
-            let store: string[] = IncludedStores.length > 0 ? IncludedStores :
-                [(((await Actor.openKeyValueStore()).name) ?? ((await Actor.openKeyValueStore()).id))]
+        } else {
+            // List all key-value stores
+            log.info("No KVS ID was provided...");
+            log.info("Fetching all key-value stores...");
+            if (isAtHome) {
+                let kvs_items = (await client.keyValueStores().list()).items
+                    .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
 
-            for (let index = 0; index < store.length; index++) {
-                const element = store[index];
-                console.log("Fetching local items...");
-                await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB)
+                // Get the ID and list all keys of the key-value store
+                for (let index = 0; index < kvs_items.length; index++) {
+                    const kvs = kvs_items[index];
+                    log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
+                    // Split zip file into chunks to fit under the 9 MB limit
+
+                    console.log("Fetching items...");
+                    await zipKVS(kvs.id, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
+                }
+            } else {
+                // Locally
+                // Get items either from the listed stores or from the default store
+                let store: string[] = IncludedStores.length > 0 ? IncludedStores :
+                    [(((await Actor.openKeyValueStore()).name) ?? ((await Actor.openKeyValueStore()).id))]
+
+                for (let index = 0; index < store.length; index++) {
+                    const element = store[index];
+                    console.log("Fetching local items...");
+                    await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB)
+                }
             }
         }
     }
