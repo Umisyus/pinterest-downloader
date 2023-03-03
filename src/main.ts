@@ -92,6 +92,8 @@ async function zipToKVS() {
                 let kvs_items = (await client.keyValueStores().list()).items
                     .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
 
+                printNumberedList(kvs_items.map((i) => i.name ?? i.title ?? i.id));
+
                 // Get the ID and list all keys of the key-value store
                 for (let index = 0; index < kvs_items.length; index++) {
                     const kvs = kvs_items[index];
@@ -106,6 +108,9 @@ async function zipToKVS() {
                 // Get items either from the listed stores or from the default store
                 let store: string[] = IncludedStores.length > 0 ? IncludedStores :
                     [(((await Actor.openKeyValueStore()).name) ?? ((await Actor.openKeyValueStore()).id))]
+                log.info(`Zipping ${store.length} key-value stores...`);
+
+                printNumberedList(store);
 
                 for (let index = 0; index < store.length; index++) {
                     const element = store[index];
@@ -117,6 +122,10 @@ async function zipToKVS() {
     }
 }
 
+
+function printNumberedList(store: string[]) {
+    log.info(`List: ${store.map((i, ii) => `#${1 + ii}: ${i}\n`).join(", ")}`);
+}
 
 async function writeSingleZip() {
     let toZip: any = {};
