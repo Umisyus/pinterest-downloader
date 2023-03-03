@@ -18,7 +18,7 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, MAX
     let zipObj: any = {};
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`)
-    if (isAtHome) {
+    if (!isAtHome) {
         f = IteratorGetKVSValues(KVS_ID, API_TOKEN, 10, MAX_ZIP_SIZE_MB)
     } else {
         f = IteratorGetKVSValuesLocal(KVS_ID)
@@ -57,12 +57,13 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, MAX
                 let stream = bufferToStream(Buffer.from(res))
 
                 await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
+
                 let url = (await Actor.openKeyValueStore()).getPublicUrl(KVS_ID)
-                log.info(`Saved zip as ${zip_file_name}.zip to ${url}`)
                 await Actor.pushData({
                     [(`${zip_file_name}`)]: url
                 })
 
+                log.info(`Saved zip as ${zip_file_name}.zip to ${url}`)
             });
         zipObj = {};
     }

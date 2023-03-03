@@ -6,19 +6,16 @@ import * as fs from "fs";
 import { zipKVS } from './fflate-test.js';
 await Actor.init();
 
-let { IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 1000, MAX_SIZE_MB = 2 } =
-    await Actor.getInput<any>()
+let { IncludedStores = [], APIFY_TOKEN, ExcludedStores, multi_zip = true, FILES_PER_ZIP = 1000, MAX_SIZE_MB = 200 } =
+// await Actor.getInput<any>()
 
-// {
-//     IncludedStores: ["wykmmXcaTrNgYfJWm"],// - umisyus/data-kvs
-//     APIFY_TOKEN: process.env.APIFY_TOKEN
-//     , ExcludedStores:
-//         [
-//             'completed-downloads'
-//             // 'concept-art', 'cute-funny-animals'
-//         ],
+{
+    IncludedStores: [],// - umisyus/data-kvs
+    APIFY_TOKEN: "",
+    //  JSON.parse(fs.readFileSync('../../../src/apify-token.json').toString()).token,
+    ExcludedStores: [],
 
-// };
+};
 
 const excluded = new Array().concat(ExcludedStores ?? process.env.ExcludedStores as unknown as string[] ?? []);
 
@@ -51,10 +48,10 @@ async function zipToKVS() {
 
 async function writeManyZips() {
 
-    IncludedStores = IncludedStores.filter((item) => !excluded.includes(item));
-
-
     if (IncludedStores && IncludedStores.length > 0) {
+        IncludedStores = IncludedStores.filter((item) => !excluded.includes(item));
+
+
         // List all key-value stores
 
         // Get the ID and list all keys of the key-value store
