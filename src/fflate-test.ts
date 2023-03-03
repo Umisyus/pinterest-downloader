@@ -1,16 +1,16 @@
 import { ApifyClient, log, Actor } from 'apify';
 import { KeyValueListItem, KeyValueStoreRecord } from 'apify-client';
-import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from 'fflate';
+import { AsyncZipOptions, AsyncZippable, Zip, zip as zipCallback, AsyncZlib, zlib, AsyncZipDeflate, ZipDeflate, AsyncFlateStreamHandler, ZipPassThrough } from 'fflate';
 import * as fs from 'fs';
 import { chunk } from 'crawlee';
-import { bufferToStream } from './kvs-test.js';
+import { Readable } from "stream";
 
 let ZIP_FILE_NAME = ''
 
 let showDebugInfo = false
 
 export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FILES_PER_ZIP?: number, MAX_ZIP_SIZE_MB: number = 250) {
-    let f: AsyncGenerator | any = null;
+    let f: AsyncGenerator<KeyValueStoreRecord<Buffer>[]> = null;
     // Generate structure of the zip file
     let isAtHome = Actor.isAtHome();
 
@@ -24,15 +24,17 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
         f = IteratorGetKVSValuesLocal(KVS_ID)
     }
 
-    for await (const records of f) {
+    for await (let records of f) {
         // file name (string) : file contents (Buffer)
         for await (const record of records) {
 
             let kvs_record: any = record.value;
-            if (API_TOKEN || isAtHome == true) {
+            // if (API_TOKEN && isAtHome == true) {
+            if (isAtHome) {
                 // on apify
 
                 zipObj[record.key + '.png'] = Uint8Array.from(kvs_record as Buffer);
+
             } else {
                 // on local machine
                 zipObj[record.key] = Uint8Array.from(kvs_record.data);
@@ -46,14 +48,36 @@ export async function zipKVS(KVS_ID: string, API_TOKEN?: string | undefined, FIL
             .then(async (res) => {
                 log.info("Writing file to disk");
                 const zip_file_name = `${ZIP_FILE_NAME}-${i}`;
+                if (res) {
+                    let stream = bufferToStream(res)
 
-                let stream = bufferToStream(Buffer.from(res))
+                    console.log(`Writing ${res.length} bytes to ${zip_file_name}`)
+                    console.log(`STREAM SIZE ${stream.readableLength / (1024 * 1024)} MB`)
 
-                await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
+                    await Actor.setValue(zip_file_name, stream, { contentType: "application/zip" })
+                    // await Actor.pushData({
+                    //     zip_file_name: (await Actor.openKeyValueStore()).getPublicUrl(zip_file_name)
+                    // })
+                    let url = (await Actor.openKeyValueStore()).getPublicUrl(KVS_ID)
+                    await Actor.pushData({
+                        [(`${zip_file_name}`)]: url
+                    })
+                    log.info(`Saved zip as ${zip_file_name}.zip to ${url}`)
 
-            });
+                } else
+                    log.error("No data to write to disk");
+            })
+
         zipObj = {};
     }
+}
+
+export function bufferToStream(data: Uint8Array) {
+    let readableStream = new Readable({ autoDestroy: true });
+    readableStream.push(data);
+
+    readableStream.push(null);
+    return readableStream;
 }
 
 async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], client?: ApifyClient): AsyncGenerator<KeyValueStoreRecord<Buffer>[]> {
@@ -65,8 +89,8 @@ async function* loopItemsIterArray(KVS_ID: string, keys: KeyValueListItem[], cli
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
             // items.push((await client.keyValueStore(KVS_ID).getRecord(it.key))!);
             if (item) {
-                if ((<any>item.value)?.value?.data) {
-                    item.value = (<any>item.value).value.data
+                if ((<any> item.value)?.value?.data) {
+                    item.value = (<any> item.value).value.data
                 }
                 ++i
                 items.push(item);
@@ -97,8 +121,8 @@ async function* loopItemsIter(KVS_ID: string, keys: KeyValueListItem[], client?:
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!)
 
             if (item) {
-                if ((<any>item.value)?.value?.data) {
-                    item.value = (<any>item.value).value.data
+                if ((<any> item.value)?.value?.data) {
+                    item.value = (<any> item.value).value.data
                 }
                 ++i
                 yield item as any;
@@ -111,7 +135,7 @@ async function* loopItemsIter(KVS_ID: string, keys: KeyValueListItem[], client?:
 
 export function zip(
     data: AsyncZippable,
-    options: AsyncZipOptions = { level: 0 }
+    options: AsyncZipOptions = {}
 ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         zipCallback(data, options, (err, data) => {
@@ -138,9 +162,9 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
     // Find a way to yield the images instead of waiting for all of them to be processed
 
     log.info(`Processing ${currentItems.length} of ${totalCount} total items.`)
-    // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB 
+    // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
     log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
-    let items = []
+    let items: KeyValueStoreRecord<Buffer>[] = []
     let currentSize = 0;
 
     do {
@@ -187,7 +211,7 @@ async function* IteratorGetKVSValues(KVS_ID: string, API_TOKEN?: string | undefi
 
 
     log.info(`Processed all items`)
-    await Actor.exit()
+    // await Actor.exit()
 }
 /* Returns an array of values split by their size in megabytes. */
 async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
@@ -264,7 +288,7 @@ export function sliceArrayBySize(values: KeyValueStoreRecord<Buffer>[], maxSizeM
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = (<any>value.value)?.data?.length;
+        const valueSizeMB = (<any> value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > (maxSizeMB * 1_000_000)) {
             slicedArrays.push(slicedValues);
             slicedValues = [];
@@ -281,7 +305,6 @@ export function sliceArrayBySize(values: KeyValueStoreRecord<Buffer>[], maxSizeM
 
 export async function delay(s: number) {
     return new Promise<void>((resolve) => {
-        // log.info(`Waiting ${s} second(s)`);
         setTimeout(() => {
             resolve();
         }, s * 1000);
@@ -292,28 +315,6 @@ async function saveToFS(zip_file_name: string, res: Uint8Array) {
         .then(async () => console.log("Written to disk"));
     log.info("Saved" + zip_file_name + " to disk");
 }
-
-// log.info("Starting script")
-// await Actor.init()
-
-// // log.info("Reading token from file")
-
-// console.log(`Detected ${os.cpus().length} of ${os.cpus()[0].model} model CPUs`);
-// console.log(os.totalmem());
-// log.info(`Total memory: ${os.totalmem() / 1_000_000} GB`)
-// console.log(os.freemem())
-// console.time("Time")
-
-
-// await zipKVS().then(() => {
-//     log.info("Done")
-//     console.timeEnd("Time");
-
-//     stats();
-// });
-
-
-// await Actor.exit()
 
 function stats() {
     if (showDebugInfo) {

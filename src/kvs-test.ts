@@ -38,9 +38,9 @@ async function newFunction(FILE_SIZE = 50_000_000 /* Size in Megabytes */) {
 
 // await newFunction(45_000_000)
 
-export function bufferToStream(base64: Buffer) {
-    let readableStream = new Readable();
-    readableStream.push(base64);
+export function bufferToStream(data: Uint8Array) {
+    let readableStream = new Readable({ autoDestroy: true });
+    readableStream.push(data);
 
     readableStream.push(null);
     return readableStream;
