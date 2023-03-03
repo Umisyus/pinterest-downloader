@@ -1,5 +1,5 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, log } from "apify";
+import { Actor, ApifyClient, KeyValueStore, log } from "apify";
 import { randomUUID } from "crypto";
 import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
 import * as fs from "fs";
@@ -7,35 +7,37 @@ import { zipKVS } from "./fflate-test.js";
 await Actor.init();
 
 let {
-    IncludedStores = [],
+    IncludedStores = [] as string[],
     APIFY_TOKEN = undefined,
     ExcludedStores,
     multi_zip = true,
     MAX_SIZE_MB = 250,
     FILES_PER_ZIP = 250,
 } =
-    await Actor.getInput<any>()
+// await Actor.getInput<any>()
 
-//   {
-//     IncludedStores: [], // - umisyus/data-kvs
-//     // IncludedStores: ["wykmmXcaTrNgYfJWm"], // - umisyus/data-kvs
-//     APIFY_TOKEN: process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
-//     ExcludedStores: [
-//       "completed-downloads",
-//       // 'concept-art', 'cute-funny-animals'
-//     ],
-//   };
+{
+    IncludedStores: [], // - umisyus/data-kvs
+    // IncludedStores: ["wykmmXcaTrNgYfJWm"], // - umisyus/data-kvs
+    APIFY_TOKEN: process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
+    ExcludedStores: [
+
+        // 'concept-art', 'cute-funny-animals'
+    ],
+};
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
+let isAtHome = Actor.isAtHome()
+
+// APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
 log.info(`Excluded key-value stores: ${excluded.join(", ")}`);
 
-if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
-    console.log("No APIFY_TOKEN provided!");
+if (isAtHome == true && !APIFY_TOKEN) {
+    console.error("No APIFY_TOKEN provided!");
     await Actor.exit({
-        exit: true,
         exitCode: 1,
         statusMessage: "No APIFY_TOKEN provided!",
     });
@@ -46,6 +48,16 @@ const client = new ApifyClient({ token: APIFY_TOKEN });
 
 client.baseUrl = "https://api.apify.com/v2/";
 client.token = APIFY_TOKEN;
+
+if (FILES_PER_ZIP < 1) {
+    log.info(`FILES_PER_ZIP is invalid. Setting FILES_PER_ZIP to 200`)
+    FILES_PER_ZIP = 200;
+}
+
+if (MAX_SIZE_MB < 1) {
+    log.info(`MAX_SIZE_MB is invalid. Setting MAX_SIZE_MB to 250`)
+    MAX_SIZE_MB = 250;
+}
 
 await zipToKVS();
 await Actor.exit();
@@ -62,9 +74,9 @@ async function zipToKVS() {
 }
 
 async function writeManyZips() {
-    IncludedStores = IncludedStores.filter((item) => !excluded.includes(item));
-
     if (IncludedStores && IncludedStores.length > 0) {
+        IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
+
         // List all key-value stores
 
         // Get the ID and list all keys of the key-value store
@@ -80,21 +92,36 @@ async function writeManyZips() {
         // List all key-value stores
         log.info("No KVS ID was provided...");
         log.info("Fetching all key-value stores...");
-        let kvs_items = (await client.keyValueStores().list()).items.filter(
-            (item) => !excluded.includes(item.name ?? item.title ?? item.id)
-        );
+        if (isAtHome) {
+            let kvs_items = (await client.keyValueStores().list()).items.filter(
+                (item) => !excluded.includes(item.name ?? item.title ?? item.id)
+            );
 
-        // Get the ID and list all keys of the key-value store
-        for (let index = 0; index < kvs_items.length; index++) {
-            const kvs = kvs_items[index];
-            log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
-            // Split zip file into chunks to fit under the 9 MB limit
+            // Get the ID and list all keys of the key-value store
+            for (let index = 0; index < kvs_items.length; index++) {
+                const kvs = kvs_items[index];
+                log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
+                // Split zip file into chunks to fit under the 9 MB limit
 
-            console.log("Fetching items...");
-            await zipKVS(kvs.id, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
+                console.log("Fetching items...");
+                await zipKVS(kvs.id, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
+            }
+        }
+        else {
+            // Locally
+            let store: string[] = IncludedStores.length > 0 ? IncludedStores :
+                [(((await Actor.openKeyValueStore()).name) ?? ((await Actor.openKeyValueStore()).id))]
+
+            for (let index = 0; index < store.length; index++) {
+                const element = store[index];
+                console.log("Fetching local items...");
+                await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB)
+            }
         }
     }
 }
+
+
 async function writeSingleZip() {
     let toZip: any = {};
     let zipped: any = {};
