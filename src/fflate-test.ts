@@ -154,7 +154,7 @@ async function* loopItemsIter(
 
 export function zip(
     data: AsyncZippable,
-    options: AsyncZipOptions = {}
+    options: AsyncZipOptions = {mem:5,level:0}
 ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         zipCallback(data, options, (err, data) => {
