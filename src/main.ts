@@ -17,7 +17,6 @@ let {
 
 // {
 //     IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
-//     // IncludedStores: ["wykmmXcaTrNgYfJWm"], // - umisyus/data-kvs
 //     APIFY_TOKEN:  process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
 //     ExcludedStores: [
 
