@@ -182,6 +182,8 @@ async function* IteratorGetKVSValues(
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
 
         FILES_PER_ZIP = parseInt((FILES_PER_ZIP ?? totalCount ?? 1000).toString()) as number;
+        
+        log.info(typeof FILES_PER_ZIP)
 
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
             .listKeys({ limit: FILES_PER_ZIP }));
