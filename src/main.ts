@@ -12,7 +12,7 @@ let {
     ExcludedStores = [] as string[],
     multi_zip = true,
     MAX_SIZE_MB = 250,
-    FILES_PER_ZIP = undefined,
+    FILES_PER_ZIP = undefined as number,
 }
     = await Actor.getInput<any>()
 //     =
