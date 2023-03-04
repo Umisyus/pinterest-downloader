@@ -28,7 +28,8 @@ let {
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
-let isAtHome = !Actor.isAtHome()
+
+let isAtHome = Actor.isAtHome()
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
