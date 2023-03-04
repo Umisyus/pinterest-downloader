@@ -11,7 +11,7 @@ export async function zipKVS(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
     FILES_PER_ZIP?: number,
-    MAX_ZIP_SIZE_MB: number = 250,
+    MAX_ZIP_SIZE_MB?: number,
     isAtHome?: boolean
 ) {
     let f: AsyncGenerator | any = null;
@@ -76,11 +76,11 @@ export async function zipKVS(
             await Actor.pushData({
                 name: `${zip_file_name}`,
                 link: url,
-                metaData: {
-                    beforeCompression: originalSizeMB,
-                    afterCompression: compressedSizeMB,
-                    itemCount: Object.entries(zipObj).length ?? "Unknown"
-                }
+                // metaData: {
+                //     beforeCompression: originalSizeMB,
+                //     afterCompression: compressedSizeMB,
+                //     itemCount: Object.entries(zipObj).length ?? "Unknown"
+                // }
             });
 
             log.info(`FILE ${zip_file_name} SIZE: ${compressedSizeMB} MB (${res.length} BYTES)`);

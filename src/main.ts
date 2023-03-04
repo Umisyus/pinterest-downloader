@@ -14,17 +14,18 @@ let {
     MAX_SIZE_MB = 250,
     FILES_PER_ZIP = undefined,
 }
-    = await Actor.getInput<any>()
-//     =
-// {
-//     // IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
-//     APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
-//     ExcludedStores: [
+    // = await Actor.getInput<any>()
+    =
+{
+    // IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
+    APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
+    IncludedStores: ['concept-art'],
+    ExcludedStores: [
 
-//         'concept-art', 'cute-funny-animals', 'completed-downloads'
-//     ],
-// };
-let isAtHome = Actor.isAtHome()
+        // 'concept-art', 'cute-funny-animals', 'completed-downloads'
+    ],
+};
+let isAtHome = !Actor.isAtHome()
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
@@ -126,7 +127,7 @@ async function localKVS(store: any[]) {
 
     log.info(`Zipping ${store.length} key-value stores...`);
 
-    printNumberedList(store);
+    // printNumberedList(store);
 
     for (let index = 0; index < store.length; index++) {
         const element = store[index];
@@ -136,7 +137,7 @@ async function localKVS(store: any[]) {
 }
 
 async function onlineKVS(stores: any[]) {
-    printNumberedList(stores.map((i) => i.name ?? i.title ?? i.id ?? i));
+    // printNumberedList(stores.map((i) => i.name ?? i.title ?? i.id ?? i));
 
     // Get the ID and list all keys of the key-value store
     for (let index = 0; index < stores.length; index++) {
@@ -149,9 +150,9 @@ async function onlineKVS(stores: any[]) {
     }
 }
 
-function printNumberedList(store: string[]) {
-    log.info(`List:` + `\n` + `${store.map((i, ii) => `#${1 + ii}: ${i}`).join(",\n")}`);
-}
+// function printNumberedList(store: string[]) {
+//     log.info(`List:` + `\n` + `${store.map((i, ii) => `#${1 + ii}: ${i}`).join(",\n")}`);
+// }
 
 async function writeSingleZip() {
     let toZip: any = {};
