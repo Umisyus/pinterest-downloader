@@ -62,7 +62,7 @@ export async function zipKVS(
                 contentType: "application/zip",
             });
 
-            let url = (await Actor.openKeyValueStore()).getPublicUrl(KVS_ID);
+            let url = (await Actor.openKeyValueStore()).getPublicUrl(zip_file_name);
 
             // log.info(`Saving ${zip_file_name} to disk...`);
             const compressedSizeMB = sizeInMB(res.length).toFixed(3)
