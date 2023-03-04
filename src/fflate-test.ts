@@ -46,7 +46,7 @@ export async function zipKVS(
                 }
             } else {
                 // on local machine
-                zipObj[record.key] = Uint8Array.from((<any> kvs_record).data);
+                zipObj[record.key] = Uint8Array.from((<any>kvs_record).data);
             }
         }
 
@@ -66,7 +66,7 @@ export async function zipKVS(
 
             // log.info(`Saving ${zip_file_name} to disk...`);
             const compressedSizeMB = sizeInMB(res.length).toFixed(3)
-            const originalSize = (<Array<string | Uint8Array>[]> Object.entries(zipObj)).map((x) => {
+            const originalSize = (<Array<string | Uint8Array>[]>Object.entries(zipObj)).map((x) => {
                 return (x[1]) ? (x[1].length) : 0;
             }).reduce((a, b) => a + b, 0);
             let originalSizeMB = sizeInMB(originalSize).toFixed(3)
@@ -107,8 +107,8 @@ async function* loopItemsIterArray(
             await delay(0.2);
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!);
             if (item) {
-                if ((<any> item.value)?.value?.data) {
-                    item.value = (<any> item.value).value.data;
+                if ((<any>item.value)?.value?.data) {
+                    item.value = (<any>item.value).value.data;
                 }
                 ++i;
                 items.push(item);
@@ -154,7 +154,7 @@ async function* loopItemsIter(
 
 export function zip(
     data: AsyncZippable,
-    options: AsyncZipOptions = {mem:5,level:0}
+    options: AsyncZipOptions = { mem: 5, level: 0 }
 ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         zipCallback(data, options, (err, data) => {
@@ -181,6 +181,8 @@ async function* IteratorGetKVSValues(
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
 
+        FILES_PER_ZIP = (FILES_PER_ZIP ?? totalCount ?? 1000) as number;
+
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
             .listKeys({ limit: FILES_PER_ZIP }));
 
@@ -189,7 +191,7 @@ async function* IteratorGetKVSValues(
 
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
         // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
-        log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
+        log.info(`Processing items totalling max size of ${MAX_ZIP_SIZE_MB} MB`)
         let items: KeyValueStoreRecord<any>[] = []
 
         let currentSize = 0;
@@ -200,7 +202,7 @@ async function* IteratorGetKVSValues(
 
             for await (const i of images) {
 
-                let value = (<any> i.value);
+                let value = (<any>i.value);
                 // Get the size of the current item
                 let size = value.length;
                 // Add the size to the current size
@@ -340,7 +342,7 @@ export function sliceArrayBySize(
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = (<any> value.value)?.data?.length;
+        const valueSizeMB = (<any>value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > maxSizeMB * 1_000_000) {
             slicedArrays.push(slicedValues);
             slicedValues = [];
