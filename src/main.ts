@@ -12,14 +12,14 @@ let {
     ExcludedStores,
     multi_zip = true,
     MAX_SIZE_MB = 250,
-    FILES_PER_ZIP = 250,
+    FILES_PER_ZIP = 5,
 } =
 // await Actor.getInput<any>()
 
 {
-    IncludedStores: [], // - umisyus/data-kvs
+    IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
     // IncludedStores: ["wykmmXcaTrNgYfJWm"], // - umisyus/data-kvs
-    APIFY_TOKEN: process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
+    APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
     ExcludedStores: [
 
         // 'concept-art', 'cute-funny-animals'
@@ -29,7 +29,7 @@ let {
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
-let isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
@@ -72,59 +72,82 @@ async function zipToKVS() {
     console.timeEnd("zipToKVS");
     log.info("Finished zipping to key-value store!");
 
-    async function writeManyZips() {
-        if (IncludedStores && IncludedStores.length > 0) {
-            IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
 
-            for (let index = 0; index < IncludedStores.length; index++) {
-                const kvs = IncludedStores[index];
-                log.info(`Zipping ${kvs} key-value store...`);
-                // Split zip file into chunks to fit under the 9 MB limit
-                // Get the ID and list all keys of the key-value store
-                console.log("Fetching items...");
-                await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
-            }
-        } else {
-            // List all key-value stores
+}
+async function writeManyZips() {
+    IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
+
+    // for (let index = 0; index < IncludedStores.length; index++) {
+    //     const kvs = IncludedStores[index];
+    //     log.info(`Zipping ${kvs} key-value store...`);
+    //     // Split zip file into chunks to fit under the 9 MB limit
+    //     // Get the ID and list all keys of the key-value store
+    //     console.log("Fetching items...");
+    //     await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
+    // }
+
+    // List all key-value stores
+    let stores: any[] = [];
+
+    if (isAtHome) {
+        if (IncludedStores.length > 0) { stores.push(...IncludedStores); }
+        else {
+            log.info("No KVS ID was provided...");
+            log.info("Fetching all remote key-value stores...");
+
+            stores = (await client.keyValueStores().list()).items;
+
+        }
+        stores.filter((item) => !excluded.includes(item));
+
+        await onlineKVS(stores);
+    } else {
+        // Locally
+        // Get items either from the listed stores or from the default store
+
+        if (IncludedStores.length > 0) { stores.push(...IncludedStores); }
+        else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all key-value stores...");
-            if (isAtHome) {
-                let kvs_items = (await client.keyValueStores().list()).items
-                    .filter((item) => !excluded.includes(item.name ?? item.title ?? item.id));
-
-                printNumberedList(kvs_items.map((i) => i.name ?? i.title ?? i.id));
-
-                // Get the ID and list all keys of the key-value store
-                for (let index = 0; index < kvs_items.length; index++) {
-                    const kvs = kvs_items[index];
-                    log.info(`Zipping ${kvs.name ?? kvs.title ?? kvs.id} key-value store...`);
-                    // Split zip file into chunks to fit under the 9 MB limit
-
-                    console.log("Fetching items...");
-                    await zipKVS(kvs.id, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
-                }
-            } else {
-                // Locally
-                // Get items either from the listed stores or from the default store
-                let store: string[] = IncludedStores.length > 0 ? IncludedStores :
-                    [(((await Actor.openKeyValueStore()).name) ?? ((await Actor.openKeyValueStore()).id))]
-                log.info(`Zipping ${store.length} key-value stores...`);
-
-                printNumberedList(store);
-
-                for (let index = 0; index < store.length; index++) {
-                    const element = store[index];
-                    console.log("Fetching local items...");
-                    await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB)
-                }
-            }
+            stores = IncludedStores.length > 0 ? IncludedStores :
+                [(((await Actor.openKeyValueStore()).name) ?? ((await Actor.openKeyValueStore()).id))];
         }
+        stores = stores.filter((item: string) => !excluded.includes(item));
+
+        await localKVS(stores);
+    }
+    // log.info('Done.');
+}
+
+async function localKVS(store: any[]) {
+
+    log.info(`Zipping ${store.length} key-value stores...`);
+
+    printNumberedList(store);
+
+    for (let index = 0; index < store.length; index++) {
+        const element = store[index];
+        console.log("Fetching local items...");
+        await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB, isAtHome);
     }
 }
 
+async function onlineKVS(stores: any[]) {
+    printNumberedList(stores.map((i) => i.name ?? i.title ?? i.id ?? i));
+
+    // Get the ID and list all keys of the key-value store
+    for (let index = 0; index < stores.length; index++) {
+        const kvs = stores[index];
+        const remoteKVSID = kvs.name ?? kvs.title ?? kvs.id ?? kvs;
+        log.info(`Zipping '${remoteKVSID}' key-value store...`);
+        // Split zip file into chunks to fit under the 9 MB limit
+        console.log("Fetching items...");
+        await zipKVS(remoteKVSID, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB, isAtHome);
+    }
+}
 
 function printNumberedList(store: string[]) {
-    log.info(`List: ${store.map((i, ii) => `#${1 + ii}: ${i}\n`).join(", ")}`);
+    log.info(`List:` + `\n` + `${store.map((i, ii) => `#${1 + ii}: ${i}`).join(",\n")}`);
 }
 
 async function writeSingleZip() {
