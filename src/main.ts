@@ -24,7 +24,7 @@ let {
 //         'concept-art', 'cute-funny-animals', 'completed-downloads'
 //     ],
 // };
-let isAtHome = !Actor.isAtHome()
+let isAtHome = Actor.isAtHome()
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
