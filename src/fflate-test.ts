@@ -10,7 +10,7 @@ let ZIP_FILE_NAME = "";
 export async function zipKVS(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = 250,
+    FILES_PER_ZIP?: number,
     MAX_ZIP_SIZE_MB: number = 250,
     isAtHome?: boolean
 ) {
@@ -33,12 +33,16 @@ export async function zipKVS(
             let kvs_record: Buffer = record?.value ?? null;
             if (API_TOKEN || isAtHome == true) {
 
-                if (record.key && kvs_record) {
+                if (record !== undefined && record.key !== undefined && kvs_record !== undefined && kvs_record !== null) {
                     // on apify
                     log.info(`Writing ${record.key} to zip file...`);
-                    zipObj[record.key + ".png"] = Uint8Array.from(kvs_record as Buffer);
+                    if (kvs_record instanceof Buffer)
+                        zipObj[record.key] = Uint8Array.from(kvs_record as Buffer);
+
+                    // else zipObj[record.key] = Buffer.from(strToU8(kvs_record)).toString()
+
                 } else {
-                    log.info(`Skipping ${record.key}...`);
+                    log.info(`Skipping record...`);
                 }
             } else {
                 // on local machine
@@ -164,7 +168,7 @@ export function zip(
 async function* IteratorGetKVSValues(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = 250,
+    FILES_PER_ZIP?: number,
     MAX_ZIP_SIZE_MB: number = 250
 ) {
 
@@ -203,7 +207,7 @@ async function* IteratorGetKVSValues(
                 currentSize += size;
                 // Add the item to the items array
                 items.push(i);
-                const isLimitReached = items.length >= FILES_PER_ZIP;
+                const isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
                 // If the current size is greater than the max size, yield the items and reset the items array
                 const isSizeLimitReached = currentSize >= MAX_ZIP_SIZE_MB * 1_000_000;
 

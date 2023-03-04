@@ -12,17 +12,18 @@ let {
     ExcludedStores = [] as string[],
     multi_zip = true,
     MAX_SIZE_MB = 250,
-    FILES_PER_ZIP = 5,
-} = await Actor.getInput<any>()
+    FILES_PER_ZIP = undefined,
+}
+    // = await Actor.getInput<any>()
+    =
+{
+    // IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
+    APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
+    ExcludedStores: [
 
-// {
-//     IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
-//     APIFY_TOKEN:  process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
-//     ExcludedStores: [
-
-//         // 'concept-art', 'cute-funny-animals'
-//     ],
-// };
+        // 'concept-art', 'cute-funny-animals'
+    ],
+};
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
