@@ -21,15 +21,15 @@ let {
     APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
     ExcludedStores: [
 
-        // 'concept-art', 'cute-funny-animals'
+        'concept-art', 'cute-funny-animals', 'completed-downloads'
     ],
 };
+let isAtHome = !Actor.isAtHome()
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
 
-let isAtHome = Actor.isAtHome()
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
@@ -98,9 +98,12 @@ async function writeManyZips() {
             stores = (await client.keyValueStores().list()).items;
 
         }
-        stores.filter((item) => !excluded.includes(item));
+        log.info(`Found ${stores.length} key-value stores...`);
+        let filteredStores = filterPaginatedList(stores)
+        log.info(`Excluding ${stores.length - filteredStores.length} key-value stores...`);
 
-        await onlineKVS(stores);
+
+        await onlineKVS(filteredStores);
     } else {
         // Locally
         // Get items either from the listed stores or from the default store
@@ -277,3 +280,7 @@ export const zip = (
         });
     });
 };
+function filterPaginatedList(stores: any[]) {
+    return stores.filter((kvs) => !excluded.includes(kvs.name || kvs.id));
+}
+
