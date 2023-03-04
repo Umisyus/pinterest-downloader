@@ -14,18 +14,18 @@ let {
     MAX_SIZE_MB = 250,
     FILES_PER_ZIP = undefined,
 }
-    // = await Actor.getInput<any>()
-    =
-{
-    // IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
-    APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
-    IncludedStores: ['concept-art'],
-    ExcludedStores: [
+    = await Actor.getInput<any>()
+//     =
+// {
+//     // IncludedStores: ["W7yERUE0XmwhgPtBf"], // - umisyus/data-kvs
+//     APIFY_TOKEN: 'apify_api_HtlIwzOzEhOL4Ipgdc5bf5oWhrHBG11Uc6IY' ?? process.env.APIFY_TOKEN ?? JSON.parse(fs.readFileSync("./token.json").toString()).token,
+//     IncludedStores: ['concept-art'],
+//     ExcludedStores: [
 
-        // 'concept-art', 'cute-funny-animals', 'completed-downloads'
-    ],
-};
-let isAtHome = !Actor.isAtHome()
+//         // 'concept-art', 'cute-funny-animals', 'completed-downloads'
+//     ],
+// };
+let isAtHome = Actor.isAtHome()
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
@@ -284,4 +284,3 @@ export const zip = (
 function filterPaginatedList(stores: any[]) {
     return stores.filter((kvs) => !excluded.includes(kvs.name || kvs.id));
 }
-
