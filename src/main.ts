@@ -1,9 +1,11 @@
 // For more information, see https://crawlee.dev/
 import { Actor, ApifyClient, KeyValueStore, log } from "apify";
+import { Dictionary } from "crawlee";
 import { randomUUID } from "crypto";
 import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
 import * as fs from "fs";
 import { zipKVS } from "./fflate-test.js";
+// await Actor.init();
 await Actor.init();
 
 let {
@@ -14,16 +16,14 @@ let {
     MAX_SIZE_MB = 500,
     FILES_PER_ZIP = undefined,
 }
-    // = await Actor.getInput<any>()
-= {
-    IncludedStores: [] as string[],
-    APIFY_TOKEN: process.env.APIFY_TOKEN,
-    ExcludedStores: [] as string[],
-    multi_zip: true,
-    MAX_SIZE_MB: 500,
-    FILES_PER_ZIP: undefined,
-}
-let isAtHome = !Actor.isAtHome()
+    =
+// await readInput('./storage/key_value_stores/default/INPUT.json')
+await Actor.getInput<Dictionary>()
+
+let isAtHome = Actor.isAtHome()
+
+console.log("isAtHome", isAtHome);
+console.log("APIFY_TOKEN", !!APIFY_TOKEN);
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
