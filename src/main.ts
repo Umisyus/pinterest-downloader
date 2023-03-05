@@ -6,7 +6,7 @@ import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
 import * as fs from "fs";
 import { zipKVS } from "./fflate-test.js";
 // await Actor.init();
-// await Actor.init();
+await Actor.init();
 // let readFile = (path) => fs.readFileSync(path, "utf-8")
 // let readInput = async (path) => {
 //     return new Promise<any>((resolve, reject) => {
@@ -22,7 +22,7 @@ import { zipKVS } from "./fflate-test.js";
 
 let {
     IncludedStores = [],
-    APIFY_TOKEN = undefined,
+    APIFY_TOKEN = process.env.APIFY_TOKEN,
     ExcludedStores = [],
     multi_zip = true,
     MAX_SIZE_MB = 500,
@@ -42,7 +42,7 @@ await Actor.getInput<Dictionary>()
 // }
 
 
-let isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 
 console.log("isAtHome", isAtHome);
 console.log("APIFY_TOKEN", !!APIFY_TOKEN);
