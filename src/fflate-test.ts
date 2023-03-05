@@ -169,7 +169,7 @@ async function* IteratorGetKVSValues(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
     FILES_PER_ZIP?: number,
-    MAX_ZIP_SIZE_MB: number = 250
+    MAX_ZIP_SIZE_MB: number = 500
 ) {
 
     let client = new ApifyClient({ token: API_TOKEN });
@@ -181,9 +181,9 @@ async function* IteratorGetKVSValues(
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
 
-        FILES_PER_ZIP = parseInt((FILES_PER_ZIP ?? totalCount ?? 1000).toString()) as number;
-        
-        log.info(typeof FILES_PER_ZIP)
+        // FILES_PER_ZIP = parseInt((FILES_PER_ZIP ?? totalCount ?? 1000).toString()) as number; // 1000 is the default, may be undefined
+        const MAX_SIZE_MB = MAX_ZIP_SIZE_MB * 1000000;
+        // log.info(typeof FILES_PER_ZIP)
 
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
             .listKeys({ limit: FILES_PER_ZIP }));
@@ -201,6 +201,8 @@ async function* IteratorGetKVSValues(
         do {
             // Find a way to yield the images instead of waiting for all of them to be processed
             let images = loopItemsIter(kvs_id, kvsItemKeys, client);
+            let isLimitReached = false;
+            const isSizeLimitReached = false
 
             for await (const i of images) {
 
@@ -211,9 +213,14 @@ async function* IteratorGetKVSValues(
                 currentSize += size;
                 // Add the item to the items array
                 items.push(i);
-                const isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
+                // const isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
+
+                // Only run file limit check when FILES_PER_ZIP is defined
+                if (FILES_PER_ZIP !== undefined){
+                    isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
+                }
                 // If the current size is greater than the max size, yield the items and reset the items array
-                const isSizeLimitReached = currentSize >= MAX_ZIP_SIZE_MB * 1_000_000;
+                currentSize >= MAX_SIZE_MB;
 
                 // console.log({ FILES_PER_ZIP });
                 //   console.log({
@@ -222,6 +229,7 @@ async function* IteratorGetKVSValues(
                 //     currentSize,
                 //     isSizeLimitReached,
                 //   });
+
 
                 if (isLimitReached || isSizeLimitReached) {
                     // Yield the items then reset the items array

@@ -11,7 +11,7 @@ let {
     APIFY_TOKEN = undefined,
     ExcludedStores = [] as string[],
     multi_zip = true,
-    MAX_SIZE_MB = 250,
+    MAX_SIZE_MB = 500,
     FILES_PER_ZIP = undefined as number,
 }
     = await Actor.getInput<any>()
