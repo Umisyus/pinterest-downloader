@@ -29,8 +29,8 @@ let {
     FILES_PER_ZIP = undefined,
 }
     =
-// await readInput('./storage/key_value_stores/default/INPUT.json')
-await Actor.getInput<Dictionary>()
+    // await readInput('./storage/key_value_stores/default/INPUT.json')
+    await Actor.getInput<Dictionary>()
 
 // {
 //     IncludedStores: [] as string[],
@@ -42,7 +42,7 @@ await Actor.getInput<Dictionary>()
 // }
 
 
-let isAtHome = !Actor.isAtHome()
+let isAtHome = Actor.isAtHome()
 
 console.log("isAtHome", isAtHome);
 console.log("APIFY_TOKEN", !!APIFY_TOKEN);
