@@ -7,6 +7,8 @@ FROM apify/actor-node-playwright-chrome:16 AS builder
 # to speed up the build using Docker layer cache.
 COPY --chown=myuser package*.json ./
 
+
+
 # Install all dependencies. Don't audit to speed up the installation.
 RUN npm install --include=dev --audit=false
 
@@ -45,7 +47,8 @@ RUN npm --quiet set progress=false \
 # for most source file changes.
 COPY --chown=myuser . ./
 
-
+# Copy input file to the default key-value store
+# COPY --chown=myuser INPU[T].json /home/myuser/storage/key_value_stores/default/
 # Run the image. If you know you won't need headful browsers,
 # you can remove the XVFB start script for a micro perf gain.
 CMD ./start_xvfb_and_run_cmd.sh && npm run start:prod --silent

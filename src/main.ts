@@ -6,12 +6,24 @@ import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
 import * as fs from "fs";
 import { zipKVS } from "./fflate-test.js";
 // await Actor.init();
-await Actor.init();
+// await Actor.init();
+// let readFile = (path) => fs.readFileSync(path, "utf-8")
+// let readInput = async (path) => {
+//     return new Promise<any>((resolve, reject) => {
+//         try {
+//             resolve(JSON.parse(readFile(path)))
+
+//         } catch (error) {
+//             reject(null)
+//             throw error;
+//         }
+//     })
+// }
 
 let {
-    IncludedStores = [] as string[],
+    IncludedStores = [],
     APIFY_TOKEN = undefined,
-    ExcludedStores = [] as string[],
+    ExcludedStores = [],
     multi_zip = true,
     MAX_SIZE_MB = 500,
     FILES_PER_ZIP = undefined,
@@ -20,16 +32,29 @@ let {
 // await readInput('./storage/key_value_stores/default/INPUT.json')
 await Actor.getInput<Dictionary>()
 
+// {
+//     IncludedStores: [] as string[],
+//     APIFY_TOKEN:process.env.APIFY_TOKEN,
+//     ExcludedStores: [] as string[],
+//     multi_zip: true,
+//     MAX_SIZE_MB: 500,
+//     FILES_PER_ZIP: undefined,
+// }
+
+
 let isAtHome = Actor.isAtHome()
 
 console.log("isAtHome", isAtHome);
 console.log("APIFY_TOKEN", !!APIFY_TOKEN);
+console.log("FILES_PER_ZIP", FILES_PER_ZIP);
+console.log("MAX_SIZE_MB", MAX_SIZE_MB);
+
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
 
-FILES_PER_ZIP= (FILES_PER_ZIP !== undefined ? FILES_PER_ZIP : undefined); 
+FILES_PER_ZIP = (FILES_PER_ZIP === undefined ? FILES_PER_ZIP : undefined);
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
@@ -49,12 +74,14 @@ const client = new ApifyClient({ token: APIFY_TOKEN });
 client.baseUrl = "https://api.apify.com/v2/";
 client.token = APIFY_TOKEN;
 
-if (FILES_PER_ZIP < 1) {
+
+// if defined in and above 1, use it, otherwise use 200
+if (FILES_PER_ZIP && FILES_PER_ZIP < 1) {
     log.info(`FILES_PER_ZIP is invalid. Setting FILES_PER_ZIP to 200`)
     FILES_PER_ZIP = 200;
 }
 
-if (MAX_SIZE_MB < 1) {
+if (!!MAX_SIZE_MB && MAX_SIZE_MB < 1) {
     log.info(`MAX_SIZE_MB is invalid. Setting MAX_SIZE_MB to 250`)
     MAX_SIZE_MB = 250;
 }
@@ -127,7 +154,6 @@ async function localKVS(store: any[]) {
     log.info(`Zipping ${store.length} key-value stores...`);
 
     // printNumberedList(store);
-
     for (let index = 0; index < store.length; index++) {
         const element = store[index];
         console.log("Fetching local items...");
