@@ -14,15 +14,22 @@ let {
     MAX_SIZE_MB = 500,
     FILES_PER_ZIP = undefined,
 }
-    = await Actor.getInput<any>()
-
-let isAtHome = Actor.isAtHome()
+    // = await Actor.getInput<any>()
+= {
+    IncludedStores: [] as string[],
+    APIFY_TOKEN: process.env.APIFY_TOKEN,
+    ExcludedStores: [] as string[],
+    multi_zip: true,
+    MAX_SIZE_MB: 500,
+    FILES_PER_ZIP: undefined,
+}
+let isAtHome = !Actor.isAtHome()
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
 
-FILES_PER_ZIP= (FILES_PER_ZIP === undefined ? FILES_PER_ZIP : undefined); 
+FILES_PER_ZIP= (FILES_PER_ZIP !== undefined ? FILES_PER_ZIP : undefined); 
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 

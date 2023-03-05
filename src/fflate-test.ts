@@ -168,7 +168,7 @@ export function zip(
 async function* IteratorGetKVSValues(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP?: number,
+    FILES_PER_ZIP: number=undefined,
     MAX_ZIP_SIZE_MB: number = 500
 ) {
 
@@ -181,7 +181,7 @@ async function* IteratorGetKVSValues(
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
 
-        // FILES_PER_ZIP = parseInt((FILES_PER_ZIP ?? totalCount ?? 1000).toString()) as number; // 1000 is the default, may be undefined
+        FILES_PER_ZIP = parseInt((FILES_PER_ZIP ?? totalCount ?? 1000).toString()) as number; // 1000 is the default, may be undefined
         const MAX_SIZE_MB = MAX_ZIP_SIZE_MB * 1000000;
         // log.info(typeof FILES_PER_ZIP)
 
