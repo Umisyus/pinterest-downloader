@@ -216,7 +216,7 @@ async function* IteratorGetKVSValues(
                 // const isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
 
                 // Only run file limit check when FILES_PER_ZIP is defined
-                if (FILES_PER_ZIP !== undefined){
+                if (FILES_PER_ZIP !== undefined) {
                     isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
                 }
                 // If the current size is greater than the max size, yield the items and reset the items array

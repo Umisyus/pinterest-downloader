@@ -12,7 +12,7 @@ let {
     ExcludedStores = [] as string[],
     multi_zip = true,
     MAX_SIZE_MB = 500,
-    FILES_PER_ZIP = undefined as number,
+    FILES_PER_ZIP = undefined,
 }
     = await Actor.getInput<any>()
 
@@ -22,6 +22,7 @@ const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
 
+FILES_PER_ZIP= (FILES_PER_ZIP === undefined ? FILES_PER_ZIP : undefined); 
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
