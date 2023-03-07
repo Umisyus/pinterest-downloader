@@ -1,10 +1,10 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, KeyValueStore, log } from "apify";
-import { Dictionary } from "crawlee";
-import { randomUUID } from "crypto";
-import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
+import {Actor, ApifyClient, KeyValueStore, log} from "apify";
+import {Dictionary} from "crawlee";
+import {randomUUID} from "crypto";
+import {AsyncZipOptions, AsyncZippable, zip as zipCallback} from "fflate";
 import * as fs from "fs";
-import { zipKVS } from "./fflate-test.js";
+import {zipKVS} from "./fflate-test.js";
 // await Actor.init();
 await Actor.init();
 // let readFile = (path) => fs.readFileSync(path, "utf-8")
@@ -27,8 +27,7 @@ let {
     multi_zip = true,
     MAX_SIZE_MB = 500,
     FILES_PER_ZIP = undefined,
-}
-    =
+} =
     // await readInput('./storage/key_value_stores/default/INPUT.json')
     await Actor.getInput<Dictionary>()
 
@@ -42,7 +41,7 @@ let {
 // }
 
 
-let isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 
 console.log("isAtHome", isAtHome);
 console.log("APIFY_TOKEN", !!APIFY_TOKEN);
@@ -69,7 +68,7 @@ if (isAtHome == true && !APIFY_TOKEN) {
 }
 
 // Setup client
-const client = new ApifyClient({ token: APIFY_TOKEN });
+const client = new ApifyClient({token: APIFY_TOKEN});
 
 client.baseUrl = "https://api.apify.com/v2/";
 client.token = APIFY_TOKEN;
@@ -101,24 +100,17 @@ async function zipToKVS() {
 
 
 }
+
 async function writeManyZips() {
     IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
-
-    // for (let index = 0; index < IncludedStores.length; index++) {
-    //     const kvs = IncludedStores[index];
-    //     log.info(`Zipping ${kvs} key-value store...`);
-    //     // Split zip file into chunks to fit under the 9 MB limit
-    //     // Get the ID and list all keys of the key-value store
-    //     console.log("Fetching items...");
-    //     await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
-    // }
 
     // List all key-value stores
     let stores: any[] = [];
 
     if (isAtHome) {
-        if (IncludedStores.length > 0) { stores.push(...IncludedStores); }
-        else {
+        if (IncludedStores.length > 0) {
+            stores.push(...IncludedStores);
+        } else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all remote key-value stores...");
 
@@ -135,8 +127,9 @@ async function writeManyZips() {
         // Locally
         // Get items either from the listed stores or from the default store
 
-        if (IncludedStores.length > 0) { stores.push(...IncludedStores); }
-        else {
+        if (IncludedStores.length > 0) {
+            stores.push(...IncludedStores);
+        } else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all key-value stores...");
             stores = IncludedStores.length > 0 ? IncludedStores :
@@ -146,7 +139,7 @@ async function writeManyZips() {
 
         await localKVS(stores);
     }
-    // log.info('Done.');
+
 }
 
 async function localKVS(store: any[]) {
@@ -163,7 +156,7 @@ async function localKVS(store: any[]) {
 
 async function onlineKVS(stores: any[]) {
     // printNumberedList(stores.map((i) => i.name ?? i.title ?? i.id ?? i));
-
+      log.info(`Zipping '${stores.length}' key-value stores...`);
     // Get the ID and list all keys of the key-value store
     for (let index = 0; index < stores.length; index++) {
         const kvs = stores[index];
@@ -294,7 +287,7 @@ async function getKeyValueStoreList(client: ApifyClient) {
 
 export const zip = (
     data: AsyncZippable,
-    options: AsyncZipOptions = { level: 0 }
+    options: AsyncZipOptions = {level: 0}
 ): Promise<Uint8Array> => {
     return new Promise((resolve, reject) => {
         zipCallback(data, options, (err, resultData) => {
@@ -306,6 +299,7 @@ export const zip = (
         });
     });
 };
+
 function filterPaginatedList(stores: any[]) {
     return stores.filter((kvs) => !excluded.includes(kvs.name || kvs.id));
 }

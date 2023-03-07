@@ -38,9 +38,6 @@ export async function zipKVS(
                     log.info(`Writing ${record.key} to zip file...`);
                     if (kvs_record instanceof Buffer)
                         zipObj[record.key] = Uint8Array.from(kvs_record as Buffer);
-
-                    // else zipObj[record.key] = Buffer.from(strToU8(kvs_record)).toString()
-
                 } else {
                     log.info(`Skipping record...`);
                 }
@@ -64,7 +61,6 @@ export async function zipKVS(
 
             let url = (await Actor.openKeyValueStore()).getPublicUrl(zip_file_name);
 
-            // log.info(`Saving ${zip_file_name} to disk...`);
             const compressedSizeMB = sizeInMB(res.length).toFixed(3)
             const originalSize = (<Array<string | Uint8Array>[]>Object.entries(zipObj)).map((x) => {
                 return (x[1]) ? (x[1].length) : 0;
@@ -76,16 +72,16 @@ export async function zipKVS(
             await Actor.pushData({
                 name: `${zip_file_name}`,
                 link: url,
-                // metaData: {
-                //     beforeCompression: originalSizeMB,
-                //     afterCompression: compressedSizeMB,
-                //     itemCount: Object.entries(zipObj).length ?? "Unknown"
-                // }
+                metaData: {
+                    beforeCompression: `${originalSizeMB} MB`,
+                    afterCompression: `${compressedSizeMB} MB`,
+                    itemCount: Object.entries(zipObj).length ?? "Unknown"
+                }
             });
 
             log.info(`FILE ${zip_file_name} SIZE: ${compressedSizeMB} MB (${res.length} BYTES)`);
 
-            // await saveToFS(res, "archives", zip_file_name); // WORKS!
+
         });
         zipObj = {};
     }
@@ -181,9 +177,7 @@ async function* IteratorGetKVSValues(
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
 
-        // FILES_PER_ZIP = parseInt((FILES_PER_ZIP ?? totalCount ?? 1000).toString()) as number; // 1000 is the default, may be undefined
         const MAX_SIZE_MB = MAX_ZIP_SIZE_MB * 1000000;
-        // log.info(typeof FILES_PER_ZIP)
 
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
             .listKeys({ limit: FILES_PER_ZIP }));
@@ -192,14 +186,14 @@ async function* IteratorGetKVSValues(
 
 
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
-        // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
+       
         log.info(`Processing items totalling max size of ${MAX_ZIP_SIZE_MB} MB`)
         let items: KeyValueStoreRecord<any>[] = []
 
         let currentSize = 0;
-        !!FILES_PER_ZIP ? log.info(`Processing ${FILES_PER_ZIP} items per zip file.`) : log.info(`Processing ${totalCount} items without limits.`);
+        (!!FILES_PER_ZIP) !== undefined ? log.info(`Processing ${FILES_PER_ZIP} items per zip file.`) : log.info(`Processing ${totalCount} items without limits.`);
+
         do {
-            // Find a way to yield the images instead of waiting for all of them to be processed
             let images = loopItemsIter(kvs_id, kvsItemKeys, client);
             let isLimitReached = false;
             const isSizeLimitReached = false
@@ -207,14 +201,10 @@ async function* IteratorGetKVSValues(
             for await (const i of images) {
 
                 let value = (<any>i.value);
-                // Get the size of the current item
                 let size = value.length;
-                // Add the size to the current size
                 currentSize += size;
-                // Add the item to the items array
+    
                 items.push(i);
-                // const isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
-
                 // Only run file limit check when FILES_PER_ZIP is defined
                 if (FILES_PER_ZIP !== undefined) {
                     isLimitReached = items.length >= (FILES_PER_ZIP ?? totalCount);
@@ -222,19 +212,9 @@ async function* IteratorGetKVSValues(
                 // If the current size is greater than the max size, yield the items and reset the items array
                 currentSize >= MAX_SIZE_MB;
 
-                // console.log({ FILES_PER_ZIP });
-                //   console.log({
-                //     itemCount: items.length,
-                //     isLimitReached,
-                //     currentSize,
-                //     isSizeLimitReached,
-                //   });
-
-
                 if (isLimitReached || isSizeLimitReached) {
                     // Yield the items then reset the items array
                     yield items;
-                    // Yield the items then reset the items array
                     runningCount += items.length;
                     items = [];
                     currentSize = 0;
@@ -267,7 +247,6 @@ async function* IteratorGetKVSValues(
                 break;
             }
         } while (true);
-        // } while (items.length > 0);
 
         log.info(`Processed all items`);
         log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${ZIP_FILE_NAME} (${KVS_ID})`);
@@ -299,7 +278,6 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
 
     do {
         let parcelList = chunk(localItems, 1000);
-        // Find a way to yield the images instead of waiting for all of them to be processed
         for (let index = 0; index < parcelList.length; index++) {
             const element = parcelList[index];
 
@@ -314,22 +292,6 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
                 let ii = 0;
                 let l = chunked.length;
 
-                // Duplicate the data
-                // let mem = [...chunked[0].slice()]
-                // let slicedValues = [...mem.slice().reverse()];
-                // slicedValues.map(record => {
-                //     record.key = randomUUID().slice(0, 5) + record.key
-                //     return record
-                // })
-                // let arr = [slicedValues.concat(mem).reverse()]
-
-                // for await (const ch of arr) {
-
-                /*
-                        Because the dataset is a lot of duplicate data with different names,
-                        the data is saved duplicated with the above code. Otherwise, the data
-                        is written as not duplicated. Use the above code to duplicate the data on local runs.
-                        */
                 for await (const ch of chunked) {
                     ii++;
                     yield ch;
@@ -369,7 +331,6 @@ export function sliceArrayBySize(
 
 export async function delay(s: number) {
     return new Promise<void>((resolve) => {
-        // log.info(`Waiting ${s} second(s)`);
         setTimeout(() => {
             resolve();
         }, s * 1000);
