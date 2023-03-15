@@ -1,13 +1,17 @@
-import { Transform, pipeline } from "stream";
+import { Transform, Readable, pipeline } from "stream";
 import fs from "fs";
 import { ZipPassThrough, Zip, AsyncZipDeflate } from "fflate";
-
+import { readFiles } from "../read-stream-example/test-stream.js";
+import { chunk } from "crawlee";
+import path from "path";
 console.log("PROCESS ID: " + process.pid);
 
 let zipFile = new Zip()
 
 const zipStream = new Transform({
-    transform(fileData: Uint8Array, _encoding: BufferEncoding, callback: (err: Error | null, data: Uint8Array) => void) {
+
+    objectMode: true,
+    async transform(fileData: string, _encoding: BufferEncoding, callback: (err: Error | null, data: Uint8Array) => void) {
         // Push the file data to the zip file
         zipFile.ondata = (_err, chunk, _final) => {
             if (_err) {
@@ -17,54 +21,66 @@ const zipStream = new Transform({
             // if (_final) {
             //     callback(null, chunk)
             // }
+
+            // if (_final) {
             this.push(chunk)
+            // }
+
             // callback(null, chunk)
         }
-        let file = new AsyncZipDeflate('file')
-        zipFile.add(file)
 
-        console.log("File Data Length: " + fileData.length);
-
-        file.push(fileData, true)
-        zipFile.end()
-        // console.log(fileData);
-
-        // callback(null, fileData)
+        let fileName = fileData.split('/').pop();
+        await addFileToZip(fileName, fileData).then(() => {
+            console.log("File Added");
+        });
     },
 })
 
-zipStream.on('error', console.error)
+// zipStream.on('error', console.error)
 
-zipStream.on('data', (data) => console.log('DATA:', data ? data : "NODATA"))
+// zipStream.on('data', (data) => console.log('DATA:', data ? data : "NODATA"))
+// zipStream.on('end', () => console.log("END ZIP", zipFile.end()))
 
-zipStream.on('end', () => {
-    console.log("ZIP END");
-});
+let dataStream = await (async () => Readable.from((await readFiles('./images')).slice(0, 4)))();
 
-console.time("write");
-let readableFile = fs.createReadStream('/Users/umit/Desktop/Github Test/Node Projects/pin_down/images/Abstract Art/0b1c4669d46a2b2cefe13fb507709efe.jpg')
+// dataStream.on('readable', (ch: any) => console.log('DATA:', ch))
+// dataStream.on('end', () => console.log("END", zipStream.end(), zipFile.end()))
+dataStream.on('close', () => console.log("CLOSE", zipStream.end(), zipFile.end()))
+// dataStream.on('close', () => console.log("CLOSE", zipStream.end()))
 
-// readableFile.on('readable', () => {
-//     let readable = readableFile.read()
-//     zipStream.push(readable)
-
-// });
-// readableFile.on('end', () => console.log('end readable', zipStream.end()));
-
-readableFile.on('error', console.error)
-
-pipeline(readableFile,
+pipeline(dataStream,
     zipStream,
-    // process.stdout,
     fs.createWriteStream('text-streams-2-3-4.zip'),
     (err: Error) => {
         if (err) {
-            console.log("PIPELINE ERROR", err);
+            console.error("PIPELINE ERROR", err);
             return;
         }
         console.log("PIPELINE SUCCESS");
     })
 
+
+async function addFileToZip(fileName: string, filePath: string) {
+    const pathFull = path.resolve(filePath);
+    let fileData = fs.createReadStream(pathFull);
+    let file = new AsyncZipDeflate(fileName);
+
+    console.log({ pathFull });
+
+    zipFile.add(file);
+
+    console.log("File Data Length: " + fileData.readableLength);
+    fileData.on('data', (chunk: Buffer) => {
+        if (chunk) {
+            file.push(chunk);
+        }
+    })
+
+    fileData.on('end', () => {
+        file.push(new Uint8Array(0), true);
+    })
+
+}
 // function writeMany() {
 //     console.log("Writing to stream...");
 //     let writes = 1_000_000

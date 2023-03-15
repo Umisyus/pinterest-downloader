@@ -1,7 +1,7 @@
 import { readdir, stat } from "fs/promises";
 export let readFiles = async (path = './images') => {
     let folders = await readdir(path);
-    let filePaths = []
+    let filePaths: string[] = []
     // Read folders
     for await (const folder of folders) {
 
@@ -17,7 +17,7 @@ export let readFiles = async (path = './images') => {
             // Read files within folders
             files.forEach(async (file) => {
                 filePaths.push(`${path}/${folder}/${file}`)
-                console.log('>>>', file);
+                // console.log('>>>', file);
             })
         })
         // Read files within folders
