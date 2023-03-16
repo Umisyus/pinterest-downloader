@@ -1,79 +1,110 @@
-import { AsyncDeflate, AsyncZipDeflate, Zip, zip, ZipPassThrough } from "fflate";
-import { readFiles } from "../read-stream-example/test-stream.js";
+import { AsyncDecompress, AsyncDeflate, AsyncZipDeflate, Zip, ZipPassThrough } from "fflate";
+
 import fs, { createReadStream } from "fs";
 import path from "path";
-import Stream from "stream";
+import { readdir, stat } from "fs/promises";
+import { chunk } from "crawlee";
 
-readFiles('./images').then(async (files) => {
-    files = files.map(file => path.resolve(file))
-    let zipFile = new Zip();
+let readFiles = async (path = '.') => {
+    let folders = await readdir(path);
+    let filePaths: string[] = []
+    // Read folders
+    for await (const folder of folders) {
 
-    let zipWriteStream = fs.createWriteStream("test.zip");
+        if (folder.startsWith('.'))
+            continue;
 
-    zipFile.ondata = (err, chunk, final) => {
+        // Read folders within folders
+        await stat(`${path}/${folder}`).then(async (stats) => {
 
-        zipWriteStream.write(chunk)
+            if (!stats.isDirectory())
+                return;
+            let files = await readdir(path + '/' + folder)
+            // Read files within folders
+            files.forEach(async (file) => {
+                filePaths.push(`${path}/${folder}/${file}`)
+                // console.log('>>>', file);
+            })
+        })
 
-        if (err || final) {
-            return zipWriteStream.close();
-        }
     }
-
-    files.forEach(file => addToZip(file))
-    //  addToZip(files[0])
-
-    zipFile.end();
-
-    console.log("END ZIP");
-
-    function addToZip(file: string) {
-        const fileName = file.split('/').pop();
-        const zf = new ZipPassThrough(fileName);
-        zipFile.add(zf);
-        // return new Promise<void>((resolve, reject) => {
-        // const { writable } = fflateToRS(zf);
-        const fileStream = createReadStream(file);
-
-        fileStream.on('readable', () => {
-            let chunk = fileStream.read();
-            while (chunk && chunk.length) {
-                zf.push(chunk);
-chunk	=	fileStream.read()
-            }
-        });
-
-        fileStream.on('end', () => {
-            // writable.write(new Uint8Array(0));
-            zf.push(new Uint8Array(0), true);
-        });
-    }
-})
-
-function addToZipSync(file: string, zipFile: Zip) {
-    const fileName = file.split('/').pop();
-    const zf = new ZipPassThrough(fileName);
-    zipFile.add(zf);
-    const fileStream = createReadStream(file);
-    let chunk;
-
-    fileStream.on('readable', function () {
-        while ((chunk = fileStream.read()) != null) {
-            zf.push(chunk);
-        }
-    })
-    fileStream.on('end', () => zf.push(new Uint8Array(0), true));
-
-    console.log("END ZIP SYNC");
-
+    return filePaths
 }
+let zipFile = new Zip(
+    // (err, chunk, final) => {
+//     if (chunk !== undefined && chunk !== null && chunk.length)
+//         zipWriteStream.write(chunk);
 
-export default function fflateToRS(stream: AsyncDeflate) {
-    const writable = new Stream.Writable({
-        write(dat: Uint8Array) { stream.push(dat); },
-        final() { stream.push(new Uint8Array(0), true); }
-    });
-    const readable = new Stream.Readable({
-        read() { }
-    });
-    return { readable, writable };
+//     if (err || final) {
+//         return zipWriteStream.close();
+//     }
+// }
+)
+
+zipFile.ondata = (err, chunk, final) => {
+    // if (chunk !== undefined && chunk !== null && chunk.length)
+    zipWriteStream.write(chunk);
+
+    if (err || final) {
+        zipWriteStream.close();
+    }
+};
+let zipWriteStream = fs.createWriteStream("test.zip");
+
+let files = await readFiles('./images')
+let flen = files.length;
+let current = 0;
+for await (const iterator of chunk(files.slice(0,50), 25)) {
+
+    console.log('PROCESSING... ' + (current += iterator.length) + ' / ' + flen);
+
+    await processFiles(iterator).catch(err => console.log(err));
+}
+zipFile.end();
+
+// zipWriteStream.close();
+
+// readFiles('./images').then(processFiles()).then(() => {
+//     console.log('Done...')
+// })
+async function processFiles(files: string[]) {
+
+    // return new Promise<void>(async (resolve, reject) => {
+    files = files.map(file => path.resolve(file));
+
+    console.log("PROCESS ID: " + process.pid);
+
+    await Promise.all(files.map(file => addToZip(file)))
+        .then(() => console.log('DONE'))
+        .catch(err => console.log(err));
+
+    async function addToZip(file: string): Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+
+            const fileName = file.split('/').pop();
+            const zf = new ZipPassThrough(fileName);
+            // const zf = new AsyncZipDeflate(fileName, { level: 1, mem: 1 });
+
+            // zf.ondata = (err, chunk, final) => { zipFile.ondata(err, chunk, final) }
+
+            zipFile.add(zf);
+            const fileStream = createReadStream(file);
+
+            fileStream.on('readable', () => {
+                let chunk = fileStream.read();
+                while (chunk !== undefined && chunk !== null && chunk.length) {
+                    zf.push(chunk);
+                    chunk = fileStream.read();
+                }
+            });
+
+            fileStream.on('end', () => {
+
+                zf.push(new Uint8Array(0), true);
+                fileStream.close();
+                console.log('File added: ' + fileName);
+                resolve();
+            });
+        })
+    };
 }
