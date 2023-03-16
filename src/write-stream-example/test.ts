@@ -19,8 +19,8 @@ readFiles('./images').then(async (files) => {
         }
     }
 
-    // files.forEach(file => addToZip(file))
-     addToZip(files[0])
+    files.forEach(file => addToZip(file))
+    //  addToZip(files[0])
 
     zipFile.end();
 
