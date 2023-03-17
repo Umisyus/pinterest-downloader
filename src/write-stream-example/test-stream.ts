@@ -1,8 +1,7 @@
 import { Transform, Readable, pipeline } from "stream";
 import fs from "fs";
-import { ZipPassThrough, Zip, AsyncZipDeflate } from "fflate";
+import { Zip, AsyncZipDeflate } from "fflate";
 import { readFiles } from "../read-stream-example/test-stream.js";
-import { chunk } from "crawlee";
 import path from "path";
 console.log("PROCESS ID: " + process.pid);
 
@@ -15,38 +14,33 @@ const zipStream = new Transform({
         // Push the file data to the zip file
         zipFile.ondata = (_err, chunk, _final) => {
             if (_err) {
-                // callback(_err, null)
                 console.error(_err);
             }
-            // if (_final) {
-            //     callback(null, chunk)
-            // }
 
-            // if (_final) {
-            this.push(chunk)
-            // }
-
-            // callback(null, chunk)
+            callback(null, chunk)
         }
 
         let fileName = fileData.split('/').pop();
-        await addFileToZip(fileName, fileData).then(() => {
-            console.log("File Added");
+        addFileToZip(fileName, fileData).then(() => {
         });
     },
 })
 
-// zipStream.on('error', console.error)
+zipStream.on('close', () => {
+    console.log("END ZIP");
+    zipFile.end();
+})
 
-// zipStream.on('data', (data) => console.log('DATA:', data ? data : "NODATA"))
-// zipStream.on('end', () => console.log("END ZIP", zipFile.end()))
+let dataStream = await (async () => Readable.from((await readFiles('./images')).slice(0, 2)))();
 
-let dataStream = await (async () => Readable.from((await readFiles('./images')).slice(0, 4)))();
+dataStream.on('end', () => {
+    console.log("END DATA STREAM")
+});
 
-// dataStream.on('readable', (ch: any) => console.log('DATA:', ch))
-// dataStream.on('end', () => console.log("END", zipStream.end(), zipFile.end()))
-dataStream.on('close', () => console.log("CLOSE", zipStream.end(), zipFile.end()))
-// dataStream.on('close', () => console.log("CLOSE", zipStream.end()))
+dataStream.on('close', () => {
+    console.log("CLOSED DATA STREAM")
+});
+
 
 pipeline(dataStream,
     zipStream,
@@ -56,6 +50,7 @@ pipeline(dataStream,
             console.error("PIPELINE ERROR", err);
             return;
         }
+        zipFile.end();
         console.log("PIPELINE SUCCESS");
     })
 
@@ -64,61 +59,25 @@ async function addFileToZip(fileName: string, filePath: string) {
     const pathFull = path.resolve(filePath);
     let fileData = fs.createReadStream(pathFull);
     let file = new AsyncZipDeflate(fileName);
+    let fileDone = false;
 
     console.log({ pathFull });
 
     zipFile.add(file);
-
     console.log("File Data Length: " + fileData.readableLength);
     fileData.on('data', (chunk: Buffer) => {
-        if (chunk) {
-            file.push(chunk);
-        }
+        console.log(`File: ${fileName}`);
+
+        file.push(chunk, true);
+
     })
 
     fileData.on('end', () => {
-        file.push(new Uint8Array(0), true);
+        console.log("END FILE DATA");
+
     })
 
+
+    console.log(`File added: ${fileName}`);
+
 }
-// function writeMany() {
-//     console.log("Writing to stream...");
-//     let writes = 1_000_000
-
-//     while (i < writes) {
-//         let bf = Buffer.from(`${i}`, 'utf8');
-
-//         if (i === writes - 1) {
-//             console.log("Last write");
-//             writable.end(bf);
-//             return;
-//         }
-
-//         if (writable.write(bf) === false) {
-//             break;
-//         }
-//         i++
-//     }
-
-// }
-
-// writeMany()
-
-// writable.on('drain', () => {
-//     console.log("DRAINED!!!");
-//     writeMany();
-// })
-// writable.on('error', (err) => {
-//     console.log("ERROR", err);
-// })
-// writable.on('close', () => {
-//     console.log("CLOSED!!!");
-
-// })
-// writable.on('finish', () => {
-//     writable.close(() => {
-//         console.timeEnd("write");
-//         console.log("~Write Stream has Ended~");
-//         process.exit(0)
-//     });
-// })

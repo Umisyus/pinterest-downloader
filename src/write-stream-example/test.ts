@@ -1,9 +1,9 @@
-import { AsyncDecompress, AsyncDeflate, AsyncZipDeflate, Zip, ZipPassThrough } from "fflate";
+import { AsyncZipDeflate, Zip, ZipPassThrough } from "fflate";
 
 import fs, { createReadStream } from "fs";
 import path from "path";
 import { readdir, stat } from "fs/promises";
-import { chunk } from "crawlee";
+import { chunk, getMemoryInfo } from "crawlee";
 
 let readFiles = async (path = '.') => {
     let folders = await readdir(path);
@@ -23,69 +23,58 @@ let readFiles = async (path = '.') => {
             // Read files within folders
             files.forEach(async (file) => {
                 filePaths.push(`${path}/${folder}/${file}`)
-                // console.log('>>>', file);
             })
         })
 
     }
     return filePaths
 }
-let zipFile = new Zip(
-    // (err, chunk, final) => {
-//     if (chunk !== undefined && chunk !== null && chunk.length)
-//         zipWriteStream.write(chunk);
 
-//     if (err || final) {
-//         return zipWriteStream.close();
-//     }
-// }
-)
+let zipFile = new Zip()
 
 zipFile.ondata = (err, chunk, final) => {
-    // if (chunk !== undefined && chunk !== null && chunk.length)
     zipWriteStream.write(chunk);
 
     if (err || final) {
-        zipWriteStream.close();
+        zipWriteStream.end()
     }
 };
+
 let zipWriteStream = fs.createWriteStream("test.zip");
 
 let files = await readFiles('./images')
 let flen = files.length;
 let current = 0;
-for await (const iterator of chunk(files.slice(0,50), 25)) {
+
+for await (const iterator of chunk(files.slice(), 1000)) {
 
     console.log('PROCESSING... ' + (current += iterator.length) + ' / ' + flen);
 
     await processFiles(iterator).catch(err => console.log(err));
+    console.log('MEMORY USED: ' + process.memoryUsage().rss / 1024 / 1024 + ' MB');
+
 }
+
 zipFile.end();
 
-// zipWriteStream.close();
-
-// readFiles('./images').then(processFiles()).then(() => {
-//     console.log('Done...')
-// })
 async function processFiles(files: string[]) {
 
-    // return new Promise<void>(async (resolve, reject) => {
     files = files.map(file => path.resolve(file));
 
     console.log("PROCESS ID: " + process.pid);
 
-    await Promise.all(files.map(file => addToZip(file)))
+    const fileStreams = files.map(file => addToZip(file));
+    await Promise.all(fileStreams)
+        .catch(err => console.error(err))
         .then(() => console.log('DONE'))
-        .catch(err => console.log(err));
+
 
     async function addToZip(file: string): Promise<void> {
         return new Promise<void>(async (resolve, reject) => {
 
             const fileName = file.split('/').pop();
-            const zf = new ZipPassThrough(fileName);
-            // const zf = new AsyncZipDeflate(fileName, { level: 1, mem: 1 });
-
-            // zf.ondata = (err, chunk, final) => { zipFile.ondata(err, chunk, final) }
+            // const zf = new AsyncZipDeflate(fileName, { level: 4, mem: 4 });
+            const zf = new ZipPassThrough(fileName)
 
             zipFile.add(zf);
             const fileStream = createReadStream(file);
@@ -102,7 +91,7 @@ async function processFiles(files: string[]) {
 
                 zf.push(new Uint8Array(0), true);
                 fileStream.close();
-                console.log('File added: ' + fileName);
+                // console.log('File added: ' + fileName);
                 resolve();
             });
         })
