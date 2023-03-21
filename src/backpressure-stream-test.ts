@@ -2,11 +2,13 @@
 
 import { readFiles } from "./read-stream-example/test-stream.js";
 let files = (await readFiles('./test'))
+    .slice(0, 10)
 
 import { AsyncZipDeflate, Zip } from 'fflate';
-import { createWriteStream, createReadStream, WriteStream } from 'fs';
+import { createWriteStream, createReadStream, WriteStream, ReadStream } from 'fs';
+import { Readable, Writable } from 'stream';
 
-const onBackpressure = (stream: AsyncZipDeflate, outputStream: WriteStream, cb: { (shouldApplyBackpressure: any): void; (arg0: boolean): void; }) => {
+const onBackpressure = (stream: AsyncZipDeflate, outputStream: Writable, cb: { (shouldApplyBackpressure: any): void; (arg0: boolean): void; }) => {
     const runCb = () => {
         // Pause if either output or internal backpressure should be applied
         cb(applyOutputBackpressure || backpressureBytes > backpressureThreshold);
@@ -54,24 +56,31 @@ const onBackpressure = (stream: AsyncZipDeflate, outputStream: WriteStream, cb: 
         runCb();
     })
 }
-
-
 console.time('zip');
+const outputStream = createWriteStream('out.zip', { highWaterMark: 64 * 10_000 });
 
-let main = (async () => {
-    const writeStream = createWriteStream('out.zip', { highWaterMark: 64 * 10_000 });
+let main = (async (files: string[], outputStream?: WriteStream) => {
+    let readStream = null;
+    if (!outputStream) {
+        readStream = new Readable({ autoDestroy: true, read() { } })
+    }
+
     let handler = (err: any, chunk: any, final: any) => {
         if (err) throw err;
-        writeStream.write(chunk);
-        if (final) writeStream.end();
+        outputStream.write(chunk);
+        if (final) outputStream.end();
     }
-    const zip = new Zip((_err, dat, final) => {
-        writeStream.write(dat);
-        if (final) {
 
-            writeStream.end(() => { console.timeEnd('zip') });
+    const zip = new Zip((_err, dat, final) => {
+        outputStream.write(dat);
+        readStream?.push(dat);
+        if (final) {
+            outputStream.end(() => {
+                console.timeEnd('zip');
+            });
         }
     });
+
     const fileNames = files.map(file => file.split('/').pop());
 
     for await (const [index, file] of files.entries()) {
@@ -82,7 +91,7 @@ let main = (async () => {
         azd.ondata = handler
         zip.add(azd)
 
-        onBackpressure(azd, writeStream, (shouldApplyBackpressure: boolean) => {
+        onBackpressure(azd, outputStream, (shouldApplyBackpressure: boolean) => {
             if (shouldApplyBackpressure) {
                 fileStream.pause();
                 console.log('pause');
@@ -104,6 +113,19 @@ let main = (async () => {
         })
 
     }
+
     zip.end()
-})
-await main()
+
+    if (!outputStream && readStream) {
+        return readStream
+    }
+});
+// Example of using the backpressure stream
+let ws = createWriteStream('out-stream.zip', { highWaterMark: 64 * 10_000 });
+
+for await (const i of (await main(files, outputStream))) {
+    console.log({ i });
+    ws.write(i)
+}
+
+ws.end()
