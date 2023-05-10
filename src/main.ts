@@ -1,76 +1,80 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, Configuration, Dataset, DatasetContent, KeyValueStore, log, RequestQueue } from 'apify';
-import { Dictionary, PlaywrightCrawler } from 'crawlee';
+import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
+import { Configuration, PlaywrightCrawler } from 'crawlee';
 import { router } from './routes.js';
+import { Input, Item } from './types.js';
+import { PinData } from './Pinterest DataTypes.js';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init()
 
-const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME, DOWNLOAD_LIMIT = 100 }: { APIFY_TOKEN: string, APIFY_USERNAME: string | undefined | null, DATASET_NAME: string, DOWNLOAD_LIMIT: number | undefined }
-    = await Actor.getInput<any>();
-let token =
-    // tokenJson.token ??
-    APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
-
-if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
-    console.log('No APIFY_TOKEN provided!');
-    await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
-}
-
-if (!DATASET_NAME && !process.env.DATASET_NAME) {
-    console.log('No DATASET_NAME provided!');
-    await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
-}
-
-export let imageDownloadStatusKeyValueStore = await KeyValueStore.open('completed-downloads');
-
-let vals: any[] = []
-
-await imageDownloadStatusKeyValueStore
-    .forEachKey(async (key) => {
-        let value: any = await imageDownloadStatusKeyValueStore.getValue(key)
-        if (value?.isDownloaded)
-            vals.push(value.url)
-    })
+const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME, DOWNLOAD_LIMIT = undefined } = await Actor.getInput<any>();
+let token = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
 const client = new ApifyClient({ token });
+const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
+const completedDownloads = 'completed-downloads';
 
-client.baseUrl = 'https://api.apify.com/v2/';
-client.token = token;
+export const getImageset = async (dataSetName: string = dataSetToDownload) =>
+    await client.dataset(dataSetName).listItems({ limit: DOWNLOAD_LIMIT })
+        //  (await ((await Actor.openDataset(dataSetName, {forceCloud: true,})).getData({ limit: DOWNLOAD_LIMIT }))
+        .then((data) => data?.items as unknown as PinData[] ?? [])
+        .catch(console.error)
+export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
+export const pin_items: PinData[] = await getImageset(dataSetToDownload) ?? [];
 
-const dataSetName = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME;
+await Actor.main(async () => {
 
-export const imageset = ((await Actor.openDataset(dataSetName, { forceCloud: true })).getData({ limit: DOWNLOAD_LIMIT })).catch(console.error)
-    .then((data) => data?.items ?? []) ?? []
+    if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
+        console.log('No APIFY_TOKEN provided!');
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
+    }
 
-let startUrls: string[] = []
-try {
-    // Extract all the image urls from the dataset
-    startUrls = ((await imageset))?.map((item: any) => item?.images?.orig?.url) ?? [];
+    if (!DATASET_NAME && !process.env.DATASET_NAME) {
+        console.log('No DATASET_NAME provided!');
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+    }
 
-    log.info(`Total links: ${startUrls.length}`);
-} catch (e: any) {
-    console.error(`Failed to read links: ${e}`)
-}
+    let vals: string[] = []
 
-// Filter out any pins alreadym marked as downloaded
-let delta = startUrls.filter((url) => !vals.includes(url))
-log.info(`Total links downloaded: ${vals.length}`);
-log.info(`Total links to download: ${delta.length}`);
-startUrls = delta
+    await imageDownloadStatusKeyValueStore
+        .forEachKey(async (key) => {
+            let value = await imageDownloadStatusKeyValueStore.getValue(key) as Item
+            if (!(value?.isDownloaded) === true)
+                vals.push(value?.url)
+        })
 
-const crawler = new PlaywrightCrawler({
-    // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
-    requestHandler: router,
-    maxConcurrency: 10,
-    minConcurrency: 2,
-    maxRequestRetries: 3,
-    maxRequestsPerMinute: 100,
-});
+    let startUrls: string[] = []
+    try {
+        // Extract all the image urls from the dataset
+        // @ts-ignore
+        // startUrls.map((item: PinData) => item?.images?.orig?.url)
+        // startUrls = pin_items.map((item: PinData) => item?.images?.orig?.url)
+        //     .filter(Boolean) ?? [];
+        startUrls = vals
+        log.info(`Total links: ${startUrls.length}`);
+    } catch (e: any) {
+        console.error(`Failed to read links: ${e}`)
+    }
 
-// crawler.addRequests(startUrls.map((url) => ({ url })));
+    // Filter out any pins already marked as downloaded
+    let delta = startUrls.filter((url) => !vals.includes(url))
+    log.info(`Total links downloaded: ${vals.length}`);
+    log.info(`Total links to download: ${delta.length}`);
+    startUrls = delta
 
-await crawler.run(startUrls);
+    const crawler = new PlaywrightCrawler({
+        // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
+        requestHandler: router,
+        maxConcurrency: 10,
+        minConcurrency: 2,
+        maxRequestRetries: 3,
+        maxRequestsPerMinute: 100,
+    });
+
+    // crawler.addRequests(startUrls.map((url) => ({ url })));
+    await crawler.run(startUrls);
+})
 
 await Actor.exit()
 

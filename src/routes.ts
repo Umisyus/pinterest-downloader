@@ -1,25 +1,34 @@
 import { KeyValueStore } from 'apify';
 import { createPlaywrightRouter } from 'crawlee';
 import { randomUUID } from 'crypto'
-import { imageDownloadStatusKeyValueStore, imageset } from './main.js';
+import { imageDownloadStatusKeyValueStore, getImageset, pin_items } from './main.js';
+import { PinData } from './Pinterest DataTypes.js';
+
 export const router = createPlaywrightRouter();
+
 // let report = (await Dataset.open('completed-downloads'))
 router.addDefaultHandler(async ({ log, request, response }) => {
 
+    let items: PinData[] = pin_items ?? [];
+
     log.info('Downloading the pin... ' + request.url);
     if (response && response?.ok()) {
+
+        if (items.length === 0) {
+            items = (await getImageset() ?? [])
+        }
         let body = await response.body();
 
         let filename = ''
         let ext = 'png'
         // EX. URL: *pinterest-pin-id[.png,.jpg,.webp]
-        let item = (await imageset).find((item: any) => item.images.orig.url === request.url);
+        let item = items.find((item: PinData) => item.images?.orig.url === request.url) ?? null;
 
         let innerFolder = '';
         if (item) {
-            const { grid_title, board } = item as any;
-            let boardName = board.name;
-            let boardUrl = board.url;
+            const { grid_title, board } = item as PinData;
+            let boardName = board?.name ?? randomUUID().slice(0, 5);
+            let boardUrl = board?.url ?? "";
             innerFolder = boardName + '/';
             if (grid_title) {
                 filename = grid_title
@@ -38,11 +47,11 @@ router.addDefaultHandler(async ({ log, request, response }) => {
 
                 if (pin_url_id === undefined) pin_url_id = item.id;
                 if (pin_url_id !== undefined)
-                    pin_url_id[pin_url_id.length - 1] === '/' ? boardUrl.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
+                    pin_url_id[pin_url_id.length - 1] === '/' ? boardUrl?.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
                 log.info("pin_url_id: " + pin_url_id);
 
                 let pin_id = item.id
-                log.info("id_ext: " + pin_id);
+                log.info("pin_id: " + pin_id);
 
                 if (filename === undefined || filename === '' || filename === `.${ext}`)
                     filename = pin_id ?? `unknown-${randomUUID()}` + `.${ext}`;
@@ -55,17 +64,22 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             /* Save image */
             // Save with file name or ID?
 
-            let boardURLName = boardUrl[boardUrl.length - 1] === '/' ? boardUrl.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
-            boardURLName = boardURLName.replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '');
+            let boardURLName = boardUrl![boardUrl!.length - 1] === '/' ? boardUrl?.split('/').filter(Boolean).pop() : boardUrl?.split('/').pop();
+            boardURLName = formatBoardName(boardURLName ?? randomUUID().slice(0, 5));
             // Save image to store in it's board folder
             let boardImageStore = await KeyValueStore.open(boardURLName as string);
             // Save image to store as it's specific type (png, jpg, gif, etc.)
             await boardImageStore.setValue(`${filename}`, body, { contentType: `image/${ext}` });
             log.info("Saved image: " + filename + " to " + `${boardName}/${filename}`);
             // Save status to keyvalue store
-            await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, pin_id: item.id, status: 'completed', isDownloaded: true });
+            // await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, pin_id: item.id, status: 'completed', isDownloaded: true });
+            await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { ...item, isDownloaded: true });
         }
 
     }
 
 });
+function formatBoardName(s: string) {
+    return s.replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '');
+}
+
