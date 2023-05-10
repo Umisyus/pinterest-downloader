@@ -14,3 +14,8 @@ pinterest-download-data
 
 images
 images/*
+images-folder
+test
+test/*
+*.png
+*.zip
