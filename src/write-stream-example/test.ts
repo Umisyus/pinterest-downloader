@@ -70,7 +70,7 @@ async function processFiles(files: string[]) {
 
 
     async function addToZip(file: string): Promise<void> {
-        return new Promise<void>(async (resolve, reject) => {
+        return new Promise<void>(async (resolve, _reject) => {
 
             const fileName = file.split('/').pop();
             // const zf = new AsyncZipDeflate(fileName, { level: 4, mem: 4 });

@@ -21,3 +21,9 @@ images/*
 *.zip
 images-folder/*
 image-downloads/*
+
+test/
+
+# Logs
+*.log
+*.*

@@ -44,7 +44,7 @@ const onBackpressure = (stream: AsyncZipDeflate, outputStream: Writable, cb: { (
 
     // Output backpressure (for when outputStream is slow)
     let applyOutputBackpressure = false
-    const write = outputStream.write;
+    const write = outputStream?.write;
     outputStream.write = (data: any) => {
         const outputNotFull = write.call(outputStream, data);
         applyOutputBackpressure = !outputNotFull;
@@ -57,22 +57,41 @@ const onBackpressure = (stream: AsyncZipDeflate, outputStream: Writable, cb: { (
     })
 }
 console.time('zip');
-const outputStream = createWriteStream('out.zip', { highWaterMark: 64 * 10_000 });
+// let outputStream = createWriteStream('out.zip', { highWaterMark: 64 * 10_000 });
 
-let main = (async (files: string[], outputStream?: WriteStream) => {
+let main = (async (files: string[], outPath: WriteStream | string): Promise<Readable> => {
+    let outputStream: Writable;
+
+    switch (typeof outPath) {
+        case 'string':
+            outputStream = createWriteStream(outPath, { highWaterMark: 64 * 10_000 });
+            break;
+        case 'object':
+            if (outPath instanceof WriteStream) {
+                outputStream = outPath;
+                break;
+            }
+            break;
+        // case 'undefined':
+        //     break;
+        default:
+            throw new Error('Invalid output path: Must be String or WriteStream.')
+    }
+
     let readStream = null;
+
     if (!outputStream) {
         readStream = new Readable({ autoDestroy: true, read() { } })
     }
 
     let handler = (err: any, chunk: any, final: any) => {
         if (err) throw err;
-        outputStream.write(chunk);
+        outputStream?.write(chunk);
         if (final) outputStream.end();
     }
 
     const zip = new Zip((_err, dat, final) => {
-        outputStream.write(dat);
+        outputStream?.write(dat);
         readStream?.push(dat);
         if (final) {
             outputStream.end(() => {
@@ -116,16 +135,21 @@ let main = (async (files: string[], outputStream?: WriteStream) => {
 
     zip.end()
 
-    if (!outputStream && readStream) {
+    if (!!(outputStream) && readStream) {
         return readStream
     }
-});
-// Example of using the backpressure stream
-let ws = createWriteStream('out-stream.zip', { highWaterMark: 64 * 10_000 });
 
-for await (const i of (await main(files, outputStream))) {
+    // If there' no ReadStream, return a promise
+    return new Promise<any>((r) => {
+        r([])
+    })
+});
+
+// Example of using the backpressure stream
+let ws = createWriteStream('o.zip', { highWaterMark: 64 * 10_000 });
+
+for await (const i of (await main(files, ws))) {
     console.log({ i });
-    ws.write(i)
 }
 
 ws.end()

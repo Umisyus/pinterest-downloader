@@ -10,6 +10,7 @@ import { createReadStream, createWriteStream, readFileSync, writeFile, WriteStre
 import path from 'path';
 import fs from 'fs';
 import internal, { Duplex, Readable, Stream, Writable, Transform, pipeline } from 'stream';
+import * as Zlib from "zlib";
 
 // let pathF = '/home/umit/Node Projects/pin_down/pinterest-downloader/dist/src/image0.jpg'
 // // console.log(path.dirname((process.cwd())));

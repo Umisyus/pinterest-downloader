@@ -41,7 +41,7 @@ let {
 // }
 
 
-let isAtHome = !Actor.isAtHome()
+let isAtHome = Actor.isAtHome()
 
 console.log("isAtHome", isAtHome);
 console.log("APIFY_TOKEN", !!APIFY_TOKEN);
