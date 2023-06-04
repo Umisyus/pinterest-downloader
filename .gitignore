@@ -18,3 +18,4 @@ test/
 *.log
 *.gz
 *.zip
+example.ts
