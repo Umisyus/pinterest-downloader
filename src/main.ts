@@ -5,7 +5,7 @@ import { router } from './routes.js';
 // import * as tokenJson from "../storage/token.json"
 await Actor.init()
 
-const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME, DOWNLOAD_LIMIT = 100 }: { APIFY_TOKEN: string, APIFY_USERNAME: string | undefined | null, DATASET_NAME: string, DOWNLOAD_LIMIT: number | undefined }
+const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME, DOWNLOAD_LIMIT = 100, check_completed = false }: { APIFY_TOKEN: string, APIFY_USERNAME: string | undefined | null, DATASET_NAME: string, DOWNLOAD_LIMIT: number | undefined, check_completed: boolean }
     = await Actor.getInput<any>();
 let token =
     // tokenJson.token ??
@@ -22,17 +22,17 @@ if (!DATASET_NAME && !process.env.DATASET_NAME) {
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
 }
 
-export let imageDownloadStatusKeyValueStore = await KeyValueStore.open('completed-downloads');
-
 let vals: any[] = []
 
-await imageDownloadStatusKeyValueStore
-    .forEachKey(async (key) => {
-        let value: any = await imageDownloadStatusKeyValueStore.getValue(key)
-        if (value?.isDownloaded)
-            vals.push(value.url)
-    })
-
+if (check_completed) {
+    let imageDownloadStatusKeyValueStore = await KeyValueStore.open('completed-downloads');
+    await imageDownloadStatusKeyValueStore
+        .forEachKey(async (key) => {
+            let value: any = await imageDownloadStatusKeyValueStore.getValue(key)
+            if (value?.isDownloaded)
+                vals.push(value.url)
+        })
+}
 const client = new ApifyClient({ token });
 
 client.baseUrl = 'https://api.apify.com/v2/';

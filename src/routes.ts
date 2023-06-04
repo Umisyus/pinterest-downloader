@@ -1,8 +1,9 @@
 import { KeyValueStore } from 'apify';
 import { createPlaywrightRouter } from 'crawlee';
 import { randomUUID } from 'crypto'
-import { imageDownloadStatusKeyValueStore, imageset } from './main.js';
+import { imageset } from './main.js';
 export const router = createPlaywrightRouter();
+
 // let report = (await Dataset.open('completed-downloads'))
 router.addDefaultHandler(async ({ log, request, response }) => {
 
@@ -63,6 +64,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             await boardImageStore.setValue(`${filename}`, body, { contentType: `image/${ext}` });
             log.info("Saved image: " + filename + " to " + `${boardName}/${filename}`);
             // Save status to keyvalue store
+            let imageDownloadStatusKeyValueStore = await KeyValueStore.open('completed-downloads');
             await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, pin_id: item.id, status: 'completed', isDownloaded: true });
         }
 

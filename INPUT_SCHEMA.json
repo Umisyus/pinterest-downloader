@@ -29,6 +29,12 @@
       "type": "integer",
       "description": "Limit of items to download from dataset",
       "editor": "number"
+    },
+    "check_completed": {
+      "title": "check_completed",
+      "type": "boolean",
+      "description": "Chcks for already downlaoded images and only downlaods missing ones",
+      "editor": "checkbox"
     }
   },
   "required": [
