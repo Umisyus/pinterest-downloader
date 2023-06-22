@@ -1,16 +1,12 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, Configuration, Dataset, DatasetContent, KeyValueStore, log, RequestQueue } from 'apify';
-import { Dictionary, PlaywrightCrawler } from 'crawlee';
+import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
+import { PlaywrightCrawler } from 'crawlee';
 import { router } from './routes.js';
-// import * as tokenJson from "../storage/token.json"
 await Actor.init()
 
 const { APIFY_TOKEN, APIFY_USERNAME, DATASET_NAME, DOWNLOAD_LIMIT = 100, check_completed = false }: { APIFY_TOKEN: string, APIFY_USERNAME: string | undefined | null, DATASET_NAME: string, DOWNLOAD_LIMIT: number | undefined, check_completed: boolean }
     = await Actor.getInput<any>();
-let token =
-    // tokenJson.token ??
-    APIFY_TOKEN ?? process.env.APIFY_TOKEN
-
+let token = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
 if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     console.log('No APIFY_TOKEN provided!');
@@ -73,12 +69,3 @@ const crawler = new PlaywrightCrawler({
 await crawler.run(startUrls);
 
 await Actor.exit()
-
-// async function checkDownloaded(s: string) {
-//     let datasetNames = (await client.keyValueStores().list({ unnamed: false })).items.map(d => d.name);
-//     let boardNames = (await imageset).map(d => d.board.name);
-//     const filtered_datasets = datasetNames.filter((name) => name !== undefined ? boardNames.includes(name) : undefined).filter(Boolean)
-//     let [...pulled_sets] = await Promise.all(filtered_datasets.map(async (name) => (client.keyValueStore(name!))))
-//     pulled_sets.filter(Boolean).map(async d => d)
-//     let urls = startUrls
-// }
