@@ -19,3 +19,4 @@ test/
 *.gz
 *.zip
 example.ts
+images-folder/
