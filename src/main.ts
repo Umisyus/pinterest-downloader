@@ -3,7 +3,7 @@ import { Actor, ApifyClient, KeyValueStore, log } from "apify";
 import { randomUUID } from "crypto";
 import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
 import * as fs from "fs";
-import { zipKVS } from "./fflate-test.js";
+import { zipKVS } from "./zipKVS.js";
 await Actor.init();
 
 let {
@@ -277,3 +277,5 @@ export const zip = (
         });
     });
 };
+
+
