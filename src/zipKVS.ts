@@ -25,7 +25,6 @@ export async function zipKVS(
     let f: AsyncGenerator | any = null;
     // Generate structure of the zip file
 
-    let i = 0;
     // let zipObj: any = {};
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
@@ -65,16 +64,14 @@ export async function zipKVS(
                 // zipObj[record.key] = Uint8Array.from((<any>kvs_record).data);
                 zip.append(bufferToStream(kvs_record as Buffer), { name: record.key });
             }
+            console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
         }
-
-        i++;
-        // zipObj = {};
 
     }
 
     log.info("Generating zip file...");
     await zip.finalize().then(async () => {
-       await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(ZIP_FILE_NAME), { contentType: "application/zip" });
+        await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(ZIP_FILE_NAME), { contentType: "application/zip" });
     });
 }
 
