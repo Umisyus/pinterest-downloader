@@ -6,6 +6,7 @@ import { chunk } from "crawlee";
 import { Readable } from "stream";
 import archiver from "archiver";
 import fs from "fs";
+import path from "path";
 
 let ZIP_FILE_NAME = "";
 
@@ -34,11 +35,17 @@ export async function zipKVS(
     } else {
         f = IteratorGetKVSValuesLocal(KVS_ID);
     }
+    // see if a folder with name .cached was made
+    if (!fs.existsSync(path.join(path.resolve('.'), '.cached'))) {
+        fs.mkdirSync(path.join(path.resolve('.'), '.cached'));
+    }
 
     let i = 0;
     for await (const records of f) {
         ZIP_FILE_NAME = `${KVS_ID}-${i}.zip`;
-        let output = fs.createWriteStream(ZIP_FILE_NAME);
+        const fp = path.join(path.resolve('.'), '.cached', ZIP_FILE_NAME);
+
+        let output = fs.createWriteStream(fp);
 
         let zip = archiver.create("zip", { zlib: { level: 0 } });
         // Pipe archive data to the zip file
@@ -71,10 +78,12 @@ export async function zipKVS(
         i++;
 
         log.info("Generating zip file...");
-        await zip.finalize().then(async () => {
-            await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(ZIP_FILE_NAME), { contentType: "application/zip" });
-        });
+
+        await zip.finalize();
+        await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(fp), { contentType: "application/zip" });
+
         output.close();
+        zip = null;
     }
 
 
