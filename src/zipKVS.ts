@@ -8,6 +8,7 @@ import archiver from "archiver";
 import fs from "fs";
 
 let ZIP_FILE_NAME = "";
+
 export function bufferToStream(data: Buffer | Uint8Array) {
     let readableStream = new Readable({ autoDestroy: true });
     readableStream.push(data);
@@ -33,14 +34,15 @@ export async function zipKVS(
     } else {
         f = IteratorGetKVSValuesLocal(KVS_ID);
     }
-    ZIP_FILE_NAME = `${KVS_ID}.zip`;
-    let output = fs.createWriteStream(ZIP_FILE_NAME);
 
-    let zip = archiver.create("zip", { zlib: { level: 0 } });
-    // Pipe archive data to the zip file
-    zip.pipe(output);
-
+    let i = 0;
     for await (const records of f) {
+        ZIP_FILE_NAME = `${KVS_ID}-${i}.zip`;
+        let output = fs.createWriteStream(ZIP_FILE_NAME);
+
+        let zip = archiver.create("zip", { zlib: { level: 0 } });
+        // Pipe archive data to the zip file
+        zip.pipe(output);
         // file name (string) : file contents (Buffer)
         for await (const record of records) {
             let kvs_record: Buffer = record?.value ?? null;
@@ -66,13 +68,16 @@ export async function zipKVS(
             }
             console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
         }
+        i++;
 
+        log.info("Generating zip file...");
+        await zip.finalize().then(async () => {
+            await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(ZIP_FILE_NAME), { contentType: "application/zip" });
+        });
+        output.close();
     }
 
-    log.info("Generating zip file...");
-    await zip.finalize().then(async () => {
-        await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(ZIP_FILE_NAME), { contentType: "application/zip" });
-    });
+
 }
 
 function sizeInMB(res: number) {
