@@ -7,6 +7,7 @@ import { Readable } from "stream";
 import archiver from "archiver";
 import fs from "fs";
 import path from "path";
+import { debug } from "console";
 
 let ZIP_FILE_NAME = "";
 
@@ -74,16 +75,35 @@ export async function zipKVS(
                 zip.append(bufferToStream(kvs_record as Buffer), { name: record.key });
             }
             console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
+            kvs_record = null;
+            console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
+
         }
         i++;
 
         log.info("Generating zip file...");
 
         await zip.finalize();
-        await Actor.setValue(ZIP_FILE_NAME, fs.createReadStream(fp), { contentType: "application/zip" });
+        let zfs = fs.createReadStream(fp);
+        console.debug(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
 
-        output.close();
-        zip = null;
+        await Actor.setValue(ZIP_FILE_NAME, zfs, { contentType: "application/zip" }).then(() => {
+            log.info(`Zip file ${ZIP_FILE_NAME} saved to Apify key-value store.`);
+            // console.debug(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
+
+            zfs.close();
+            zfs.destroy();
+            output.close();
+            output.destroy();
+            zip = null;
+            output = null;
+            zfs = null;
+
+            // console.debug(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
+            // console.debug(`Read stream for ${ZIP_FILE_NAME} was destroyed.`)
+        }).catch((err) => {
+            log.error(err);
+        })
     }
 
 
