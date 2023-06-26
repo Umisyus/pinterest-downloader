@@ -9,11 +9,13 @@ await Actor.init();
 let {
     IncludedStores = [] as string[],
     APIFY_TOKEN = undefined,
-    ExcludedStores,
+    ExcludedStores = [],
     multi_zip = true,
-    MAX_SIZE_MB = 250,
-    FILES_PER_ZIP = 1000,
-} = await Actor.getInput<any>();
+    MAX_SIZE_MB = 500,
+    FILES_PER_ZIP = undefined,
+}
+    = await Actor.getInput<any>();
+
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
@@ -38,10 +40,6 @@ const client = new ApifyClient({ token: APIFY_TOKEN });
 client.baseUrl = "https://api.apify.com/v2/";
 client.token = APIFY_TOKEN;
 
-if (FILES_PER_ZIP == undefined || FILES_PER_ZIP < 1 || FILES_PER_ZIP > 1000) {
-    log.info(`FILES_PER_ZIP is invalid. Setting FILES_PER_ZIP to 200`)
-    FILES_PER_ZIP = 200;
-}
 
 if (MAX_SIZE_MB < 1) {
     log.info(`MAX_SIZE_MB is invalid. Setting MAX_SIZE_MB to 250`)
@@ -65,15 +63,6 @@ async function zipToKVS() {
 }
 async function writeManyZips() {
     IncludedStores = IncludedStores.filter((item: any) => !excluded.includes(item));
-
-    // for (let index = 0; index < IncludedStores.length; index++) {
-    //     const kvs = IncludedStores[index];
-    //     log.info(`Zipping ${kvs} key-value store...`);
-    //     // Split zip file into chunks to fit under the 9 MB limit
-    //     // Get the ID and list all keys of the key-value store
-    //     console.log("Fetching items...");
-    //     await zipKVS(kvs, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB);
-    // }
 
     // List all key-value stores
     let stores: any[] = [];

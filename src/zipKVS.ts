@@ -13,7 +13,7 @@ let ZIP_FILE_NAME = "";
 export async function zipKVS(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = 250,
+    FILES_PER_ZIP: number = undefined,
     MAX_ZIP_SIZE_MB: number = 250,
     isAtHome?: boolean
 ) {
@@ -150,7 +150,7 @@ async function* loopItemsIter(
 async function* IteratorGetKVSValues(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = 250,
+    FILES_PER_ZIP: number = undefined,
     MAX_ZIP_SIZE_MB: number = 250
 ) {
 
