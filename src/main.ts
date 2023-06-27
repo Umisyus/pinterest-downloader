@@ -4,6 +4,8 @@ import { randomUUID } from "crypto";
 import { AsyncZipOptions, AsyncZippable, zip as zipCallback } from "fflate";
 import * as fs from "fs";
 import { zipKVS } from "./zipKVS.js";
+import path from "path";
+
 await Actor.init();
 
 let {
@@ -18,7 +20,7 @@ let {
     = {
     IncludedStores: ["wykmmXcaTrNgYfJWm"], // concept-art, 452 MB
     APIFY_TOKEN: process.env.APIFY_TOKEN,
-    FILES_PER_ZIP: undefined,
+    FILES_PER_ZIP: 1,
 }
 
 const excluded = new Array().concat(
@@ -87,6 +89,9 @@ async function writeManyZips() {
         stores.filter((item) => !excluded.includes(item));
 
         await onlineKVS(stores);
+
+        await printURLs();
+
     } else {
         // Locally
         // Get items either from the listed stores or from the default store
@@ -101,8 +106,23 @@ async function writeManyZips() {
         stores = stores.filter((item: string) => !excluded.includes(item));
 
         await localKVS(stores);
+        log.info(`Access your data from this directory: ${path.join(process.cwd(), 'storage', 'key_value_stores', stores.join(','))}}`)
     }
     // log.info('Done.');
+}
+
+async function printURLs() {
+    let kvStores = await Actor.openKeyValueStore();
+
+    let kvsURLs = [];
+    log.info(kvsURLs.length > 0 ? `Access your data from this URL:` : `Access your data from these URLs:`);
+
+    await kvStores.forEachKey(async (key: string) => {
+        kvsURLs.push(key);
+    });
+
+
+    kvsURLs.map((key: string, ind) => console.log(`#${ind} ⫸ ${key}: ${(kvStores).getPublicUrl(key)}`));
 }
 
 async function localKVS(store: any[]) {
