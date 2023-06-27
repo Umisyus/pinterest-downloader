@@ -11,7 +11,7 @@ let ZIP_FILE_NAME = "";
 
 
 export async function zipKVS(
-    KVS_ID: string,
+KVS_ID: string,
     API_TOKEN?: string | undefined,
     FILES_PER_ZIP: number = undefined,
     MAX_ZIP_SIZE_MB: number = 250,
@@ -146,11 +146,13 @@ async function* loopItemsIter(
     }
 }
 
+
+
 /* Returns an array of values split by their size in megabytes. */
 async function* IteratorGetKVSValues(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = undefined,
+    FILES_PER_ZIP: number = 250,
     MAX_ZIP_SIZE_MB: number = 250
 ) {
 
@@ -159,6 +161,7 @@ async function* IteratorGetKVSValues(
         .find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID);
     let totalCount = 0;
     let runningCount = 0;
+
     try {
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
@@ -214,6 +217,8 @@ async function* IteratorGetKVSValues(
                 nextExclusiveStartKey != null &&
                 nextExclusiveStartKey.length !== 0
             ) {
+
+
                 // Get the next set of items and update the nextExclusiveStartKey
                 let resp = await client.keyValueStore(kvs_id).listKeys({
                     exclusiveStartKey: nextExclusiveStartKey,
@@ -238,7 +243,7 @@ async function* IteratorGetKVSValues(
         // } while (items.length > 0);
 
         log.info(`Processed all items`);
-        log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${ZIP_FILE_NAME} (${KVS_ID})`);
+        log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${kvs_id} (${KVS_ID})`);
     } catch (e) {
         log.error(e)
         await Actor.exit(e);

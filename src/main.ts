@@ -12,15 +12,19 @@ let {
     ExcludedStores = [],
     multi_zip = true,
     MAX_SIZE_MB = 500,
-    FILES_PER_ZIP = undefined,
+    FILES_PER_ZIP = 250,
 }
-    = await Actor.getInput<any>();
-
+    // = await Actor.getInput<any>();
+    = {
+    IncludedStores: ["wykmmXcaTrNgYfJWm"], // concept-art, 452 MB
+    APIFY_TOKEN: process.env.APIFY_TOKEN,
+    FILES_PER_ZIP: undefined,
+}
 
 const excluded = new Array().concat(
     ExcludedStores ?? (process.env.ExcludedStores as unknown as string[]) ?? []
 );
-let isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 
 // APIFY_TOKEN = APIFY_TOKEN ?? process.env.APIFY_TOKEN
 
@@ -40,6 +44,10 @@ const client = new ApifyClient({ token: APIFY_TOKEN });
 client.baseUrl = "https://api.apify.com/v2/";
 client.token = APIFY_TOKEN;
 
+if (FILES_PER_ZIP == undefined || FILES_PER_ZIP < 1 || FILES_PER_ZIP > 1000) {
+    log.info(`FILES_PER_ZIP is invalid. Setting FILES_PER_ZIP to 200`)
+    // FILES_PER_ZIP = 200;
+}
 
 if (MAX_SIZE_MB < 1) {
     log.info(`MAX_SIZE_MB is invalid. Setting MAX_SIZE_MB to 250`)
