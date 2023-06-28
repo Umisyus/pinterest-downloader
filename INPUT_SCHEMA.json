@@ -12,27 +12,56 @@
       "editor": "textfield"
     },
     "APIFY_USERNAME": {
-      "title": "APIFY_USERNAME",
+      "title": "USERNAME",
       "type": "string",
-      "description": "Your APIFY_USERNAME (customary_dairy, elegant_ostrich, etc.) which can be found in your account profile. Used to access your own datasets",
-      "editor": "textfield",
-      "nullable": true
+      "description": "User name of your Apify account to access datasets",
+      "isSecret": true,
+      "editor": "textfield"
     },
     "DATASET_NAME": {
       "title": "DATASET_NAME",
       "type": "string",
-      "description": "Name of your dataset can be a random ID as show on the dataset page or a named dataset (which has a name you set)",
+      "description": "Name of the dataset to be zipped",
       "editor": "textfield"
     },
     "DOWNLOAD_LIMIT": {
       "title": "DOWNLOAD_LIMIT",
-      "type": "integer",
-      "description": "Limit of items to download from dataset",
-      "editor": "number"
+      "type": "string",
+      "description": "Number of items to download from the dataset",
+      "editor": "textfield"
+    },
+    "ZIP_IncludedStores": {
+      "title": "ZIP_IncludedStores",
+      "type": "array",
+      "description": "Any key-value store names to include in the zipping process",
+      "editor": "stringList"
+    },
+    "ZIP_ExcludedStores": {
+      "title": "ZIP_ExcludedStores",
+      "type": "array",
+      "description": "Any key-value store names to exlude from the zipping process",
+      "editor": "stringList"
+    },
+    "FILES_PER_ZIP": {
+      "title": "FILES_PER_ZIP",
+      "type": "string",
+      "description": "Number of items in each ZIP file",
+      "editor": "textfield"
+    },
+    "MAX_SIZE_MB": {
+      "title": "MAX_SIZE_MB",
+      "type": "string",
+      "description": "Size in Megabytes of each ZIP file",
+      "editor": "textfield"
+    },
+    "zip": {
+      "title": "zip",
+      "type": "boolean",
+      "description": "Whether to zip the dataset or not",
+      "editor": "checkbox"
     }
   },
   "required": [
-    "APIFY_TOKEN",
-    "DATASET_NAME"
+    "APIFY_TOKEN"
   ]
 }

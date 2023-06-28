@@ -12,20 +12,29 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/src/main.ts",
-            // "preLaunchTask": "tsc-build",
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
             ]
         },
         {
+            "name": "Run TSC Before Launch",
             "type": "node",
             "request": "launch",
-            "name": "Launch Downloader",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}/src/link-download.ts",
-            "preLaunchTask": "tsc: build - tsconfig.json",
+            // "preLaunchTask": "build",
+            "program": "${workspaceFolder}/dist/src/${fileBasenameNoExtension}.js",
+            "outFiles": [
+                "${workspaceFolder}/dist/**/*.js"
+            ]
+        },
+        {
+            "name": "Node Run & Inspect",
+            "type": "node",
+            "request": "launch",
+            "env": {
+                "NODE_OPTIONS": "--inspect",
+                "NODE_ENV": "development"
+            },
+            "program": "${workspaceFolder}/dist/src/${fileBasenameNoExtension}.js",
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
             ]
