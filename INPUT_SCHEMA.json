@@ -59,6 +59,12 @@
       "type": "boolean",
       "description": "Whether to zip the dataset or not",
       "editor": "checkbox"
+    },
+    "DOWNLOAD": {
+      "title": "Should download?",
+      "type": "boolean",
+      "description": "Whether to download the data of dataset or not",
+      "editor": "checkbox"
     }
   },
   "required": [
