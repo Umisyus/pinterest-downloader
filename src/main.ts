@@ -6,7 +6,7 @@ import { Item } from './types.js';
 import { PinData } from './Pinterest DataTypes.js';
 import { zipKVS } from './zipKVS.js';
 import path from 'path'
-import glob from 'glob'
+import fs from 'fs'
 
 await Actor.init()
 
@@ -107,7 +107,7 @@ async function writeManyZips() {
         else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all key-value stores...");
-            stores = (glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', '*')))
+            stores = fs.readdirSync(path.join(process.cwd(), 'storage', 'key_value_stores'))
                 .map((item: string) => path.basename(item));
         }
         stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
@@ -188,7 +188,6 @@ async function getKeyValueStoreList(client: ApifyClient) {
     return filteredActorKVSItem;
 }
 function fuzzymatch(id: string, arr: string[]): boolean {
-    let reg = new RegExp('.*')
     for (let index = 0; index < arr.length; index++) {
         const element = arr[index];
         if (id.includes(element) || id.endsWith(element) || id.startsWith(element)) {
