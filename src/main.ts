@@ -41,7 +41,7 @@ await Actor.main(async () => {
     let startUrls: string[] = []
 
     try {
-        startUrls = pin_items.map((item) => item.images.orig.url).slice(0, 1);
+        startUrls = pin_items.map((item) => item.images.orig.url);
         await imageDownloadStatusKeyValueStore
             .forEachKey(async (key) => {
                 let value = await imageDownloadStatusKeyValueStore.getValue(key) as Item
