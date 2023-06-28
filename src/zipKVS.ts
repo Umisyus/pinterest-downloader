@@ -20,7 +20,9 @@ export async function zipKVS(
     // Generate structure of the zip file
 
     // let zipObj: any = {};
-let limit =FILES_PER_ZIP ?? 250
+console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
+
+console.log(`coerced value: ${+FILES_PER_ZIP}`);
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
     if (isAtHome) {
