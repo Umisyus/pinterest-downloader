@@ -12,7 +12,7 @@ let ZIP_FILE_NAME = "";
 export async function zipKVS(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = undefined,
+    FILES_PER_ZIP: number = 500,
     MAX_ZIP_SIZE_MB: number = 250,
     isAtHome?: boolean
 ) {
@@ -20,9 +20,9 @@ export async function zipKVS(
     // Generate structure of the zip file
 
     // let zipObj: any = {};
-console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
+//console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
 
-console.log(`coerced value: ${+FILES_PER_ZIP}`);
+//console.log(`coerced value: ${+FILES_PER_ZIP}`);
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
     if (isAtHome) {
@@ -171,13 +171,13 @@ async function* IteratorGetKVSValues(
         .find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID);
     let totalCount = 0;
     let runningCount = 0;
+    const limit = 0 + FILES_PER_ZIP
 
     try {
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
-
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
-            .listKeys({ limit: FILES_PER_ZIP }));
+            .listKeys({ limit: +FILES_PER_ZIP ?? limit}));
 
 
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
