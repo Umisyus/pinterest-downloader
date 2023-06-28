@@ -10,7 +10,7 @@ import fs from 'fs'
 
 await Actor.init()
 
-let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD_LIMIT = 500, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false } = await Actor.getInput<any>();
+let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false } = await Actor.getInput<any>();
 
 if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     console.log('No APIFY_TOKEN provided!');
@@ -70,12 +70,13 @@ await Actor.main(async () => {
     });
 
     // crawler.addRequests(startUrls.map((url) => ({ url })));
-    await crawler.run(startUrls).then(async _ignored => {
-        if (zip) {
-            await writeManyZips()
-        }
-    });
-})
+    if (DOWNLOAD) {
+        await crawler.run(startUrls)
+    }
+    if (zip) {
+        await writeManyZips()
+    }
+});
 
 async function writeManyZips() {
     let stores: string[] = [];

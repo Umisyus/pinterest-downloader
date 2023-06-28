@@ -78,10 +78,12 @@ export async function zipKVS(
 
             let zipFileStream = fs.createReadStream(zipFilePath)
             await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
-            output.close();
-            zipFileStream.close();
+                .then(() => {
+                    output.close();
+                    zipFileStream.close();
+                    log.info(`Saved ${ZIP_FILE_NAME} to Apify.`)
+                })
         })
-
     }
 
 }
