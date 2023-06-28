@@ -94,7 +94,7 @@ async function writeManyZips() {
             log.info("No KVS ID was provided...");
             log.info("Fetching all remote key-value stores...");
 
-            // await onlineKVS(stores);
+            await onlineKVS(currentStores);
         }
         await printURLs();
     } else {
