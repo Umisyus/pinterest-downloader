@@ -46,7 +46,7 @@
       "title": "FILES_PER_ZIP",
       "type": "integer",
       "description": "Number of items in each ZIP file",
-      "editor": "textfield"
+      "editor": "number"
     },
     "MAX_SIZE_MB": {
       "title": "MAX_SIZE_MB",
