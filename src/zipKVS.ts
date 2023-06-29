@@ -18,7 +18,7 @@ export async function zipKVS(
 ) {
     let f: AsyncGenerator | any = null;
     // Generate structure of the zip file
-FILES_PER_ZIP= 0+FILES_PER_ZIP
+FILES_PER_ZIP = (0+FILES_PER_ZIP)
     // let zipObj: any = {};
 //console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
 
