@@ -44,7 +44,7 @@
     },
     "FILES_PER_ZIP": {
       "title": "FILES_PER_ZIP",
-      "type": "string",
+      "type": "integer",
       "description": "Number of items in each ZIP file",
       "editor": "textfield"
     },
