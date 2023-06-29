@@ -18,11 +18,11 @@ export async function zipKVS(
 ) {
     let f: AsyncGenerator | any = null;
     // Generate structure of the zip file
-FILES_PER_ZIP = (0+FILES_PER_ZIP)
+    FILES_PER_ZIP = (0 + FILES_PER_ZIP)
     // let zipObj: any = {};
-//console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
+    //console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
 
-//console.log(`coerced value: ${+FILES_PER_ZIP}`);
+    //console.log(`coerced value: ${+FILES_PER_ZIP}`);
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
     if (isAtHome) {
@@ -70,7 +70,6 @@ FILES_PER_ZIP = (0+FILES_PER_ZIP)
             }
 
             console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
-            i++;
 
         }
 
@@ -87,6 +86,7 @@ FILES_PER_ZIP = (0+FILES_PER_ZIP)
                     log.info(`Saved ${ZIP_FILE_NAME} to Apify.`)
                 })
         })
+        i++;
     }
 
 }
@@ -177,7 +177,7 @@ async function* IteratorGetKVSValues(
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
-            .listKeys({ limit: +FILES_PER_ZIP ?? limit}));
+            .listKeys({ limit: +FILES_PER_ZIP ?? limit }));
 
 
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)

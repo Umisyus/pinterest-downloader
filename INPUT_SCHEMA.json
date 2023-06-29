@@ -1,6 +1,6 @@
 {
   "title": "Actor input schema",
-  "description": "This is actor input schema",
+  "description": "This is the actor input schema",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
@@ -12,34 +12,28 @@
       "editor": "textfield"
     },
     "APIFY_USERNAME": {
-      "title": "USERNAME",
+      "title": "Apify Username",
       "type": "string",
       "description": "User name of your Apify account to access datasets",
-      "isSecret": true,
+      "isSecret": false,
       "editor": "textfield"
     },
     "DATASET_NAME": {
       "title": "DATASET_NAME",
       "type": "string",
-      "description": "Name of the dataset to be zipped",
-      "editor": "textfield"
-    },
-    "DOWNLOAD_LIMIT": {
-      "title": "DOWNLOAD_LIMIT",
-      "type": "string",
-      "description": "Number of items to download from the dataset",
+      "description": "Name of the dataset to be downloaded.",
       "editor": "textfield"
     },
     "ZIP_IncludedStores": {
       "title": "ZIP_IncludedStores",
       "type": "array",
-      "description": "Any key-value store names to include in the zipping process",
+      "description": "Any key-value store names to include in the zipping process. If empty, all stores will be included.",
       "editor": "stringList"
     },
     "ZIP_ExcludedStores": {
       "title": "ZIP_ExcludedStores",
       "type": "array",
-      "description": "Any key-value store names to exlude from the zipping process",
+      "description": "Any key-value store names to exlude from the zipping process. If empty, no stores will be excluded.",
       "editor": "stringList"
     },
     "FILES_PER_ZIP": {
