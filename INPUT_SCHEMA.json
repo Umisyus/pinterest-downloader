@@ -40,7 +40,9 @@
       "title": "FILES_PER_ZIP",
       "type": "integer",
       "description": "Number of items in each ZIP file",
-      "editor": "number"
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 1000
     },
     "MAX_SIZE_MB": {
       "title": "MAX_SIZE_MB",
