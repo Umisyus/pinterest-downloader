@@ -10,7 +10,7 @@ import fs from 'fs'
 
 await Actor.init()
 
-let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false } = await Actor.getInput<any>();
+export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2 } = await Actor.getInput<any>();
 
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 

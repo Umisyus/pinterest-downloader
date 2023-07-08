@@ -1,13 +1,14 @@
 
 import { ApifyClient, log, Actor } from "apify";
 import { KeyValueListItem, KeyValueStoreRecord } from "apify-client";
-import { chunk, chunkBySize } from "crawlee";
+import { chunk } from "crawlee";
 import { Readable } from "stream";
 import archiver from "archiver";
 import fs from "fs";
 import path from "path";
-import { Promise } from "bluebird";
-import { getKeyValueStores } from "./main.js";
+import Promise from "bluebird";
+import { DOWNLOAD_CONCURRENCY, getKeyValueStores } from "./main.js";
+
 let ZIP_FILE_NAME = "";
 
 export async function zipKVS(
@@ -264,9 +265,7 @@ async function IteratorGetKVSValuesIterx(
         let i = 1;
         log.info("Generating zip file...");
         let maps = kvsItemKeys.map(async (key) => loopItemsIterAsync(kvs_id, [key], client))
-        let [...chunks] = chunk(maps, 100)
 
-        let images = chunk(maps, 100)[0];
 
         ZIP_FILE_NAME = `${KVS_ID}-${i}`;
         let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
@@ -275,29 +274,18 @@ async function IteratorGetKVSValuesIterx(
         // Pipe archive data to the zip file
         zip.pipe(output);
 
+        // Loop through the async items and add them to the zip file
+        await Promise.map(maps, async (i) => {
+            addToZip(i, zip);
+        }, { concurrency: DOWNLOAD_CONCURRENCY ?? 1 });
+
         // do {
 
-        for await (const record of images) {
+        // for await (const record of await images) {
 
-            // file name (string) : file contents (Buffer)
-            let kvs_record: Buffer = record?.value ?? null;
+        // file name (string) : file contents (Buffer)
 
-            if (record.key && kvs_record) {
-                // on apify
-                log.info(`Writing ${record.key} to zip file...`);
-                try {
-                    zip.append(bufferToStream(Buffer.from(kvs_record) as Buffer), { name: record.key });
-                } catch (error) {
-                    console.error(error);
-                }
-
-            } else {
-                log.info(`Skipping ${record.key}...`);
-            }
-
-            console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
-
-        }
+        // }
         log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
         log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
         await zip.finalize().then(async () => {
@@ -325,6 +313,25 @@ async function IteratorGetKVSValuesIterx(
         await Actor.exit(e);
     }
 
+}
+
+function addToZip(record: KeyValueStoreRecord<any>, zip: archiver.Archiver) {
+    let kvs_record: Buffer = record?.value ?? null;
+
+    if (record.key && kvs_record) {
+        // on apify
+        log.info(`Writing ${record.key} to zip file...`);
+        try {
+            zip.append(bufferToStream(Buffer.from(kvs_record) as Buffer), { name: record.key });
+        } catch (error) {
+            console.error(error);
+        }
+
+    } else {
+        log.info(`Skipping ${record.key}...`);
+    }
+
+    console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
 }
 
 /* Returns an array of values split by their size in megabytes. */
