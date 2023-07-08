@@ -23,7 +23,7 @@ if (!DATASET_NAME && !process.env.DATASET_NAME) {
     console.log('No DATASET_NAME provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
 }
-const isAtHome = !Actor.isAtHome()
+const isAtHome = Actor.isAtHome()
 
 const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 
