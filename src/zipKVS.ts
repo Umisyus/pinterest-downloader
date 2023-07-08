@@ -95,6 +95,7 @@ async function* loopItemsIter(
         }
     }
 }
+// @ts-ignore
 async function loopItemsIterAsync(
     KVS_ID: string,
     keys: KeyValueListItem[],
@@ -221,7 +222,7 @@ async function* IteratorGetKVSValues(
 async function IteratorGetKVSValuesIterx(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
-    MAX_ZIP_SIZE_MB: number = 500,
+    _MAX_ZIP_SIZE_MB: number = 500,
     kvs_list?: any[],
 ) {
 
