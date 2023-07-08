@@ -1,12 +1,13 @@
 
 import { ApifyClient, log, Actor } from "apify";
 import { KeyValueListItem, KeyValueStoreRecord } from "apify-client";
-import { chunk } from "crawlee";
+import { chunk, chunkBySize } from "crawlee";
 import { Readable } from "stream";
 import archiver from "archiver";
 import fs from "fs";
 import path from "path";
-import { randomUUID } from "crypto";
+import { Promise } from "bluebird";
+import { getKeyValueStores } from "./main.js";
 let ZIP_FILE_NAME = "";
 
 export async function zipKVS(
@@ -16,77 +17,15 @@ export async function zipKVS(
     MAX_ZIP_SIZE_MB: number = 250,
     isAtHome?: boolean
 ) {
-    let f: AsyncGenerator | any = null;
     // Generate structure of the zip file
     FILES_PER_ZIP = (0 + FILES_PER_ZIP)
-    // let zipObj: any = {};
-    //console.log(`limit: VALUE: ${FILES_PER_ZIP} TYPE: ${typeof FILES_PER_ZIP}`);
-
-    //console.log(`coerced value: ${+FILES_PER_ZIP}`);
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
     if (isAtHome) {
-        f = IteratorGetKVSValues(KVS_ID, API_TOKEN, FILES_PER_ZIP, MAX_ZIP_SIZE_MB);
-    } else {
-        f = IteratorGetKVSValuesLocal(KVS_ID);
+        await IteratorGetKVSValuesIterx(KVS_ID, API_TOKEN, MAX_ZIP_SIZE_MB, await getKeyValueStores());
     }
-
-    let i = 0;
-    for await (const records of f) {
-        log.info("Generating zip file...");
-
-        ZIP_FILE_NAME = `${KVS_ID}-${i}.zip`;
-        let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
-        let output = fs.createWriteStream(zipFilePath);
-
-        let zip = archiver.create("zip", { zlib: { level: 0 } });
-        // Pipe archive data to the zip file
-        zip.pipe(output);
-        // file name (string) : file contents (Buffer)
-        for await (const record of records) {
-            let kvs_record: Buffer = record?.value ?? null;
-            if (API_TOKEN || isAtHome == true) {
-
-                if (record.key && kvs_record) {
-                    // on apify
-                    log.info(`Writing ${record.key} to zip file...`);
-                    try {
-                        zip.append(bufferToStream(kvs_record as Buffer), { name: record.key });
-                    } catch (error) {
-                        console.error(error);
-                    }
-
-                } else {
-                    log.info(`Skipping ${record.key}...`);
-                }
-            } else {
-                if (record.key && record) {
-
-                    // on local machine
-                    zip.append(bufferToStream(kvs_record as Buffer), { name: randomUUID().slice(0, 5) + '.png' });
-                } else {
-                    log.info(`Skipping ${record.key} record...`);
-                }
-            }
-
-            console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
-
-        }
-
-        log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
-        await zip.finalize().then(async () => {
-            // output.close();
-            log.info(`Saved ${ZIP_FILE_NAME} to Apify.`)
-
-            let zipFileStream = fs.createReadStream(zipFilePath)
-            await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
-                .then(() => {
-                    output.close();
-                    zipFileStream.close();
-                    log.info(`Saved ${ZIP_FILE_NAME} to Apify.`)
-                })
-        })
-        i++;
+    else {
+        await IteratorGetKVSValuesLocal(KVS_ID);
     }
 
 }
@@ -155,6 +94,24 @@ async function* loopItemsIter(
         }
     }
 }
+async function loopItemsIterAsync(
+    KVS_ID: string,
+    keys: KeyValueListItem[],
+    client?: ApifyClient
+) {
+    let i = 0;
+    for await (const it of keys) {
+        await delay(0.2);
+        const item: KeyValueStoreRecord<any> = await client.keyValueStore(KVS_ID).getRecord(it.key!)
+
+        if (item.value) {
+            ++i;
+            log.info(`#${i} of ${keys.length}`);
+            return item;
+        }
+    }
+}
+
 
 
 
@@ -171,13 +128,12 @@ async function* IteratorGetKVSValues(
         .find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID);
     let totalCount = 0;
     let runningCount = 0;
-    const limit = 0 + FILES_PER_ZIP
 
     try {
         let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
-            .listKeys({ limit: +FILES_PER_ZIP ?? limit }));
+            .listKeys({ limit: FILES_PER_ZIP }));
 
 
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
@@ -204,13 +160,13 @@ async function* IteratorGetKVSValues(
                 // If the current size is greater than the max size, yield the items and reset the items array
                 const isSizeLimitReached = currentSize >= MAX_ZIP_SIZE_MB * 1_000_000;
 
-                // console.log({ FILES_PER_ZIP });
-                //   console.log({
-                //     itemCount: items.length,
-                //     isLimitReached,
-                //     currentSize,
-                //     isSizeLimitReached,
-                //   });
+                console.log({ FILES_PER_ZIP });
+                console.log({
+                    itemCount: items.length,
+                    isLimitReached,
+                    currentSize,
+                    isSizeLimitReached,
+                });
 
                 if (isLimitReached || isSizeLimitReached) {
                     // Yield the items then reset the items array
@@ -219,6 +175,7 @@ async function* IteratorGetKVSValues(
                     runningCount += items.length;
                     items = [];
                     currentSize = 0;
+
                 }
             }
 
@@ -250,6 +207,115 @@ async function* IteratorGetKVSValues(
                 break;
             }
         } while (true);
+
+        log.info(`Processed all items`);
+        log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${kvs_id} (${KVS_ID})`);
+    } catch (e) {
+        log.error(e)
+        await Actor.exit(e);
+    }
+
+}
+/* Returns an array of values split by their size in megabytes. */
+async function IteratorGetKVSValuesIterx(
+    KVS_ID: string,
+    API_TOKEN?: string | undefined,
+    MAX_ZIP_SIZE_MB: number = 500,
+    kvs_list?: any[],
+) {
+
+    let client = new ApifyClient({ token: API_TOKEN });
+    let kvs0 = kvs_list ?? (await client.keyValueStores().list()).items;
+    let kvs = kvs0.find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID);
+    let totalCount = 0;
+    let runningCount = 0;
+
+    try {
+        let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
+        totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
+        let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id).listKeys());
+        while (nextExclusiveStartKey) {
+            if (
+                nextExclusiveStartKey != undefined &&
+                nextExclusiveStartKey != null &&
+                nextExclusiveStartKey.length !== 0
+            ) {
+                // Get the next set of items and update the nextExclusiveStartKey
+                let resp = await client.keyValueStore(kvs_id).listKeys({
+                    exclusiveStartKey: nextExclusiveStartKey,
+                });
+                nextExclusiveStartKey = resp.nextExclusiveStartKey;
+
+                // Update list of keys
+                kvsItemKeys.push(...resp.items);
+
+                log.info(`Processed ${runningCount} of ${totalCount} items`);
+            } else {
+                // If there are no more items, yield the remaining items
+                if (nextExclusiveStartKey === null) {
+                    break;
+                }
+            }
+        }
+        log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
+        // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
+        // log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
+
+        let i = 1;
+        log.info("Generating zip file...");
+        let maps = kvsItemKeys.map(async (key) => loopItemsIterAsync(kvs_id, [key], client))
+        let [...chunks] = chunk(maps, 100)
+
+        let images = chunk(maps, 100)[0];
+
+        ZIP_FILE_NAME = `${KVS_ID}-${i}`;
+        let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
+        let output = fs.createWriteStream(zipFilePath);
+        let zip = archiver.create("zip", { zlib: { level: 0 } });
+        // Pipe archive data to the zip file
+        zip.pipe(output);
+
+        // do {
+
+        for await (const record of images) {
+
+            // file name (string) : file contents (Buffer)
+            let kvs_record: Buffer = record?.value ?? null;
+
+            if (record.key && kvs_record) {
+                // on apify
+                log.info(`Writing ${record.key} to zip file...`);
+                try {
+                    zip.append(bufferToStream(Buffer.from(kvs_record) as Buffer), { name: record.key });
+                } catch (error) {
+                    console.error(error);
+                }
+
+            } else {
+                log.info(`Skipping ${record.key}...`);
+            }
+
+            console.log(`Memory used: ${process.memoryUsage().rss / 1024 / 1024} MB`);
+
+        }
+        log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
+        log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
+        await zip.finalize().then(async () => {
+            // output.close();
+
+            let zipFileStream = fs.createReadStream(zipFilePath)
+            await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
+                .then(() => {
+                    output.close();
+                    zipFileStream.close();
+                    log.info(`Saved ${ZIP_FILE_NAME} to Apify.`)
+                })
+
+        })
+
+        i++;
+
+        // } while (true);
         // } while (items.length > 0);
 
         log.info(`Processed all items`);

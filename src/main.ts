@@ -23,7 +23,7 @@ if (!DATASET_NAME && !process.env.DATASET_NAME) {
     console.log('No DATASET_NAME provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
 }
-const isAtHome = Actor.isAtHome()
+const isAtHome = !Actor.isAtHome()
 
 const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 
@@ -85,7 +85,7 @@ async function writeManyZips() {
     if (isAtHome) {
         // Apify cloud
         // List all key-value stores
-        let currentStores = (await client.keyValueStores().list()).items
+        let currentStores = await getKeyValueStores()
         let storeIDsFiltered = currentStores.filter((item) => fuzzymatch(item.name ?? item.title ?? item.id, ZIP_ExcludedStores))
             .map((item) => (item.name ?? item.title ?? item.id));
 
@@ -120,6 +120,10 @@ async function writeManyZips() {
     }
 
 }
+export async function getKeyValueStores() {
+    return (await client.keyValueStores().list()).items;
+}
+
 function filterArrayByPartialMatch(mainArray: string[], filterArray: string[]) {
     return mainArray.filter((element: string | any[]) => {
         // Check if any element in filterArray partially matches the current element in mainArray
