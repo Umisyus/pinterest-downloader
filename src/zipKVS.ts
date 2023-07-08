@@ -276,6 +276,7 @@ async function IteratorGetKVSValuesIterx(
 
         // Loop through the async items and add them to the zip file
         await Promise.map(maps, async (i) => {
+            await delay(500);
             addToZip(i, zip);
         }, { concurrency: DOWNLOAD_CONCURRENCY ?? 1 });
 
