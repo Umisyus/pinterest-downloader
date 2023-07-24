@@ -4,13 +4,13 @@ import { PlaywrightCrawler } from 'crawlee';
 import { router } from './routes.js';
 import { Item } from './types.js';
 import { PinData } from './Pinterest DataTypes.js';
-import { zipKVS } from './zipKVS.js';
+import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
 import fs from 'fs'
 
 await Actor.init()
 
-export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
+export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
 
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
@@ -23,7 +23,7 @@ if (!DATASET_NAME && !process.env.DATASET_NAME) {
     console.log('No DATASET_NAME provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
 }
-const isAtHome = Actor.isAtHome()
+const isAtHome = !Actor.isAtHome()
 
 const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 
@@ -43,7 +43,10 @@ await Actor.main(async () => {
     let startUrls: string[] = []
 
     try {
-        startUrls = pin_items.map((item) => item.images.orig.url);
+        // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
+        startUrls = pin_items.slice(0, 5) // TEST ONLY
+
+            .map((item) => item.images.orig.url);
         await imageDownloadStatusKeyValueStore
             .forEachKey(async (key) => {
                 let value = await imageDownloadStatusKeyValueStore.getValue(key) as Item
@@ -85,9 +88,7 @@ async function writeManyZips() {
     if (isAtHome) {
         // Apify cloud
         // List all key-value stores
-        let currentStores = await getKeyValueStores()
-        let storeIDsFiltered = currentStores.filter((item) => fuzzymatch(item.name ?? item.title ?? item.id, ZIP_ExcludedStores))
-            .map((item) => (item.name ?? item.title ?? item.id));
+        let storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
 
         if (storeIDsFiltered.length > 0) {
 
@@ -97,7 +98,7 @@ async function writeManyZips() {
             log.info("No KVS ID was provided...");
             log.info("Fetching all remote key-value stores...");
 
-            await onlineKVS(currentStores);
+            await onlineKVS(storeIDsFiltered);
         }
         await printURLs();
     } else {
@@ -124,7 +125,7 @@ export async function getKeyValueStores() {
     return (await client.keyValueStores().list()).items;
 }
 
-function filterArrayByPartialMatch(mainArray: string[], filterArray: string[]) {
+export function filterArrayByPartialMatch(mainArray: string[], filterArray: string[]) {
     return mainArray.filter((element: string | any[]) => {
         // Check if any element in filterArray partially matches the current element in mainArray
         return !filterArray.some((filterElement: any) => element.includes(filterElement));
@@ -206,4 +207,3 @@ function fuzzymatch(id: string, arr: string[]): boolean {
     return true;
 
 }
-

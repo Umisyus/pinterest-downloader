@@ -7,7 +7,8 @@ import archiver from "archiver";
 import fs from "fs";
 import path from "path";
 import Promise from "bluebird";
-import { DOWNLOAD_CONCURRENCY, getKeyValueStores } from "./main.js";
+import { DOWNLOAD, DOWNLOAD_CONCURRENCY, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, zip } from "./main.js";
+import glob from "glob";
 
 let ZIP_FILE_NAME = "";
 
@@ -22,13 +23,25 @@ export async function zipKVS(
     FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
-    if (isAtHome) {
-        await IteratorGetKVSValuesIterx(KVS_ID, API_TOKEN, MAX_ZIP_SIZE_MB, await getKeyValueStores());
+    // if (isAtHome) {
+    if (zip && DOWNLOAD) {
+        // Zip the files downloaded
+        await createZipFileWithLocalFile(KVS_ID);
+        return;
     }
-    else {
-        await IteratorGetKVSValuesLocal(KVS_ID);
-    }
+    //     if (ZIP_IncludedStores.length < 1) {
+    //         await IteratorGetKVSValuesIterx(KVS_ID, API_TOKEN, MAX_ZIP_SIZE_MB, await getKeyValueStores());
+    //     }
+    //     else {
+    //         await IteratorGetKVSValuesLocal(KVS_ID);
 
+    //         if (zip && !DOWNLOAD) {
+    //             // Zip the files downloaded
+    //             await createZipFileWithLocalFiles();
+    //         }
+    //     }
+
+    // }
 }
 
 export function bufferToStream(data: Buffer | Uint8Array) {
@@ -52,8 +65,8 @@ async function* loopItemsIterArray(
             await delay(0.2);
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!);
             if (item) {
-                if ((<any> item.value)?.value?.data) {
-                    item.value = (<any> item.value).value.data;
+                if ((<any>item.value)?.value?.data) {
+                    item.value = (<any>item.value).value.data;
                 }
                 ++i;
                 items.push(item);
@@ -95,7 +108,8 @@ async function* loopItemsIter(
         }
     }
 }
-// @ts-ignore
+
+// Gets an item from the remote KVS
 async function loopItemsIterAsync(
     KVS_ID: string,
     keys: KeyValueListItem[],
@@ -151,7 +165,7 @@ async function* IteratorGetKVSValues(
 
             for await (const i of images) {
 
-                let value = (<any> i.value);
+                let value = (<any>i.value);
                 // Get the size of the current item
                 let size = value.length;
                 // Add the size to the current size
@@ -218,7 +232,7 @@ async function* IteratorGetKVSValues(
     }
 
 }
-/* Returns an array of values split by their size in megabytes. */
+/* Downloads all files from one or many KVS */
 async function IteratorGetKVSValuesIterx(
     KVS_ID: string,
     API_TOKEN?: string | undefined,
@@ -259,54 +273,12 @@ async function IteratorGetKVSValuesIterx(
                 }
             }
         }
+
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
-        // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
-        // log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
 
-        let i = 1;
-        log.info("Generating zip file...");
-        let maps = kvsItemKeys.map(async (key) => loopItemsIterAsync(kvs_id, [key], client))
-
-
-        ZIP_FILE_NAME = `${KVS_ID}-${i}`;
-        let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
-        let output = fs.createWriteStream(zipFilePath);
-        let zip = archiver.create("zip", { zlib: { level: 0 } });
-        // Pipe archive data to the zip file
-        zip.pipe(output);
-
-        // Loop through the async items and add them to the zip file
-        await Promise.map(maps, async (i) => {
-            await delay(500);
-            addToZip(i, zip);
-        }, { concurrency: DOWNLOAD_CONCURRENCY ?? 1 });
-
-        // do {
-
-        // for await (const record of await images) {
-
-        // file name (string) : file contents (Buffer)
-
-        // }
-        log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
-        log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
-        await zip.finalize().then(async () => {
-            // output.close();
-
-            let zipFileStream = fs.createReadStream(zipFilePath)
-            await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
-                .then(() => {
-                    output.close();
-                    zipFileStream.close();
-                    log.info(`Saved ${ZIP_FILE_NAME} to Apify.`)
-                })
-
-        })
-
-        i++;
-
-        // } while (true);
-        // } while (items.length > 0);
+        if (zip) {
+            await createZipFile(kvsItemKeys, kvs_id);
+        }
 
         log.info(`Processed all items`);
         log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${kvs_id} (${KVS_ID})`);
@@ -317,6 +289,118 @@ async function IteratorGetKVSValuesIterx(
 
 }
 
+async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string) {
+    let i = 1;
+    let client = Actor.apifyClient
+
+    log.info("Generating zip file...");
+    let maps = kvsItemKeys.map(async (key) => loopItemsIterAsync(KVS_ID, [key], client));
+
+    ZIP_FILE_NAME = `${KVS_ID}-${i}`;
+    let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
+    let output = fs.createWriteStream(zipFilePath);
+    let zip = archiver.create("zip", { zlib: { level: 0 } });
+    // Pipe archive data to the zip file
+    zip.pipe(output);
+
+    // Loop through the async items and add them to the zip file
+    await Promise.map(maps, async (i) => {
+        await delay(500);
+        addToZip(i, zip);
+    }, { concurrency: DOWNLOAD_CONCURRENCY ?? 1 });
+
+    log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
+    log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
+    await zip.finalize().then(async () => {
+        // output.close();
+        let zipFileStream = fs.createReadStream(zipFilePath);
+        await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
+            .then(() => {
+                output.close();
+                zipFileStream.close();
+                log.info(`Saved ${ZIP_FILE_NAME} to Apify.`);
+            });
+
+    });
+
+    i++;
+}
+
+async function createZipFileWithLocalFiles() {
+    let i = 1;
+
+    log.info("Generating zip file...");
+    let folders = glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores/*'), { ignore: ['**/*.json', '**/*.zip'] })
+    folders = filterArrayByPartialMatch(folders, ZIP_ExcludedStores);
+    for await (const f of folders) {
+        let name = path.basename(f);
+        ZIP_FILE_NAME = `${name}-${i}`;
+        let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
+        let output = fs.createWriteStream(zipFilePath);
+        let zip = archiver.create("zip", { zlib: { level: 0 } });
+        // Pipe archive data to the zip file
+        zip.pipe(output);
+
+        // Loop through the async items and add them to the zip file
+        zip.glob("**/*", { cwd: f });
+
+        log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
+        log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
+        await zip.finalize().then(async () => {
+            // output.close();
+            let zipFileStream = fs.createReadStream(zipFilePath);
+            await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
+                .then(() => {
+                    output.close();
+                    zipFileStream.close();
+                    log.info(`Saved ${ZIP_FILE_NAME} to Apify.`);
+                });
+
+        });
+
+        i++;
+    }
+    console.log(`Done creating ${folders.length} zip file${folders.length > 1 || folders.length == 0 ? "s" : ""}`);
+
+}
+
+async function createZipFileWithLocalFile(KVS_ID: string) {
+    let i = 1;
+
+    log.info("Generating zip file...");
+    let folders = glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', KVS_ID))
+    folders = filterArrayByPartialMatch(folders, ZIP_ExcludedStores);
+    for await (const f of folders) {
+        let name = path.basename(f);
+        ZIP_FILE_NAME = `${name}-${i}`;
+        let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
+        let output = fs.createWriteStream(zipFilePath);
+        let zip = archiver.create("zip", { zlib: { level: 0 } });
+        // Pipe archive data to the zip file
+        zip.pipe(output);
+
+        // Loop through the async items and add them to the zip file
+        zip.glob("**/*", { cwd: f });
+
+        log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
+        log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
+        await zip.finalize().then(async () => {
+            // output.close();
+            let zipFileStream = fs.createReadStream(zipFilePath);
+            await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
+                .then(() => {
+                    output.close();
+                    zipFileStream.close();
+                    log.info(`Saved ${ZIP_FILE_NAME} to Apify.`);
+                });
+
+        });
+
+        i++;
+    }
+    console.log(`Done creating ${folders.length} zip file${folders.length > 1 || folders.length == 0 ? "s" : ""}`);
+
+}
 function addToZip(record: KeyValueStoreRecord<any>, zip: archiver.Archiver) {
     let kvs_record: Buffer = record?.value ?? null;
 
@@ -408,7 +492,7 @@ export function sliceArrayBySize(
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = (<any> value.value)?.data?.length;
+        const valueSizeMB = (<any>value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > maxSizeMB * 1_000_000) {
             slicedArrays.push(slicedValues);
             slicedValues = [];
@@ -430,4 +514,8 @@ export async function delay(s: number) {
             resolve();
         }, s * 1000);
     });
+}
+
+export function getLocalFolderNames() {
+    return glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', '/*'));
 }
