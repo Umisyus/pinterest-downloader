@@ -1,6 +1,6 @@
 // For more information, see https://crawlee.dev/
 import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
-import { PlaywrightCrawler } from 'crawlee';
+import { PlaywrightCrawler, keys } from 'crawlee';
 import { router } from './routes.js';
 import { Item } from './types.js';
 import { PinData } from './Pinterest DataTypes.js';
@@ -23,7 +23,7 @@ if (!DATASET_NAME && !process.env.DATASET_NAME) {
     console.log('No DATASET_NAME provided!');
     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
 }
-const isAtHome = !Actor.isAtHome()
+const isAtHome = Actor.isAtHome()
 
 const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 
@@ -31,12 +31,9 @@ const client = new ApifyClient({ token });
 const dataSetToDownload = (APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME) as unknown as string;
 const completedDownloads = 'completed-downloads';
 
-export const getImageset = async (dataSetName: string = dataSetToDownload) =>
-    await client.dataset(dataSetName).listItems()
-        .then((data) => data?.items as unknown as PinData[] ?? []);
-
 export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
-export const pin_items: PinData[] = await getImageset(dataSetToDownload) ?? [];
+export const pin_items: PinData[] = (await getImageset(dataSetToDownload) ?? [])
+    .concat(await getImageKVS((dataSetToDownload)) ?? []);
 
 await Actor.main(async () => {
     let vals: string[] = []
@@ -117,10 +114,16 @@ async function writeManyZips() {
         stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
 
         await localKVS(stores);
-        log.info(`Access your data from this directory: ${path.join(process.cwd(), 'storage', 'key_value_stores', stores.join(','))}}`)
+
+        printDirs(stores)
     }
 
 }
+
+function printDirs(stores: string[]) {
+    return stores.map((s: string) => `Access your data of ${s} from this directory: ${path.join(process.cwd(), 'storage', 'key_value_stores', s)}`)
+}
+
 export async function getKeyValueStores() {
     return (await client.keyValueStores().list()).items;
 }
@@ -205,5 +208,34 @@ function fuzzymatch(id: string, arr: string[]): boolean {
     }
 
     return true;
+
+}
+export async function getImageset(dataSetName: string = dataSetToDownload): Promise<PinData[]> {
+    console.log(`Getting data for dataset ${dataSetName}`);
+
+    if (isAtHome)
+        return await client.dataset(dataSetName).listItems()
+            .then((data) => data?.items as unknown as PinData[] ?? []);
+
+    else
+        return (await (await Actor.openDataset(dataSetName)).getData()).items as PinData[];
+}
+
+export async function getImageKVS(kvsName: string = dataSetToDownload): Promise<PinData[]> {
+    console.log(`Getting data for key-value-store ${kvsName}`);
+
+    if (isAtHome)
+        return (await client.keyValueStore(kvsName).listKeys()).items as unknown as PinData[] ?? [];
+
+    else {
+        let keys: PinData[] = []
+        let kvs = (await Actor.openKeyValueStore(kvsName))
+        await kvs.forEachKey(
+            async (key: string) => {
+                keys.push(await kvs.getValue(key))
+            }
+        )
+        return keys
+    }
 
 }
