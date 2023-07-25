@@ -14,9 +14,9 @@ let ZIP_FILE_NAME = "";
 
 export async function zipKVS(
     KVS_ID: string,
-    API_TOKEN?: string | undefined,
+    _API_TOKEN?: string | undefined,
     FILES_PER_ZIP: number = 500,
-    MAX_ZIP_SIZE_MB: number = 250,
+    _MAX_ZIP_SIZE_MB: number = 250,
     isAtHome?: boolean
 ) {
     // Generate structure of the zip file
@@ -126,6 +126,7 @@ async function loopItemsIterAsync(
             return item;
         }
     }
+    return null
 }
 
 
@@ -276,7 +277,7 @@ async function IteratorGetKVSValuesIterx(
 
         log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
 
-        if (zip) {
+        if (zip && !DOWNLOAD) {
             await createZipFile(kvsItemKeys, kvs_id);
         }
 
@@ -294,7 +295,8 @@ async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string) {
     let client = Actor.apifyClient
 
     log.info("Generating zip file...");
-    let maps = kvsItemKeys.map(async (key) => loopItemsIterAsync(KVS_ID, [key], client));
+    let maps = kvsItemKeys.map(async (key) => loopItemsIterAsync(KVS_ID, [key], client))
+        .filter(Boolean)
 
     ZIP_FILE_NAME = `${KVS_ID}-${i}`;
     let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
