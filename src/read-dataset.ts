@@ -76,16 +76,6 @@ async function saveToDefaultKeyValueStore(items: Item[], kvs_name = 'default'): 
         if (!kvs) {
             throw new Error('Could not open kvs')
         }
-        // await kvs.forEachKey(async (k) => { kvsKeys.push(k); });
-
-        // for await (const i of kvsKeys) {
-        //     let d = await kvs.getValue(i) as Item;
-        //     let data = d.data
-        //     console.log(`Adding: ${i}`);
-        //     values.push({ key: d.key, data, isDownloaded: false });
-        // }
-
-        // console.log(`Name: ${kvs.name}`);
 
         items.map(async (item) => {
             item.isDownloaded = false

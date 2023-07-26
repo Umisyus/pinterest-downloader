@@ -10,30 +10,46 @@ import fs from 'fs'
 
 await Actor.init()
 
+
+
 export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
 
+const isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
-if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
-    console.log('No APIFY_TOKEN provided!');
-    await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
-}
 
-if (!DATASET_NAME && !process.env.DATASET_NAME) {
-    console.log('No DATASET_NAME provided!');
-    await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
-}
-const isAtHome = Actor.isAtHome()
+
+const completedDownloads = 'completed-downloads';
+export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
+
+export let pin_items: PinData[] = []
 
 const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 
 const client = new ApifyClient({ token });
-const dataSetToDownload = (APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME) as unknown as string;
-const completedDownloads = 'completed-downloads';
+const dataSetToDownload = (APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME) as string;
 
-export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
-export const pin_items: PinData[] = (await getImageset(dataSetToDownload) ?? [])
-    .concat(await getImageKVS((dataSetToDownload)) ?? []);
+if (DOWNLOAD) {
+    if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
+        console.log('No APIFY_TOKEN provided!');
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
+    }
+    if (!DATASET_NAME && !process.env.DATASET_NAME) {
+        console.log('No DATASET_NAME provided!');
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+    }
+
+    /* a dataset item must be pinterest json, a key value store item must be image buffer */
+    pin_items = (await getImageset(dataSetToDownload) ?? [])
+    // .concat(await getImageKVS((dataSetToDownload)) ?? []);
+    pin_items = pin_items.flat()
+
+    if (pin_items.length === 0) {
+        throw new Error(`Could not get data from ${dataSetToDownload}!
+        Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
+        `);
+    }
+}
 
 await Actor.main(async () => {
     let vals: string[] = []
@@ -41,7 +57,7 @@ await Actor.main(async () => {
 
     try {
         // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
-        startUrls = pin_items.slice(0, 5) // TEST ONLY
+        startUrls = pin_items
 
             .map((item) => item.images.orig.url);
         await imageDownloadStatusKeyValueStore
@@ -95,7 +111,7 @@ async function writeManyZips() {
             log.info("No KVS ID was provided...");
             log.info("Fetching all remote key-value stores...");
 
-            await onlineKVS(storeIDsFiltered);
+            await onlineKVS(stores);
         }
         await printURLs();
     } else {
@@ -198,44 +214,46 @@ async function getKeyValueStoreList(client: ApifyClient) {
 
     return filteredActorKVSItem;
 }
-function fuzzymatch(id: string, arr: string[]): boolean {
-    for (let index = 0; index < arr.length; index++) {
-        const element = arr[index];
-        if (id.includes(element) || id.endsWith(element) || id.startsWith(element)) {
-            return false;
-        }
 
-    }
-
-    return true;
-
-}
 export async function getImageset(dataSetName: string = dataSetToDownload): Promise<PinData[]> {
     console.log(`Getting data for dataset ${dataSetName}`);
+    let result: PinData[] = []
+    try {
+        if (isAtHome) {
 
-    if (isAtHome)
-        return await client.dataset(dataSetName).listItems()
-            .then((data) => data?.items as unknown as PinData[] ?? []);
+            result = [...await client.dataset(dataSetName).listItems()
+                .then((data) => data?.items ?? [])] as unknown as PinData[];
 
-    else
-        return (await (await Actor.openDataset(dataSetName)).getData()).items as PinData[];
+        } else {
+            result = [...(await (await Actor.openDataset(dataSetName)).getData()).items] as PinData[];
+        }
+    } catch (e: any) {
+        console.error(`Could not get data from dataset ${dataSetName}: ${e}`);
+
+        return result;
+    }
+    return result
 }
 
 export async function getImageKVS(kvsName: string = dataSetToDownload): Promise<PinData[]> {
     console.log(`Getting data for key-value-store ${kvsName}`);
-
-    if (isAtHome)
-        return (await client.keyValueStore(kvsName).listKeys()).items as unknown as PinData[] ?? [];
-
-    else {
-        let keys: PinData[] = []
-        let kvs = (await Actor.openKeyValueStore(kvsName))
-        await kvs.forEachKey(
-            async (key: string) => {
-                keys.push(await kvs.getValue(key))
-            }
-        )
-        return keys
+    let result: PinData[] = []
+    try {
+        if (isAtHome)
+            result = await client.keyValueStore(kvsName).listKeys()
+                .then(items => items.items as unknown as PinData[] ?? [])
+        else {
+            let keys: PinData[] = []
+            let kvs = (await Actor.openKeyValueStore(kvsName))
+            await kvs.forEachKey(
+                async (key: string) => {
+                    keys.push(await kvs.getValue(key))
+                }
+            )
+            result = [...keys]
+        }
+    } catch (e: any) {
+        console.error(`Could not get data from key-value-store ${dataSetToDownload}: ${e}`);
     }
-
+    return result as PinData[]
 }
