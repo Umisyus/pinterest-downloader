@@ -74,6 +74,9 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             // Save status to keyvalue store
             // await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, pin_id: item.id, status: 'completed', isDownloaded: true });
             await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { ...item, isDownloaded: true });
+        await imageDownloadStatusKeyValueStore
+        }else{
+            log.info("Item not found: " + request.url);
         }
 
     }

@@ -10,14 +10,10 @@ import fs from 'fs'
 
 await Actor.init()
 
-
-
 export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
 
 const isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
-
-
 
 const completedDownloads = 'completed-downloads';
 export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
@@ -29,89 +25,89 @@ const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 const client = new ApifyClient({ token });
 const dataSetToDownload = (APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME) as string;
 
-if (DOWNLOAD) {
-    if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
-        console.log('No APIFY_TOKEN provided!');
-        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
-    }
-    if (!DATASET_NAME && !process.env.DATASET_NAME) {
-        console.log('No DATASET_NAME provided!');
-        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+await Actor.main(async () => {
+    // If a key-value store ID is provided, download from it
+    if (zip && (DOWNLOAD === false)) {
+        await writeManyZips()
+        await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
     }
 
-    /* a dataset item must be pinterest json, a key value store item must be image buffer */
-    pin_items = (await getImageset(dataSetToDownload) ?? [])
-    // .concat(await getImageKVS((dataSetToDownload)) ?? []);
-    pin_items = pin_items.flat()
-    // Filter duplicates
-    pin_items = pin_items.filter((item, index, self) =>
-        index === self.findIndex((t) => (
-            t.id === item.id
-        )))
+    if (DOWNLOAD) {
+        if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
+            console.log('No APIFY_TOKEN provided!');
+            await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
+        }
+        if (!DATASET_NAME && !process.env.DATASET_NAME) {
+            console.log('No DATASET_NAME provided!');
+            await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+        }
 
-    // if (pin_items.length === 0) {
-    //     throw new Error(`Could not get data from ${dataSetToDownload}!
-    //     Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
-    //     `);
-    // }
+        /* a dataset item must be pinterest json, a key value store item must be image buffer */
 
-    if (pin_items.length === 0) {
-        console.error(`Could not get data from ${dataSetToDownload}!
+        pin_items = (await getImageset(dataSetToDownload) ?? [])
+        pin_items = pin_items.flat()
+
+        // Filter duplicates
+        pin_items = pin_items.filter((item, index, self) =>
+            index === self.findIndex((t) => (
+                t.id === item.id
+            )))
+
+        if (pin_items.length === 0) {
+            console.error(`Could not get data from ${dataSetToDownload}!
         Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
         If the key-value store has a name, try to use the ID of the key-value store instead of it's name as input.
         `);
 
-        if (zip) {
-            console.log(`Proceeding to download and zip from all other key-value stores...`);
+            if (zip) {
+                console.log(`Proceeding to download and zip from all other key-value stores...`);
+            }
+
         }
 
-    }
-}
+        let vals: string[] = []
+        let startUrls: string[] = []
 
-await Actor.main(async () => {
-    let vals: string[] = []
-    let startUrls: string[] = []
+        try {
 
-    try {
+            // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
+            startUrls = pin_items.map((item) => item.images.orig.url);
 
-        // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
-        startUrls = pin_items.map((item) => item.images.orig.url);
-
-        // Filter out any pins already marked as downloaded
-
-
-        await imageDownloadStatusKeyValueStore
-            .forEachKey(async (key) => {
-                let value = await imageDownloadStatusKeyValueStore.getValue(key) as PinData
-                // If NOT downloaded, add to the list of urls to download
-                if (value.isDownloaded === true) {
-                    vals.push(value?.images?.orig?.url ?? "")
-                }
-            })
-        if (vals.length > 0) {
             // Filter out any pins already marked as downloaded
-            let delta = startUrls.filter((url) => !vals.includes(url))
-            startUrls = delta
+            /* NOTE: after downloading all items the completed downloads may be reset */
+            await imageDownloadStatusKeyValueStore
+                .forEachKey(async (key) => {
+                    let value = await imageDownloadStatusKeyValueStore.getValue(key) as PinData
+                    // If NOT downloaded, add to the list of urls to download
+                    if (value.isDownloaded === true) {
+                        vals.push(value?.images?.orig?.url ?? "")
+                    }
+                })
+            if (vals.length > 0) {
+                // Filter out any pins already marked as downloaded
+                let delta = startUrls.filter((url) => !vals.includes(url))
+                startUrls = delta
+            }
+
+            log.info(`Total links downloaded: ${vals.length}`);
+            log.info(`Total links to download: ${startUrls.length}`);
+        } catch (e: any) {
+            console.error(`Failed to read links: ${e}`)
         }
 
-        log.info(`Total links downloaded: ${vals.length}`);
-        log.info(`Total links to download: ${startUrls.length}`);
-    } catch (e: any) {
-        console.error(`Failed to read links: ${e}`)
-    }
-
-    const crawler = new PlaywrightCrawler({
-        requestHandler: router,
-        maxConcurrency: 10,
-        minConcurrency: 2,
-        maxRequestRetries: 3,
-        maxRequestsPerMinute: 100,
-    });
-
-    if (DOWNLOAD) {
-        await crawler.run(startUrls)
+        const crawler = new PlaywrightCrawler({
+            requestHandler: router,
+            maxConcurrency: 10,
+            minConcurrency: 2,
+            maxRequestRetries: 3,
+            maxRequestsPerMinute: 100,
+        });
+        if (DOWNLOAD) {
+            await crawler.run(startUrls)
+        }
     }
     if (zip) {
+
         await writeManyZips()
     }
 });
@@ -266,25 +262,28 @@ export async function getImageset(dataSetName: string = dataSetToDownload): Prom
     return result
 }
 
-export async function getImageKVS(kvsName: string = dataSetToDownload): Promise<PinData[]> {
+interface KeyValueListItemType {
+    key: string;
+    size: number;
+}
+
+export async function getImageKVSKeys(kvsName: string = dataSetToDownload): Promise<KeyValueListItemType[]> {
     console.log(`Getting data for key-value-store ${kvsName}`);
-    let result: PinData[] = []
+    let result = []
     try {
         if (isAtHome)
             result = await client.keyValueStore(kvsName).listKeys()
                 .then(items => items.items as unknown as PinData[] ?? [])
         else {
-            let keys: PinData[] = []
+            let keys = []
             let kvs = (await Actor.openKeyValueStore(kvsName))
             await kvs.forEachKey(
-                async (key: string) => {
-                    keys.push(await kvs.getValue(key))
-                }
+                async (key: string) => { keys.push(await kvs.getValue(key)) }
             )
             result = [...keys]
         }
     } catch (e: any) {
         console.error(`Could not get data from key-value-store ${dataSetToDownload}: ${e}`);
     }
-    return result as PinData[]
+    return result as KeyValueListItemType[]
 }
