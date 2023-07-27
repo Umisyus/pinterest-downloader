@@ -83,6 +83,11 @@ await Actor.main(async () => {
                         vals.push(value?.images?.orig?.url ?? "")
                     }
                 })
+            await (await Dataset.open(dataSetToDownload)).forEach((p: { id: string, url: string }) => {
+                startUrls = startUrls.filter((url) => url !== p.url)
+            });
+
+
             if (vals.length > 0) {
                 // Filter out any pins already marked as downloaded
                 let delta = startUrls.filter((url) => !vals.includes(url))

@@ -1,4 +1,4 @@
-import { KeyValueStore } from 'apify';
+import { Dataset, KeyValueStore } from 'apify';
 import { createPlaywrightRouter } from 'crawlee';
 import { randomUUID } from 'crypto'
 import { getImageset, imageDownloadStatusKeyValueStore, pin_items } from './main.js';
@@ -73,9 +73,10 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             log.info("Saved image: " + filename + " to " + `${boardName}/${filename}`);
             // Save status to keyvalue store
             // await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, pin_id: item.id, status: 'completed', isDownloaded: true });
-            await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { ...item, isDownloaded: true });
-        await imageDownloadStatusKeyValueStore
-        }else{
+            await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { id: item.id, url: item.images.orig.url });
+
+            await Dataset.open('completed-downloads').then(async (ds) => await ds.pushData({ id: item.id, url: item.images.orig.url }))
+        } else {
             log.info("Item not found: " + request.url);
         }
 
