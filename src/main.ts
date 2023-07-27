@@ -80,15 +80,15 @@ await Actor.main(async () => {
         if (vals.length > 0) {
             // Filter out any pins already marked as downloaded
             let delta = startUrls.filter((url) => !vals.includes(url))
-            log.info(`Total links downloaded: ${vals.length}`);
-            log.info(`Total links to download: ${delta.length}`);
             startUrls = delta
         }
+
+        log.info(`Total links downloaded: ${vals.length}`);
+        log.info(`Total links to download: ${startUrls.length}`);
     } catch (e: any) {
         console.error(`Failed to read links: ${e}`)
     }
 
-    log.info(`Total links: ${startUrls.length}`);
     const crawler = new PlaywrightCrawler({
         // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
         requestHandler: router,
