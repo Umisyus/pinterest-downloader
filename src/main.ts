@@ -1,5 +1,5 @@
 // For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, KeyValueStore, log } from 'apify';
+import { Actor, ApifyClient, Dataset, KeyValueStore, log } from 'apify';
 import { PlaywrightCrawler, keys } from 'crawlee';
 import { router } from './routes.js';
 import { Item } from './types.js';
@@ -43,12 +43,18 @@ if (DOWNLOAD) {
     pin_items = (await getImageset(dataSetToDownload) ?? [])
     // .concat(await getImageKVS((dataSetToDownload)) ?? []);
     pin_items = pin_items.flat()
+    // Filter duplicates
+    pin_items = pin_items.filter((item, index, self) =>
+        index === self.findIndex((t) => (
+            t.id === item.id
+        )))
 
     // if (pin_items.length === 0) {
     //     throw new Error(`Could not get data from ${dataSetToDownload}!
     //     Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
     //     `);
     // }
+
     if (pin_items.length === 0) {
         console.error(`Could not get data from ${dataSetToDownload}!
         Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
@@ -67,15 +73,20 @@ await Actor.main(async () => {
     let startUrls: string[] = []
 
     try {
-        // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
-        startUrls = pin_items
 
-            .map((item) => item.images.orig.url);
+        // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
+        startUrls = pin_items.map((item) => item.images.orig.url);
+
+        // Filter out any pins already marked as downloaded
+
+
         await imageDownloadStatusKeyValueStore
             .forEachKey(async (key) => {
-                let value = await imageDownloadStatusKeyValueStore.getValue(key) as Item
-                if (!(value?.isDownloaded) === true)
-                    vals.push(value?.url)
+                let value = await imageDownloadStatusKeyValueStore.getValue(key) as PinData
+                // If NOT downloaded, add to the list of urls to download
+                if (value.isDownloaded === true) {
+                    vals.push(value?.images?.orig?.url ?? "")
+                }
             })
         if (vals.length > 0) {
             // Filter out any pins already marked as downloaded
@@ -90,7 +101,6 @@ await Actor.main(async () => {
     }
 
     const crawler = new PlaywrightCrawler({
-        // proxyConfiguration: new ProxyConfiguration({ proxyUrls: ['...'] }),
         requestHandler: router,
         maxConcurrency: 10,
         minConcurrency: 2,
@@ -98,7 +108,6 @@ await Actor.main(async () => {
         maxRequestsPerMinute: 100,
     });
 
-    // crawler.addRequests(startUrls.map((url) => ({ url })));
     if (DOWNLOAD) {
         await crawler.run(startUrls)
     }
@@ -107,6 +116,7 @@ await Actor.main(async () => {
     }
 });
 
+/* Zip downloaded files in a store (local or remote) */
 async function writeManyZips() {
     let stores: string[] = [];
     let remoteStoresNamesOrIDs: string[] = (await getKeyValueStoreList(client).catch(e => {
@@ -115,11 +125,9 @@ async function writeManyZips() {
     })).map(s => s.name ?? s.title ?? s.id) ?? [];
 
     if (isAtHome) {
-        // Apify cloud
-        // List all key-value stores
-
         let storeIDsFiltered = [];
 
+        // See if there are any store IDs provided and download it
         if (ZIP_IncludedStores.length > 0) {
             storeIDsFiltered = ZIP_IncludedStores;
         }
