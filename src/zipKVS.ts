@@ -289,7 +289,7 @@ async function IteratorGetKVSValuesIterx(
 }
 
 async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string, fileName?: string | undefined) {
-    let arr_len = kvsItemKeys.length
+    const arr_len = kvsItemKeys.length
     let client = Actor.apifyClient
 
     log.info("Generating zip file...");
@@ -312,12 +312,11 @@ async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string, fi
     })
 
     // Loop through the async items and add them to the zip file
-    for await (const [index, key] of kvsItemKeys.entries()) {
 
+    await Promise.map(kvsItemKeys, async (key, index) => {
         await downloadKey(key)
-        log.info(`#${index + 1} of ${arr_len}`);
-
-    }
+        log.info(`#${arr_len - index + 1} of ${arr_len}`);
+    }, { concurrency: DOWNLOAD_CONCURRENCY ?? 3 })
 
     log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
     log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
