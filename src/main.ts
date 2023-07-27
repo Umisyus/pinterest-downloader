@@ -44,10 +44,21 @@ if (DOWNLOAD) {
     // .concat(await getImageKVS((dataSetToDownload)) ?? []);
     pin_items = pin_items.flat()
 
+    // if (pin_items.length === 0) {
+    //     throw new Error(`Could not get data from ${dataSetToDownload}!
+    //     Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
+    //     `);
+    // }
     if (pin_items.length === 0) {
-        throw new Error(`Could not get data from ${dataSetToDownload}!
+        console.error(`Could not get data from ${dataSetToDownload}!
         Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
+        If the key-value store has a name, try to use the ID of the key-value store instead of it's name as input.
         `);
+
+        if (zip) {
+            console.log(`Proceeding to download and zip from all other key-value stores...`);
+        }
+
     }
 }
 
@@ -98,22 +109,41 @@ await Actor.main(async () => {
 
 async function writeManyZips() {
     let stores: string[] = [];
+    let remoteStoresNamesOrIDs: string[] = (await getKeyValueStoreList(client).catch(e => {
+        console.error(e);
+        return []
+    })).map(s => s.name ?? s.title ?? s.id) ?? [];
+
     if (isAtHome) {
         // Apify cloud
         // List all key-value stores
-        let storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
+
+        let storeIDsFiltered = [];
+
+        if (ZIP_IncludedStores.length > 0) {
+            storeIDsFiltered = ZIP_IncludedStores;
+        }
+        else {
+            // Filter out any stores that are in the excluded list
+            if (DOWNLOAD) {
+                log.info("Fetching all local key-value stores...");
+                storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
+            }
+            log.info("Fetching all remote key-value stores...");
+
+            storeIDsFiltered = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
+        }
 
         if (storeIDsFiltered.length > 0) {
-
             await onlineKVS(storeIDsFiltered);
-
         } else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all remote key-value stores...");
 
-            await onlineKVS(stores);
+            await onlineKVS(remoteStoresNamesOrIDs);
         }
-        await printURLs();
+
+        await printURLs({ excludedStores: ZIP_ExcludedStores ?? ['SDK', 'INPUT'] });
     } else {
         // Locally
         // Get items either from the listed stores or from the default store
@@ -152,7 +182,7 @@ export function filterArrayByPartialMatch(mainArray: string[], filterArray: stri
 }
 
 
-async function printURLs() {
+async function printURLs({ excludedStores = [] }: { excludedStores?: string[] } = {}) {
     let kvStores = await Actor.openKeyValueStore();
 
     let kvsURLs = [];
@@ -161,9 +191,10 @@ async function printURLs() {
     await kvStores.forEachKey(async (key: string) => {
         kvsURLs.push(key);
     });
+    kvsURLs = filterArrayByPartialMatch(kvsURLs, excludedStores)
 
-
-    kvsURLs.map((key: string, ind) => console.log(`#${ind} ⫸ ${key}: ${(kvStores).getPublicUrl(key)}`));
+    console.log('Download your data from:');
+    kvsURLs.map((key: string, ind) => console.log(`#${++ind} ⫸ ${key}: ${(kvStores).getPublicUrl(key)}`));
 }
 
 async function localKVS(store: any[]) {
@@ -200,18 +231,10 @@ function printNumberedList(store: string[]) {
 
 async function getKeyValueStoreList(client: ApifyClient) {
     let kvs1 = await client.keyValueStores().list();
-    // Read all keys of the key-value store
-    log.info(`Found key-value stores: \n${kvs1.items.join(", ")}`);
-
+    // Read all of the key-value store name
     let filteredActorKVSItem = kvs1.items.filter(
         (kvs) => !ZIP_ExcludedStores.includes(kvs.name ?? kvs.title ?? "")
     );
-    log.info(
-        `Filtered key-value stores: \n${filteredActorKVSItem
-            .map((k) => k.name)
-            .join(", ")}`
-    );
-
     return filteredActorKVSItem;
 }
 
