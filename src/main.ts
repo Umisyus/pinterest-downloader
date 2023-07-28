@@ -32,6 +32,17 @@ await Actor.main(async () => {
         await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
     }
 
+    if (zip && DOWNLOAD) {
+        // DROP EXISTING KVS
+        let kvsNames = getLocalFolderNames().map((folderName) => path.basename(folderName))
+        kvsNames = filterArrayByPartialMatch(kvsNames, ZIP_ExcludedStores)
+        kvsNames.forEach(async (kvsName) => {
+            console.log(`Dropping ${kvsName}...`);
+
+            let kvs = await KeyValueStore.open(kvsName);
+            await kvs.drop();
+        })
+    }
     if (DOWNLOAD) {
         if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
             console.log('No APIFY_TOKEN provided!');
@@ -65,7 +76,7 @@ await Actor.main(async () => {
 
         }
 
-        let vals: string[] = []
+        let completedItems: string[] = []
         let startUrls: string[] = []
 
         try {
@@ -77,24 +88,24 @@ await Actor.main(async () => {
             /* NOTE: after downloading all items the completed downloads may be reset */
             await imageDownloadStatusKeyValueStore
                 .forEachKey(async (key) => {
-                    let value = await imageDownloadStatusKeyValueStore.getValue(key) as PinData
+                    let value = await imageDownloadStatusKeyValueStore.getValue(key) as string
+
                     // If NOT downloaded, add to the list of urls to download
-                    if (value.isDownloaded === true) {
-                        vals.push(value?.images?.orig?.url ?? "")
-                    }
+
+                    completedItems.push(value)
                 })
-            await (await Dataset.open(dataSetToDownload)).forEach((p: { id: string, url: string }) => {
+
+            await (await Dataset.open(completedDownloads)).forEach((p: { id: string, url: string }) => {
                 startUrls = startUrls.filter((url) => url !== p.url)
             });
 
-
-            if (vals.length > 0) {
+            if (completedItems.length > 0) {
                 // Filter out any pins already marked as downloaded
-                let delta = startUrls.filter((url) => !vals.includes(url))
+                let delta = startUrls.filter((url) => !completedItems.includes(url))
                 startUrls = delta
             }
 
-            log.info(`Total links downloaded: ${vals.length}`);
+            log.info(`Total links downloaded: ${completedItems.length}`);
             log.info(`Total links to download: ${startUrls.length}`);
         } catch (e: any) {
             console.error(`Failed to read links: ${e}`)
@@ -112,7 +123,6 @@ await Actor.main(async () => {
         }
     }
     if (zip) {
-
         await writeManyZips()
     }
 });
