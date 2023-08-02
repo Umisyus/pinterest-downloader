@@ -44,7 +44,7 @@
     },
     "MAX_SIZE_MB": {
       "title": "MAX_SIZE_MB",
-      "type": "string",
+      "type": "integer",
       "description": "Size in Megabytes of each ZIP file",
       "editor": "number"
     },
