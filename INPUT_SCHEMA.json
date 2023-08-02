@@ -46,7 +46,7 @@
       "title": "MAX_SIZE_MB",
       "type": "string",
       "description": "Size in Megabytes of each ZIP file",
-      "editor": "textfield"
+      "editor": "number"
     },
     "zip": {
       "title": "zip",
