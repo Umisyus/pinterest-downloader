@@ -15,7 +15,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
     if (response && response?.ok()) {
 
         if (items.length === 0) {
-            items = (await getImageset() ?? [])
+            items = (pin_items)
         }
         let body = await response.body();
 
@@ -55,6 +55,9 @@ router.addDefaultHandler(async ({ log, request, response }) => {
 
                 if (filename === undefined || filename === '' || filename === `.${ext}`)
                     filename = pin_id ?? `unknown-${randomUUID()}` + `.${ext}`;
+
+                if (filename === pin_id)
+                    filename = pin_id + `.${ext}`;
                 // filename = [pin_id, pin_url_id].filter(t => t !== undefined && t !== '' && t !== `${ext}`).pop() ?? `unkown-${randomUUID()}.png`
             }
 
@@ -69,7 +72,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             // Save image to store in it's board folder
             let boardImageStore = await KeyValueStore.open(boardURLName as string);
             // Save image to store as it's specific type (png, jpg, gif, etc.)
-            await boardImageStore.setValue(`${filename}`, body, { contentType: `image/${ext ?? 'png'}` });
+            await boardImageStore.setValue(`${filename}.${ext ?? 'jpg'}`, body, { contentType: `image/${ext ?? 'jpg'}` });
             log.info("Saved image: " + filename + " to " + `${boardName}/${filename}`);
             // Save status to keyvalue store
             // await imageDownloadStatusKeyValueStore.setValue(`${filename}`, { url: request.url, pin_id: item.id, status: 'completed', isDownloaded: true });

@@ -5,14 +5,12 @@ import { router } from './routes.js';
 import { PinData } from './Pinterest DataTypes.js';
 import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
-import fs from 'fs'
-import * as glob from 'glob';
 
 await Actor.init()
 
-export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
-
-
+export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500,
+    check_completed_downloads = false,
+} = await Actor.getInput<any>();
 
 const isAtHome = Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
@@ -45,36 +43,30 @@ await Actor.main(async () => {
         await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
     }
 
-    if (zip && DOWNLOAD) {
-        // DROP EXISTING KVS
-        let kvsNames = getLocalFolderNames().map((folderName) => path.basename(folderName))
-        kvsNames = filterArrayByPartialMatch(kvsNames, ZIP_ExcludedStores)
-        kvsNames.forEach(async (kvsName) => {
-            console.log(`Dropping ${kvsName}...`);
-
-            let kvs = await KeyValueStore.open(kvsName);
-            await kvs.drop();
-        })
-    }
-
     if (DOWNLOAD) {
 
         /* a dataset item must be pinterest json, a key value store item must be image buffer */
 
-        pin_items = (await getImageset(dataSetToDownload) ?? [])
-        pin_items = pin_items.flat()
+        let pin_items = (await getImageset(dataSetToDownload) ?? [])
+
+        let pin_item_ids = pin_items.map((item) => item.id);
 
         log.info(`Total items: ${pin_items.length}`);
         log.info(`Filtering results...`);
 
+        // // Filter duplicates
+        // pin_items = pin_items.filter((item, index, self) =>
+        //     index === self.findIndex((t) => (
+        //         t.id === item.id
+        //     )))
+
+
         // Filter duplicates
         pin_items = pin_items.filter((item, index, self) =>
-            index === self.findIndex((t) => (
-                t.id === item.id
-            )))
+            index === self.findIndex((t) => (t.id === item.id)))
 
         if (pin_items.length === 0) {
-            console.error(`Could not get data from ${dataSetToDownload}!
+            console.error(`No data... Could not get data from ${dataSetToDownload}!
         Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
         If the key-value store has a name, try to use the ID of the key-value store instead of it's name as input.
         `);
@@ -90,32 +82,37 @@ await Actor.main(async () => {
 
         try {
 
-            // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
-            startUrls = pin_items.map((item) => item.images.orig.url);
+            if (check_completed_downloads) {
+                // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
+                startUrls = pin_items.map((item) => item.images.orig.url);
 
-            // Filter out any pins already marked as downloaded
-            /* NOTE: after downloading all items the completed downloads may be reset */
-            await imageDownloadStatusKeyValueStore
-                .forEachKey(async (key) => {
-                    let value = await imageDownloadStatusKeyValueStore.getValue(key) as string
-
-                    // If NOT downloaded, add to the list of urls to download
-
-                    completedItems.push(value)
-                })
-
-            await (await Dataset.open(completedDownloads)).forEach((p: { id: string, url: string }) => {
-                startUrls = startUrls.filter((url) => url !== p.url)
-            });
-
-            if (completedItems.length > 0) {
                 // Filter out any pins already marked as downloaded
-                let delta = startUrls.filter((url) => !completedItems.includes(url))
-                startUrls = delta
+                /* NOTE: after downloading all items the completed downloads may be reset */
+                await imageDownloadStatusKeyValueStore
+                    .forEachKey(async (key) => {
+                        let value = await imageDownloadStatusKeyValueStore.getValue(key) as string
+
+                        // If NOT downloaded, add to the list of urls to download
+
+                        completedItems.push(value)
+                    })
+
+                await (await Dataset.open(completedDownloads)).forEach((p: { id: string, url: string }) => {
+                    startUrls = startUrls.filter((url) => url !== p.url)
+                });
+
+                if (completedItems.length > 0) {
+                    // Filter out any pins already marked as downloaded
+                    let delta = startUrls.filter((url) => !completedItems.includes(url))
+                    startUrls = delta
+                }
+                log.info(`Total links downloaded: ${completedItems.length}`);
+                log.info(`Total links to download: ${startUrls.length}`);
+            }
+            else {
+                startUrls = pin_items.map((item) => item.images.orig.url);
             }
 
-            log.info(`Total links downloaded: ${completedItems.length}`);
-            log.info(`Total links to download: ${startUrls.length}`);
         } catch (e: any) {
             console.error(`Failed to read links: ${e}`)
         }
@@ -134,6 +131,8 @@ await Actor.main(async () => {
     if (zip) {
         await writeManyZips()
     }
+    await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished downloading all items!' })
+        .then(() => process.exit(0));
 });
 
 /* Zip downloaded files in a store (local or remote) */
