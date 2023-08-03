@@ -169,7 +169,7 @@ async function writeManyZips() {
         } else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all remote key-value stores...");
-
+            remoteStoresNamesOrIDs = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
             await onlineKVS(remoteStoresNamesOrIDs);
         }
 
