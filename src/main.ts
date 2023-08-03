@@ -32,6 +32,15 @@ await Actor.main(async () => {
         await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
     }
 
+    if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
+        console.log('No APIFY_TOKEN provided!');
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
+    }
+    if (!DATASET_NAME && !process.env.DATASET_NAME) {
+        console.log('No DATASET_NAME provided!');
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+    }
+
     if (zip && DOWNLOAD) {
         // DROP EXISTING KVS
         let kvsNames = getLocalFolderNames().map((folderName) => path.basename(folderName))
@@ -44,19 +53,14 @@ await Actor.main(async () => {
         })
     }
     if (DOWNLOAD) {
-        if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
-            console.log('No APIFY_TOKEN provided!');
-            await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
-        }
-        if (!DATASET_NAME && !process.env.DATASET_NAME) {
-            console.log('No DATASET_NAME provided!');
-            await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
-        }
 
         /* a dataset item must be pinterest json, a key value store item must be image buffer */
 
         pin_items = (await getImageset(dataSetToDownload) ?? [])
         pin_items = pin_items.flat()
+
+        log.info(`Total items: ${pin_items.length}`);
+        log.info(`Filtering results...`);
 
         // Filter duplicates
         pin_items = pin_items.filter((item, index, self) =>
@@ -163,6 +167,7 @@ async function writeManyZips() {
         }
 
         await printURLs({ excludedStores: ZIP_ExcludedStores ?? ['SDK', 'INPUT'] });
+        await saveURLsToDataset();
     } else {
         // Locally
         // Get items either from the listed stores or from the default store
@@ -301,4 +306,18 @@ export async function getImageKVSKeys(kvsName: string = dataSetToDownload): Prom
         console.error(`Could not get data from key-value-store ${dataSetToDownload}: ${e}`);
     }
     return result as KeyValueListItemType[]
+}
+async function saveURLsToDataset() {
+    let kvStores = await Actor.openKeyValueStore();
+
+    let kvsURLs = [];
+    log.info(kvsURLs.length > 0 ? `Access your data from this URL:` : `Access your data from these URLs:`);
+
+    await kvStores.forEachKey(async (key: string) => {
+        kvsURLs.push(key);
+    });
+    kvsURLs = filterArrayByPartialMatch(kvsURLs, ZIP_ExcludedStores)
+    for await (const k of kvsURLs) {
+        Actor.pushData({ url: kvStores.getPublicUrl(k) })
+    }
 }
