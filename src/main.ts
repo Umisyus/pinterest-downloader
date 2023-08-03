@@ -5,14 +5,14 @@ import { router } from './routes.js';
 import { PinData } from './Pinterest DataTypes.js';
 import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
-
+import fs from "fs";
 await Actor.init()
 
 export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500,
     check_completed_downloads = false,
 } = await Actor.getInput<any>();
 
-const isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
@@ -184,10 +184,10 @@ async function writeManyZips() {
         else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all key-value stores...");
-            // stores = fs.readdirSync(path.join(process.cwd(), 'storage', 'key_value_stores'))
-            //     .map((item: string) => path.basename(item));
-            stores = (await client.keyValueStores().list()).items
-                .map((item) => item.name ?? item.title ?? item.id);
+            stores = fs.readdirSync(path.join(process.cwd(), 'storage', 'key_value_stores'))
+                .map((item: string) => path.basename(item));
+            // stores = (await client.keyValueStores().list()).items
+            //     .map((item) => item.name ?? item.title ?? item.id);
         }
         stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
 

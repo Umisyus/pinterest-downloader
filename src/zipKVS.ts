@@ -6,7 +6,7 @@ import { Readable } from "stream";
 import archiver from "archiver";
 import fs from "fs";
 import path from "path";
-import Promise from "bluebird";
+import Promise, { is } from "bluebird";
 import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, zip } from "./main.js";
 import * as glob from "glob";
 
@@ -23,24 +23,19 @@ export async function zipKVS(
     FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
+    if (isAtHome) {
+        await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
 
-    if (((APIFY_TOKEN === undefined)
-        || (APIFY_TOKEN === null)
-        || (APIFY_TOKEN === ""))
-        && (zip == true && DOWNLOAD == true)) {
+        // if (((APIFY_TOKEN === undefined)
+        //     || (APIFY_TOKEN === null)
+        //     || (APIFY_TOKEN === ""))
+        //     && (zip == true && DOWNLOAD == true)) {
         // Zip the local *downloaded* files
+
+    } else {
+        // Local machine
         await createZipFileWithLocalFile(KVS_ID);
         return;
-    }
-    // *Download* the files from the remote KVS
-    else {
-        await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
-    }
-
-    // Locally
-    if ((!APIFY_TOKEN || !DATASET_NAME) && (DOWNLOAD || zip)) {
-        // Zip the files downloaded
-        await createZipFileWithLocalFiles();
     }
 }
 
