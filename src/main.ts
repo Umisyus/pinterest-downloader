@@ -14,7 +14,7 @@ export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD 
 
 
 
-const isAtHome = !Actor.isAtHome()
+const isAtHome = Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
@@ -185,8 +185,10 @@ async function writeManyZips() {
         else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all key-value stores...");
-            stores = fs.readdirSync(path.join(process.cwd(), 'storage', 'key_value_stores'))
-                .map((item: string) => path.basename(item));
+            // stores = fs.readdirSync(path.join(process.cwd(), 'storage', 'key_value_stores'))
+            //     .map((item: string) => path.basename(item));
+            stores = (await client.keyValueStores().list()).items
+                .map((item) => item.name ?? item.title ?? item.id);
         }
         stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
 
