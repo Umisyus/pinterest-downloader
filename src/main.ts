@@ -1,13 +1,12 @@
 // For more information, see https://crawlee.dev/
 import { Actor, ApifyClient, Dataset, KeyValueStore, log } from 'apify';
-import { PlaywrightCrawler, keys } from 'crawlee';
+import { PlaywrightCrawler } from 'crawlee';
 import { router } from './routes.js';
-import { Item } from './types.js';
 import { PinData } from './Pinterest DataTypes.js';
 import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
 import fs from 'fs'
-import glob from 'glob';
+import * as glob from 'glob';
 
 await Actor.init()
 
@@ -37,7 +36,7 @@ await Actor.main(async () => {
         console.log(glob.sync(path.join(process.cwd(), 'storage')))
         console.log(glob.sync(path.join(process.cwd(),)))
 
-        Actor.exit()
+        await Actor.exit()
 
         await writeManyZips()
         await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
