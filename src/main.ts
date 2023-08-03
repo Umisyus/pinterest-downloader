@@ -7,13 +7,13 @@ import { PinData } from './Pinterest DataTypes.js';
 import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
 import fs from 'fs'
+import glob from 'glob';
 
 await Actor.init()
 
 export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
 
 
-console.log(getLocalFolderNames(), Actor.exit())
 
 const isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
@@ -31,6 +31,14 @@ const dataSetToDownload = (APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` 
 await Actor.main(async () => {
     // If a key-value store ID is provided, download from it
     if (zip && (DOWNLOAD === false)) {
+
+        console.log(glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', '/*')))
+        console.log(glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores')))
+        console.log(glob.sync(path.join(process.cwd(), 'storage')))
+        console.log(glob.sync(path.join(process.cwd(),)))
+
+        Actor.exit()
+
         await writeManyZips()
         await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
     }
