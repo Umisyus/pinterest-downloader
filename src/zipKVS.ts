@@ -24,7 +24,10 @@ export async function zipKVS(
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
 
-    if ((APIFY_TOKEN != undefined) && (zip == true && DOWNLOAD == true)) {
+    if (((APIFY_TOKEN === undefined)
+        || (APIFY_TOKEN === null)
+        || (APIFY_TOKEN === ""))
+        && (zip == true && DOWNLOAD == true)) {
         // Zip the local *downloaded* files
         await createZipFileWithLocalFile(KVS_ID);
         return;
