@@ -31,13 +31,7 @@ await Actor.main(async () => {
     // If a key-value store ID is provided, download from it
     if (zip && (DOWNLOAD === false)) {
 
-        console.log(glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', '/*')))
-        console.log(glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores')))
-        console.log(glob.sync(path.join(process.cwd(), 'storage')))
-        console.log(glob.sync(path.join(process.cwd(),)))
-
-        await Actor.exit()
-
+        // On Apify platform, there are no key-value stores until the crawler runs
         await writeManyZips()
         await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
     }
@@ -62,6 +56,7 @@ await Actor.main(async () => {
             await kvs.drop();
         })
     }
+
     if (DOWNLOAD) {
 
         /* a dataset item must be pinterest json, a key value store item must be image buffer */
@@ -162,10 +157,11 @@ async function writeManyZips() {
                 log.info("Fetching all local key-value stores...");
                 // problem here
                 storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
-            }
-            log.info("Fetching all remote key-value stores...");
+            } else {
+                log.info("Fetching all remote key-value stores...");
 
-            storeIDsFiltered = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
+                storeIDsFiltered = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
+            }
         }
 
         if (storeIDsFiltered.length > 0) {

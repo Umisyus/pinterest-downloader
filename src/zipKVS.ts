@@ -547,5 +547,9 @@ export async function delay(s: number) {
 }
 
 export function getLocalFolderNames() {
-    return glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', '/*'));
+    try {
+        return glob.sync(path.join(process.cwd(), 'storage', 'key_value_stores', '/*'));
+    } catch (error) {
+        return [];
+    }
 }
