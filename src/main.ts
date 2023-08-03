@@ -12,6 +12,9 @@ await Actor.init()
 
 export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500 } = await Actor.getInput<any>();
 
+
+console.log(getLocalFolderNames(), Actor.exit())
+
 const isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
@@ -150,6 +153,7 @@ async function writeManyZips() {
             // Filter out any stores that are in the excluded list
             if (DOWNLOAD) {
                 log.info("Fetching all local key-value stores...");
+                // problem here
                 storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
             }
             log.info("Fetching all remote key-value stores...");
