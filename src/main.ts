@@ -8,11 +8,13 @@ import path from 'path'
 import fs from "fs";
 await Actor.init()
 
-export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500,
-    check_completed_downloads = false,
-} = await Actor.getInput<any>();
+export let isAtHome = true;
 
-let isAtHome = !Actor.isAtHome()
+export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500,
+    check_completed_downloads = false, atHome = true
+} = await Actor.getInput<any>();
+isAtHome = atHome
+
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
@@ -49,17 +51,8 @@ await Actor.main(async () => {
 
         let pin_items = (await getImageset(dataSetToDownload) ?? [])
 
-        let pin_item_ids = pin_items.map((item) => item.id);
-
         log.info(`Total items: ${pin_items.length}`);
         log.info(`Filtering results...`);
-
-        // // Filter duplicates
-        // pin_items = pin_items.filter((item, index, self) =>
-        //     index === self.findIndex((t) => (
-        //         t.id === item.id
-        //     )))
-
 
         // Filter duplicates
         pin_items = pin_items.filter((item, index, self) =>
@@ -143,7 +136,7 @@ async function writeManyZips() {
         return []
     })).map(s => s.name ?? s.title ?? s.id) ?? [];
 
-    if (isAtHome) {
+    if (atHome) {
         let storeIDsFiltered = [];
 
         // See if there are any store IDs provided and download it
@@ -238,7 +231,7 @@ async function localKVS(store: any[]) {
     for (let index = 0; index < store.length; index++) {
         const element = store[index];
         console.log("Fetching local items...");
-        await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB, isAtHome);
+        await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB, atHome);
     }
 }
 
@@ -252,7 +245,7 @@ async function onlineKVS(stores: any[]) {
         log.info(`Zipping '${remoteKVSID}' key-value store...`);
         // Split zip file into chunks to fit under the 9 MB limit
         console.log("Fetching items...");
-        await zipKVS(remoteKVSID, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB, isAtHome);
+        await zipKVS(remoteKVSID, APIFY_TOKEN, FILES_PER_ZIP, MAX_SIZE_MB, atHome);
     }
 }
 
@@ -274,7 +267,7 @@ export async function getImageset(dataSetName: string = dataSetToDownload): Prom
     console.log(`Getting data for dataset ${dataSetName}`);
     let result: PinData[] = []
     try {
-        if (isAtHome) {
+        if (atHome) {
 
             result = [...await client.dataset(dataSetName).listItems()
                 .then((data) => data?.items ?? [])] as unknown as PinData[];
@@ -299,7 +292,7 @@ export async function getImageKVSKeys(kvsName: string = dataSetToDownload): Prom
     console.log(`Getting data for key-value-store ${kvsName}`);
     let result = []
     try {
-        if (isAtHome)
+        if (atHome)
             result = await client.keyValueStore(kvsName).listKeys()
                 .then(items => items.items as unknown as PinData[] ?? [])
         else {

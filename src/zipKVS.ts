@@ -1,15 +1,15 @@
 
-import { ApifyClient, log, Actor, KeyValueStore } from "apify";
+import { ApifyClient, log, Actor } from "apify";
 import { KeyValueListItem, KeyValueStoreRecord } from "apify-client";
 import { chunk } from "crawlee";
 import { Readable } from "stream";
 import archiver from "archiver";
 import fs from "fs";
 import path from "path";
-import Promise, { is } from "bluebird";
-import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, zip } from "./main.js";
+import Promise from "bluebird";
+import { APIFY_TOKEN, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, ZIP_ExcludedStores, filterArrayByPartialMatch, atHome, isAtHome } from "./main.js";
 import * as glob from "glob";
-
+import { PinterestImageJSON } from "./PinterestImageJSON.js";
 let ZIP_FILE_NAME = "";
 
 export async function zipKVS(
@@ -25,12 +25,6 @@ export async function zipKVS(
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
     if (isAtHome) {
         await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
-
-        // if (((APIFY_TOKEN === undefined)
-        //     || (APIFY_TOKEN === null)
-        //     || (APIFY_TOKEN === ""))
-        //     && (zip == true && DOWNLOAD == true)) {
-        // Zip the local *downloaded* files
 
     } else {
         // Local machine
@@ -52,31 +46,31 @@ async function* loopItemsIterArray(
     KVS_ID: string,
     keys: KeyValueListItem[],
     client?: ApifyClient
-): AsyncGenerator<KeyValueStoreRecord<Buffer>[]> {
-    let items: KeyValueStoreRecord<any>[] = [];
+): AsyncGenerator<PinterestImageJSON[]> {
+    let items: PinterestImageJSON[] = [];
     if (client) {
         let i = 0;
         for await (const it of keys) {
             await delay(0.2);
-            const item = await client.keyValueStore(KVS_ID).getRecord(it.key!);
+            const item = await client.keyValueStore(KVS_ID).getRecord(it.key!) as unknown as KeyValueStoreRecord<PinterestImageJSON>;
             if (item) {
-                if ((<any>item.value)?.value?.data) {
-                    item.value = (<any>item.value).value.data;
+                if ((item.value as any)?.value?.data) {
+                    item.value = (item.value as any).value.data;
                 }
                 ++i;
-                items.push(item);
+                items.push(item.value);
 
                 // log.info(`#${i} of ${keys.length}`);
             }
         }
     }
 
-    if (!client && !Actor.isAtHome()) {
+    if (!client && !isAtHome) {
         for await (const it of keys) {
             const item = await (await Actor.openKeyValueStore(KVS_ID)).getValue(it.key!)
 
             if (item) {
-                items.push({ key: it, value: item as any } as unknown as KeyValueStoreRecord<any>);
+                items.push({ key: it, value: item as any } as unknown as PinterestImageJSON);
             }
         }
     }
@@ -160,7 +154,7 @@ async function* IteratorGetKVSValues(
 
             for await (const i of images) {
 
-                let value = (<any>i.value);
+                let value = (<any> i.value);
                 // Get the size of the current item
                 let size = value.length;
                 // Add the size to the current size
@@ -490,14 +484,14 @@ async function* IteratorGetKVSValuesLocal(KVS_ID: string) {
 }
 
 export function sliceArrayBySize(
-    values: KeyValueStoreRecord<Buffer>[],
+    values: PinterestImageJSON[],
     maxSizeMB: number = 9.5
 ) {
     let totalSizeMB = 0;
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = (<any>value.value)?.data?.length;
+        const valueSizeMB = (value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > maxSizeMB * 1_000_000) {
             slicedArrays.push(slicedValues);
             slicedValues = [];
