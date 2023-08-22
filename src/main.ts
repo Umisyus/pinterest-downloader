@@ -155,7 +155,7 @@ async function writeManyZips() {
         return []
     })).map(s => s.name ?? s.title ?? s.id) ?? [];
 
-    if (isAtHome) {
+    if (DOWNLOAD === false) {
         let storeIDsFiltered = [];
 
         // See if there are any store IDs provided and download it
