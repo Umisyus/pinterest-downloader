@@ -19,7 +19,7 @@ export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD 
     check_completed_downloads = false,
 } = await Actor.getInput<any>();
 
-let isAtHome = !Actor.isAtHome()
+let isAtHome = Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
