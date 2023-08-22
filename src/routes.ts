@@ -24,18 +24,16 @@ router.addDefaultHandler(async ({ log, request, response }) => {
         // EX. URL: *pinterest-pin-id[.png,.jpg,.webp]
         let item = items.find((item: PinData) => item.images?.orig.url === request.url) ?? null;
 
-        let innerFolder = '';
         if (item) {
             const { grid_title, board } = item as PinData;
             let boardName = board?.name ?? randomUUID().slice(0, 5);
             let boardUrl = board?.url ?? "";
-            innerFolder = boardName + '/';
             if (grid_title) {
                 filename = grid_title
                     .trim().slice(0, 69)
                     .replace(/[^a-zA-Z0-9]|\\+\//g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/, '') + '.png'
                 if (filename === undefined || filename === '' || filename === `.${ext}`)
-                    filename = `pin-${item.id ?? randomUUID()}` + `.${ext}`
+                    filename = `pin-${item.id ?? randomUUID()}.${ext}`
             } else {
                 // Source: https://www.bannerbear.com/blog/how-to-download-images-from-a-website-using-puppeteer/#downloading-images-from-a-website
                 const matches = /.(jpg|png|svg|gif)/.exec(response.url());
@@ -43,18 +41,11 @@ router.addDefaultHandler(async ({ log, request, response }) => {
                     ext = matches[1];
                 }
 
-                let pin_url_id = request.url.split('/').filter(Boolean).pop();
-
-                if (pin_url_id === undefined) pin_url_id = item.id;
-                if (pin_url_id !== undefined)
-                    pin_url_id[pin_url_id.length - 1] === '/' ? boardUrl?.split('/').filter(Boolean).pop() : boardUrl.split('/').pop();
-                log.info("pin_url_id: " + pin_url_id);
-
                 let pin_id = item.id
                 log.info("pin_id: " + pin_id);
 
                 if (filename === undefined || filename === '' || filename === `.${ext}`)
-                    filename = pin_id ?? `unknown-${randomUUID()}` + `.${ext}`;
+                    filename = pin_id ?? `unknown-${randomUUID()}.${ext}`;
 
                 if (filename === pin_id)
                     filename = pin_id + `.${ext}`;

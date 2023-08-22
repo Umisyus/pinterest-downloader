@@ -71,6 +71,12 @@
       "type": "integer",
       "description": "How long to wait between downloads in milliseconds? Use 0 to download without delay.",
       "editor": "number"
+    },
+    "CHECK_COMPLETED": {
+      "title": "Whether to check for completed items.",
+      "type": "boolean",
+      "description": "Whether to check for completed (already downloaded) items.",
+      "editor": "checkbox"
     }
   },
   "required": [

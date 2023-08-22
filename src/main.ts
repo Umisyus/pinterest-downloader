@@ -55,7 +55,6 @@ await Actor.main(async () => {
         /* a dataset item must be pinterest json, a key value store item must be image buffer */
 
         let pin_items = (await getImageset(dataSetToDownload) ?? [])
-        let pin_keys = await getImageKVSKeys(dataSetToDownload) ?? []
 
         log.info(`Total items: ${pin_items.length}`);
         log.info(`Filtering results...`);
@@ -110,7 +109,10 @@ await Actor.main(async () => {
                     // Filter out any pins already marked as downloaded
                     let delta = startUrls.filter((url) => !completedItems.includes(url))
                     startUrls = delta
+                    if (delta.length > 0)
+                        log.info(`NEW items to download: ${delta.length}`)
                 }
+
                 log.info(`Total links downloaded: ${completedItems.length}`);
                 log.info(`Total links to download: ${startUrls.length}`);
             }
@@ -130,12 +132,17 @@ await Actor.main(async () => {
             maxRequestsPerMinute: 100,
         });
         if (DOWNLOAD) {
+            if (startUrls.length < 1) {
+                log.info(`No items to download...`);
+                return
+            }
             await crawler.run(startUrls)
         }
     }
     if (zip) {
         await writeManyZips()
     }
+
     await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished downloading all items!' })
         .then(() => process.exit(0));
 });
