@@ -16,10 +16,10 @@ if (!fs.existsSync(path.join(process.cwd(), tempFilePath))) {
 }
 
 export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 5,
-    check_completed_downloads = false,
+    CHECK_COMPLETED = false,
 } = await Actor.getInput<any>();
 
-let isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
@@ -54,7 +54,7 @@ await Actor.main(async () => {
 
         /* a dataset item must be pinterest json, a key value store item must be image buffer */
 
-        let pin_items = (await getImageset(dataSetToDownload) ?? [])
+        pin_items = (await getImageset(dataSetToDownload) ?? [])
 
         log.info(`Total items: ${pin_items.length}`);
         log.info(`Filtering results...`);
@@ -86,7 +86,7 @@ await Actor.main(async () => {
 
         try {
 
-            if (check_completed_downloads) {
+            if (CHECK_COMPLETED) {
                 // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
                 startUrls = pin_items.map((item) => item.images.orig.url);
 
@@ -155,7 +155,7 @@ async function writeManyZips() {
         return []
     })).map(s => s.name ?? s.title ?? s.id) ?? [];
 
-    if (isAtHome) {
+    if (DOWNLOAD === false) {
         let storeIDsFiltered = [];
 
         // See if there are any store IDs provided and download it
@@ -164,7 +164,7 @@ async function writeManyZips() {
         }
         else {
             // Filter out any stores that are in the excluded list
-            if (DOWNLOAD) {
+            if (DOWNLOAD && zip) {
                 log.info("Fetching all local key-value stores...");
                 // problem here
                 storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
