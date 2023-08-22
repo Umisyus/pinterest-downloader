@@ -8,7 +8,14 @@ import path from 'path'
 import fs from "fs";
 await Actor.init()
 
-export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 500,
+// Test if folder exists
+export const tempFilePath = '.cache';
+
+if (!fs.existsSync(path.join(process.cwd(), tempFilePath))) {
+    fs.mkdirSync(path.join(process.cwd(), tempFilePath));
+}
+
+export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 5,
     check_completed_downloads = false,
 } = await Actor.getInput<any>();
 
@@ -48,8 +55,7 @@ await Actor.main(async () => {
         /* a dataset item must be pinterest json, a key value store item must be image buffer */
 
         let pin_items = (await getImageset(dataSetToDownload) ?? [])
-
-        let pin_item_ids = pin_items.map((item) => item.id);
+        let pin_keys = await getImageKVSKeys(dataSetToDownload) ?? []
 
         log.info(`Total items: ${pin_items.length}`);
         log.info(`Filtering results...`);
@@ -59,7 +65,6 @@ await Actor.main(async () => {
         //     index === self.findIndex((t) => (
         //         t.id === item.id
         //     )))
-
 
         // Filter duplicates
         pin_items = pin_items.filter((item, index, self) =>
@@ -290,7 +295,7 @@ export async function getImageset(dataSetName: string = dataSetToDownload): Prom
     return result
 }
 
-interface KeyValueListItemType {
+export interface KeyValueListItemType {
     key: string;
     size: number;
 }

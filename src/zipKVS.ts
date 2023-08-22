@@ -7,7 +7,7 @@ import archiver from "archiver";
 import fs from "fs";
 import path from "path";
 import Promise, { is } from "bluebird";
-import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, zip } from "./main.js";
+import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, FILES_PER_ZIP, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, tempFilePath, zip } from "./main.js";
 import * as glob from "glob";
 
 let ZIP_FILE_NAME = "";
@@ -60,8 +60,8 @@ async function* loopItemsIterArray(
             await delay(0.2);
             const item = await client.keyValueStore(KVS_ID).getRecord(it.key!);
             if (item) {
-                if ((<any>item.value)?.value?.data) {
-                    item.value = (<any>item.value).value.data;
+                if ((<any> item.value)?.value?.data) {
+                    item.value = (<any> item.value).value.data;
                 }
                 ++i;
                 items.push(item);
@@ -123,110 +123,6 @@ async function loopItemsIterAsync(
     return null
 }
 
-
-
-
-/* Returns an array of values split by their size in megabytes. */
-async function* IteratorGetKVSValues(
-    KVS_ID: string,
-    API_TOKEN?: string | undefined,
-    FILES_PER_ZIP: number = 250,
-    MAX_ZIP_SIZE_MB: number = 250
-) {
-
-    let client = new ApifyClient({ token: API_TOKEN });
-    let kvs = (await client.keyValueStores().list()).items
-        .find((k) => k.id === KVS_ID || k.name === KVS_ID || k.title === KVS_ID);
-    let totalCount = 0;
-    let runningCount = 0;
-
-    try {
-        let kvs_id = kvs ? (kvs.id ?? kvs.name ?? kvs.title) : KVS_ID;
-        totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
-        let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id)
-            .listKeys({ limit: FILES_PER_ZIP }));
-
-
-        log.info(`Processing ${kvsItemKeys.length} of ${totalCount} total items.`)
-        // Make code send collection where the size of the collection is the size of MAX_ZIP_SIZE_MB
-        log.info(`Processing items totalling size of ${MAX_ZIP_SIZE_MB} MB`)
-        let items: KeyValueStoreRecord<any>[] = []
-
-        let currentSize = 0;
-
-        do {
-            // Find a way to yield the images instead of waiting for all of them to be processed
-            let images = loopItemsIter(kvs_id, kvsItemKeys, client);
-
-            for await (const i of images) {
-
-                let value = (<any>i.value);
-                // Get the size of the current item
-                let size = value.length;
-                // Add the size to the current size
-                currentSize += size;
-                // Add the item to the items array
-                items.push(i);
-                const isLimitReached = items.length >= FILES_PER_ZIP;
-                // If the current size is greater than the max size, yield the items and reset the items array
-                const isSizeLimitReached = currentSize >= MAX_ZIP_SIZE_MB * 1_000_000;
-
-                console.log({ FILES_PER_ZIP });
-                console.log({
-                    itemCount: items.length,
-                    isLimitReached,
-                    currentSize,
-                    isSizeLimitReached,
-                });
-
-                if (isLimitReached || isSizeLimitReached) {
-                    // Yield the items then reset the items array
-                    yield items;
-                    // Yield the items then reset the items array
-                    runningCount += items.length;
-                    items = [];
-                    currentSize = 0;
-
-                }
-            }
-
-            if (
-                nextExclusiveStartKey != undefined &&
-                nextExclusiveStartKey != null &&
-                nextExclusiveStartKey.length !== 0
-            ) {
-
-
-                // Get the next set of items and update the nextExclusiveStartKey
-                let resp = await client.keyValueStore(kvs_id).listKeys({
-                    exclusiveStartKey: nextExclusiveStartKey,
-                    limit: FILES_PER_ZIP,
-                });
-                nextExclusiveStartKey = resp.nextExclusiveStartKey;
-
-                // Update list of keys
-                kvsItemKeys = resp.items;
-
-                log.info(`Processed ${runningCount} of ${totalCount} items`);
-            } else {
-                // If there are no more items, yield the remaining items
-                if (nextExclusiveStartKey === null && items.length > 0) {
-                    yield items;
-                }
-                // Clear the items
-                items = [];
-                break;
-            }
-        } while (true);
-
-        log.info(`Processed all items`);
-        log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${kvs_id} (${KVS_ID})`);
-    } catch (e) {
-        log.error(e)
-        await Actor.exit(e);
-    }
-
-}
 /* Downloads all files from one or many KVS */
 async function IteratorGetKVSValuesIterx(
     KVS_NAME: string,
@@ -270,7 +166,16 @@ async function IteratorGetKVSValuesIterx(
         log.info(`Processing ${totalCount} of ${kvsItemKeys.length} total items.`)
 
         // Optionally chunk the array of keys
-        let kvsItemKeyChunks = sliceArrayByKeyValueListItemSize(kvsItemKeys, _MAX_ZIP_SIZE_MB);
+
+        let kvsItemKeyChunks = (() => {
+            if (FILES_PER_ZIP) {
+                return chunk(kvsItemKeys, FILES_PER_ZIP)
+            }
+            else {
+                return sliceArrayByKeyValueListItemSize(kvsItemKeys, _MAX_ZIP_SIZE_MB)
+            }
+        })();
+
         // await createZipFile(kvsItemKeys, kvs_id, KVS_NAME);
         for (let index = 0; index < kvsItemKeyChunks.length; index++) {
             const chunk = kvsItemKeyChunks[index];
@@ -294,13 +199,13 @@ async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string, fi
     kvsItemKeys = kvsItemKeys.filter(Boolean)
 
     ZIP_FILE_NAME = `${fileName ?? KVS_ID}`;
-    let zipFilePath = path.join(path.resolve('.'), ZIP_FILE_NAME);
+    let zipFilePath = path.join(path.resolve('.'), tempFilePath, ZIP_FILE_NAME);
     let output = fs.createWriteStream(zipFilePath);
     let zip = archiver.create("zip", { zlib: { level: 0 } });
     // Pipe archive data to the zip file
     zip.pipe(output);
     let downloadKey = (key: KeyValueListItem) => new Promise(async (res) => {
-        await delay(DOWNLOAD_DELAY ?? 500)
+        await delay(DOWNLOAD_DELAY ?? 5)
             .then(async () => {
                 console.log(`delayed for ${(DOWNLOAD_DELAY ?? 2)} second(s)`);
             })
@@ -497,7 +402,7 @@ export function sliceArrayBySize(
     const slicedArrays = [];
     let slicedValues = [];
     for (const value of values) {
-        const valueSizeMB = (<any>value.value)?.data?.length;
+        const valueSizeMB = (<any> value.value)?.data?.length;
         if (totalSizeMB + valueSizeMB > maxSizeMB * 1_000_000) {
             slicedArrays.push(slicedValues);
             slicedValues = [];
