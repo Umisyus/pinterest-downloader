@@ -29,15 +29,13 @@ export async function zipKVS(
     else {
         await Actor.openKeyValueStore(KVS_ID)
             .then(async kvs => {
-                const zip = archiver.create("zip", { zlib: { level: 0 } });
-                let keys: string[] = [];
-
+                const keys: string[] = [];
+                // Collect keys from the KVS
                 await kvs.forEachKey(async (key) => {
                     keys.push(key)
-                })
+                });
+                // Zip the KVS
                 await createZipFileWithLocalData(keys, KVS_ID, KVS_ID)
-                // addToZip({ key: "test", value: "test" }, zip)
-
             })
     }
 }

@@ -137,7 +137,7 @@ await Actor.main(async () => {
                 log.info(`No items to download...`);
                 return
             }
-            await crawler.run(startUrls.slice(0, 5))
+            await crawler.run(startUrls)
         }
     }
     if (zip) {
