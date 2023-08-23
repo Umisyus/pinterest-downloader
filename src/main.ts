@@ -7,6 +7,7 @@ import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
 import fs from "fs";
 await Actor.init()
+export const storesToZip = []
 
 // Test if folder exists
 export const tempFilePath = '.cache';
@@ -19,7 +20,7 @@ export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD 
     CHECK_COMPLETED = false,
 } = await Actor.getInput<any>();
 
-let isAtHome = !Actor.isAtHome()
+let isAtHome = Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
@@ -101,9 +102,9 @@ await Actor.main(async () => {
                         completedItems.push(value)
                     })
 
-                await (await Dataset.open(completedDownloads)).forEach((p: { id: string, url: string }) => {
-                    startUrls = startUrls.filter((url) => url !== p.url)
-                });
+                // await (await Dataset.open(completedDownloads)).forEach((p: { id: string, url: string }) => {
+                //     startUrls = startUrls.filter((url) => url !== p.url)
+                // });
 
                 if (completedItems.length > 0) {
                     // Filter out any pins already marked as downloaded
@@ -188,7 +189,7 @@ async function writeManyZips() {
         await saveURLsToDataset();
     } else {
         // Locally
-        // Get items either from the listed stores or from the default store
+        // Get items from the created stores
 
         if (ZIP_IncludedStores.length > 0) {
             stores.push(...ZIP_IncludedStores);
@@ -200,6 +201,7 @@ async function writeManyZips() {
             // stores = (await client.keyValueStores().list()).items
             //     .map((item) => item.name ?? item.title ?? item.id);
         }
+        stores = storesToZip
         stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
 
         await localKVS(stores);

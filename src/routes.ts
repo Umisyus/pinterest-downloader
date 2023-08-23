@@ -1,7 +1,7 @@
 import { Dataset, KeyValueStore } from 'apify';
 import { createPlaywrightRouter } from 'crawlee';
 import { randomUUID } from 'crypto'
-import { getImageset, imageDownloadStatusKeyValueStore, pin_items } from './main.js';
+import { getImageset, imageDownloadStatusKeyValueStore, pin_items, storesToZip } from './main.js';
 import { PinData } from './Pinterest DataTypes.js';
 
 export const router = createPlaywrightRouter();
@@ -62,6 +62,8 @@ router.addDefaultHandler(async ({ log, request, response }) => {
             boardURLName = formatBoardName(boardURLName ?? randomUUID().slice(0, 5));
             // Save image to store in it's board folder
             let boardImageStore = await KeyValueStore.open(boardURLName as string);
+            storesToZip.push(boardURLName);
+
             // Save image to store as it's specific type (png, jpg, gif, etc.)
             await boardImageStore.setValue(`${filename}.${ext ?? 'jpg'}`, body, { contentType: `image/${ext ?? 'jpg'}` });
             log.info("Saved image: " + filename + " to " + `${boardName}/${filename}`);

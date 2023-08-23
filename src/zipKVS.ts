@@ -25,17 +25,6 @@ export async function zipKVS(
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
     if (isAtHome) {
         await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
-
-        // if (((APIFY_TOKEN === undefined)
-        //     || (APIFY_TOKEN === null)
-        //     || (APIFY_TOKEN === ""))
-        //     && (zip == true && DOWNLOAD == true)) {
-        // Zip the local *downloaded* files
-
-    } else {
-        // Local machine
-        await createZipFileWithLocalFile(KVS_ID);
-        return;
     }
 }
 
@@ -128,16 +117,15 @@ async function IteratorGetKVSValuesIterx(
     KVS_NAME: string,
     _MAX_ZIP_SIZE_MB: number = 500,
 ) {
-
-    let client = new ApifyClient({ token: APIFY_TOKEN });
-    let kvs0 = (await client.keyValueStores().list()).items;
-    let kvs = kvs0.find((k) => k.id === KVS_NAME || k.name === KVS_NAME || k.title === KVS_NAME);
-    let totalCount = 0;
-    let runningCount = 0;
-
     try {
-        let kvs_id = kvs.id;
+        let client = new ApifyClient({ token: APIFY_TOKEN });
+        let kvs0 = (await client.keyValueStores().list()).items;
+        let kvs = kvs0.find((k) => k.id === KVS_NAME || k.name === KVS_NAME || k.title === KVS_NAME);
+        let totalCount = 0;
+        let runningCount = 0;
+        let kvs_id = kvs?.id;
         totalCount = (await client.keyValueStore(kvs_id).listKeys()).count;
+
         let { nextExclusiveStartKey, items: kvsItemKeys } = (await client.keyValueStore(kvs_id).listKeys());
         while (nextExclusiveStartKey) {
             if (
@@ -186,7 +174,6 @@ async function IteratorGetKVSValuesIterx(
         log.info(`Processed a total of ${runningCount} out of ${totalCount} items in ${KVS_NAME} (${kvs_id})`);
     } catch (e) {
         log.error(e)
-        await Actor.exit(e);
     }
 
 }
