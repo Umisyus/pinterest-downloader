@@ -7,7 +7,7 @@ import archiver from "archiver";
 import fs from "fs";
 import path from "path";
 import Promise, { is } from "bluebird";
-import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, FILES_PER_ZIP, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, tempFilePath, zip } from "./main.js";
+import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, FILES_PER_ZIP, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, tempFilePath } from "./main.js";
 import * as glob from "glob";
 
 let ZIP_FILE_NAME = "";
@@ -23,8 +23,22 @@ export async function zipKVS(
     FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
-    if (isAtHome) {
+    if (!DOWNLOAD) {
         await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
+    }
+    else {
+        await Actor.openKeyValueStore(KVS_ID)
+            .then(async kvs => {
+                const zip = archiver.create("zip", { zlib: { level: 0 } });
+                let keys: string[] = [];
+
+                await kvs.forEachKey(async (key) => {
+                    keys.push(key)
+                })
+                await createZipFileWithLocalData(keys, KVS_ID, KVS_ID)
+                // addToZip({ key: "test", value: "test" }, zip)
+
+            })
     }
 }
 
@@ -222,6 +236,53 @@ async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string, fi
 
     });
 }
+async function createZipFileWithLocalData(kvsItemKeys: string[], KVS_ID: string, fileName?: string | undefined) {
+    const arr_len = kvsItemKeys.length
+
+    log.info("Generating zip file...");
+    kvsItemKeys = kvsItemKeys.filter(Boolean)
+    const kvs = await Actor.openKeyValueStore(KVS_ID);
+    ZIP_FILE_NAME = fileName ?? KVS_ID;
+    const zipFilePath = path.join(path.resolve('.'), tempFilePath, ZIP_FILE_NAME);
+    const output = fs.createWriteStream(zipFilePath);
+    const zip = archiver.create("zip", { zlib: { level: 0 } });
+    // Pipe archive data to the zip file
+    zip.pipe(output);
+    const downloadKey = (key: string) => new Promise(async (res, reject) => {
+        // Get value
+        const record = {
+            value: await kvs.getValue(key) as Buffer | Uint8Array,
+            key
+        }
+
+        if (record.value) {
+            addToZip(record, zip);
+            res();
+        }
+        reject('Failed to add item to zip file');
+    })
+
+    // Loop through the async items and add them to the zip file
+
+    await Promise.map(kvsItemKeys, async (key, index) => {
+        await downloadKey(key)
+        log.info(`#${arr_len - index + 1} of ${arr_len}`);
+    }, { concurrency: DOWNLOAD_CONCURRENCY ?? 3 })
+
+    log.info(`Saved all items to zip file ${ZIP_FILE_NAME}`);
+    log.info(`Saving zip file ${ZIP_FILE_NAME} to Apify...`);
+    await zip.finalize().then(async () => {
+        // output.close();
+        const zipFileStream = fs.createReadStream(zipFilePath);
+        await Actor.setValue(ZIP_FILE_NAME, zipFileStream, { contentType: "application/zip" })
+            .then(() => {
+                output.close();
+                zipFileStream.close();
+                log.info(`Saved ${ZIP_FILE_NAME} to Apify.`);
+            });
+
+    });
+}
 
 async function createZipFileWithLocalFiles() {
     let i = 1;
@@ -302,7 +363,6 @@ function addToZip(record: KeyValueStoreRecord<any>, zip: archiver.Archiver) {
     let kvs_record: Buffer = record?.value ?? null;
 
     if (record.key && kvs_record) {
-        // on apify
         log.info(`Writing ${record.key} to zip file...`);
         try {
             zip.append(bufferToStream(Buffer.from(kvs_record) as Buffer), { name: record.key });

@@ -20,7 +20,7 @@ export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD 
     CHECK_COMPLETED = false,
 } = await Actor.getInput<any>();
 
-let isAtHome = Actor.isAtHome()
+let isAtHome = !Actor.isAtHome()
 FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
 const completedDownloads = 'completed-downloads';
@@ -137,7 +137,7 @@ await Actor.main(async () => {
                 log.info(`No items to download...`);
                 return
             }
-            await crawler.run(startUrls)
+            await crawler.run(startUrls.slice(0, 5))
         }
     }
     if (zip) {
@@ -196,17 +196,17 @@ async function writeManyZips() {
         } else {
             log.info("No KVS ID was provided...");
             log.info("Fetching all key-value stores...");
-            stores = fs.readdirSync(path.join(process.cwd(), 'storage', 'key_value_stores'))
-                .map((item: string) => path.basename(item));
-            // stores = (await client.keyValueStores().list()).items
-            //     .map((item) => item.name ?? item.title ?? item.id);
+
+            stores = storesToZip
+            stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
+            // Filter duplicates
+            stores = stores.filter((item, index, self) =>
+                index === self.findIndex((t) => (t === item)))
+
+            await localKVS(stores);
+
+            printDirs(stores)
         }
-        stores = storesToZip
-        stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
-
-        await localKVS(stores);
-
-        printDirs(stores)
     }
 
 }
