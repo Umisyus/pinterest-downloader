@@ -22,14 +22,6 @@
       "title": "ZIP_IncludedStores",
       "type": "array",
       "description": "Any key-value store names to include in the zipping process. If empty, all stores will be included.",
-      "default": [
-        "INPUT",
-        "default"
-      ],
-      "prefill": [
-        "INPUT",
-        "default"
-      ],
       "editor": "stringList"
     },
     "ZIP_ExcludedStores": {
@@ -37,7 +29,14 @@
       "type": "array",
       "description": "Any key-value store names to exlude from the zipping process. If empty, no stores will be excluded.",
       "editor": "stringList",
-      "prefill": "INPUT\ndefault"
+      "default": [
+        "INPUT",
+        "default"
+      ],
+      "prefill": [
+        "INPUT",
+        "default"
+      ]
     },
     "FILES_PER_ZIP": {
       "title": "FILES_PER_ZIP",
