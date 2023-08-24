@@ -1,6 +1,6 @@
 {
-  "title": "Actor input schema",
-  "description": "This is the actor input schema",
+  "title": "KVS Zip Input Definition",
+  "description": "This is the KVS zip Input",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
@@ -18,23 +18,19 @@
       "isSecret": false,
       "editor": "textfield"
     },
-    "DATASET_NAME": {
-      "title": "DATASET_NAME",
-      "type": "string",
-      "description": "Name of the dataset to be downloaded.",
-      "editor": "textfield"
-    },
     "ZIP_IncludedStores": {
       "title": "ZIP_IncludedStores",
       "type": "array",
       "description": "Any key-value store names to include in the zipping process. If empty, all stores will be included.",
+      "default": "INPUT\ndefault",
       "editor": "stringList"
     },
     "ZIP_ExcludedStores": {
       "title": "ZIP_ExcludedStores",
       "type": "array",
       "description": "Any key-value store names to exlude from the zipping process. If empty, no stores will be excluded.",
-      "editor": "stringList"
+      "editor": "stringList",
+      "prefill": "INPUT\ndefault"
     },
     "FILES_PER_ZIP": {
       "title": "FILES_PER_ZIP",
@@ -48,18 +44,6 @@
       "description": "Size in Megabytes of each ZIP file",
       "editor": "number"
     },
-    "zip": {
-      "title": "zip",
-      "type": "boolean",
-      "description": "Whether to zip the dataset or not",
-      "editor": "checkbox"
-    },
-    "DOWNLOAD": {
-      "title": "Should download?",
-      "type": "boolean",
-      "description": "Whether to download the data of dataset or not",
-      "editor": "checkbox"
-    },
     "DOWNLOAD_CONCURRENCY": {
       "title": "How many concurrent downloads?",
       "type": "integer",
@@ -71,12 +55,6 @@
       "type": "integer",
       "description": "How long to wait between downloads in milliseconds? Use 0 to download without delay.",
       "editor": "number"
-    },
-    "CHECK_COMPLETED": {
-      "title": "Whether to check for completed items.",
-      "type": "boolean",
-      "description": "Whether to check for completed (already downloaded) items.",
-      "editor": "checkbox"
     }
   },
   "required": [

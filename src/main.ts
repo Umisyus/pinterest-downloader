@@ -20,12 +20,11 @@ type Input = {
     MAX_SIZE_MB: number;
     ZIP_ExcludedStores: string[];
     ZIP_IncludedStores: string[];
-    zip: boolean;
     DOWNLOAD_CONCURRENCY: number;
     DOWNLOAD_DELAY: number;
 };
 
-export const { APIFY_TOKEN = "", FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 5 }
+export const { APIFY_TOKEN = "", FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 5 }
     = await Actor.getInput<Input>() satisfies Input;
 
 const isAtHome = !Actor.isAtHome()
@@ -45,13 +44,8 @@ await Actor.main(async () => {
     }
 
     // If a key-value store ID is provided, download from it
-    if (zip) {
-        await writeManyZips()
-        await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
-    }
-
-    await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished downloading all items!' })
-        .then(() => process.exit(0));
+    await writeManyZips().then(async () =>
+        await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' }));
 });
 
 /* Zip downloaded files in a store (local or remote) */
@@ -79,7 +73,7 @@ async function writeManyZips() {
         await onlineKVS(storeIDsFiltered);
     }
 
-    ZIP_ExcludedStores.concat(['SDK', 'INPUT'])
+    ZIP_ExcludedStores.concat('SDK', 'INPUT')
 
     await printURLs({ excludedStores: ZIP_ExcludedStores });
     await saveURLsToDataset();
