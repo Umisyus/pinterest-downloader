@@ -22,7 +22,10 @@
       "title": "ZIP_IncludedStores",
       "type": "array",
       "description": "Any key-value store names to include in the zipping process. If empty, all stores will be included.",
-      "default": "INPUT\ndefault",
+      "default": [
+        "INPUT",
+        "default"
+      ],
       "editor": "stringList"
     },
     "ZIP_ExcludedStores": {
