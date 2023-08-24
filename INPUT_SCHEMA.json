@@ -26,6 +26,10 @@
         "INPUT",
         "default"
       ],
+      "prefill": [
+        "INPUT",
+        "default"
+      ],
       "editor": "stringList"
     },
     "ZIP_ExcludedStores": {
