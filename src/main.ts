@@ -1,8 +1,6 @@
 // For more information, see https://crawlee.dev/
 import { Actor, ApifyClient, Dataset, KeyValueStore, log } from 'apify';
 import { PlaywrightCrawler } from 'crawlee';
-import { router } from './routes.js';
-import { PinData } from './Pinterest DataTypes.js';
 import { getLocalFolderNames, zipKVS } from './zipKVS.js';
 import path from 'path'
 import fs from "fs";
@@ -16,132 +14,40 @@ if (!fs.existsSync(path.join(process.cwd(), tempFilePath))) {
     fs.mkdirSync(path.join(process.cwd(), tempFilePath));
 }
 
-export let { APIFY_TOKEN = "", APIFY_USERNAME = "", DATASET_NAME = "", DOWNLOAD = false, FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, MAX_FILE_DOWNLOAD, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 5,
-    CHECK_COMPLETED = false,
-} = await Actor.getInput<any>();
+type Input = {
+    APIFY_TOKEN: string;
+    FILES_PER_ZIP: number;
+    MAX_SIZE_MB: number;
+    ZIP_ExcludedStores: string[];
+    ZIP_IncludedStores: string[];
+    zip: boolean;
+    DOWNLOAD_CONCURRENCY: number;
+    DOWNLOAD_DELAY: number;
+};
 
-let isAtHome = !Actor.isAtHome()
-FILES_PER_ZIP = (0 + FILES_PER_ZIP)
+export const { APIFY_TOKEN = "", FILES_PER_ZIP = 500, MAX_SIZE_MB = 500, ZIP_ExcludedStores = [], ZIP_IncludedStores = [], zip = false, DOWNLOAD_CONCURRENCY = 2, DOWNLOAD_DELAY = 5 }
+    = await Actor.getInput<Input>() satisfies Input;
 
-const completedDownloads = 'completed-downloads';
-export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
-
-export let pin_items: PinData[] = []
+const isAtHome = !Actor.isAtHome()
 
 const token = (APIFY_TOKEN ?? process.env.APIFY_TOKEN) as string;
 
 const client = new ApifyClient({ token });
-const dataSetToDownload = (APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME}` : DATASET_NAME) as string;
 
 await Actor.main(async () => {
-    // If a key-value store ID is provided, download from it
-    if (zip && (DOWNLOAD === false)) {
-
-        // On Apify platform, there are no key-value stores until the crawler runs
-        await writeManyZips()
-        await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
-    }
 
     if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
         console.log('No APIFY_TOKEN provided!');
         await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
     }
-    if (!DATASET_NAME && !process.env.DATASET_NAME) {
-        console.log('No DATASET_NAME provided!');
-        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+    if (ZIP_IncludedStores.length < 1) {
+        Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No stores to zip were provided!' });
     }
 
-    if (DOWNLOAD) {
-
-        /* a dataset item must be pinterest json, a key value store item must be image buffer */
-
-        pin_items = (await getImageset(dataSetToDownload) ?? [])
-
-        log.info(`Total items: ${pin_items.length}`);
-        log.info(`Filtering results...`);
-
-        // // Filter duplicates
-        // pin_items = pin_items.filter((item, index, self) =>
-        //     index === self.findIndex((t) => (
-        //         t.id === item.id
-        //     )))
-
-        // Filter duplicates
-        pin_items = pin_items.filter((item, index, self) =>
-            index === self.findIndex((t) => (t.id === item.id)))
-
-        if (pin_items.length === 0) {
-            console.error(`No data... Could not get data from ${dataSetToDownload}!
-        Try using your APIFY_TOKEN and DATASET_NAME and APIFY_USERNAME as input or set them as environment variables.
-        If the key-value store has a name, try to use the ID of the key-value store instead of it's name as input.
-        `);
-
-            if (zip) {
-                console.log(`Proceeding to download and zip from all other key-value stores...`);
-            }
-
-        }
-
-        let completedItems: string[] = []
-        let startUrls: string[] = []
-
-        try {
-
-            if (CHECK_COMPLETED) {
-                // startUrls = pin_items.slice(0, MAX_FILE_DOWNLOAD)
-                startUrls = pin_items.map((item) => item.images.orig.url);
-
-                // Filter out any pins already marked as downloaded
-                /* NOTE: after downloading all items the completed downloads may be reset */
-                await imageDownloadStatusKeyValueStore
-                    .forEachKey(async (key) => {
-                        let value = await imageDownloadStatusKeyValueStore.getValue(key) as string
-
-                        // If NOT downloaded, add to the list of urls to download
-
-                        completedItems.push(value)
-                    })
-
-                // await (await Dataset.open(completedDownloads)).forEach((p: { id: string, url: string }) => {
-                //     startUrls = startUrls.filter((url) => url !== p.url)
-                // });
-
-                if (completedItems.length > 0) {
-                    // Filter out any pins already marked as downloaded
-                    let delta = startUrls.filter((url) => !completedItems.includes(url))
-                    startUrls = delta
-                    if (delta.length > 0)
-                        log.info(`NEW items to download: ${delta.length}`)
-                }
-
-                log.info(`Total links downloaded: ${completedItems.length}`);
-                log.info(`Total links to download: ${startUrls.length}`);
-            }
-            else {
-                startUrls = pin_items.map((item) => item.images.orig.url);
-            }
-
-        } catch (e: any) {
-            console.error(`Failed to read links: ${e}`)
-        }
-
-        const crawler = new PlaywrightCrawler({
-            requestHandler: router,
-            maxConcurrency: 10,
-            minConcurrency: 2,
-            maxRequestRetries: 3,
-            maxRequestsPerMinute: 100,
-        });
-        if (DOWNLOAD) {
-            if (startUrls.length < 1) {
-                log.info(`No items to download...`);
-                return
-            }
-            await crawler.run(startUrls)
-        }
-    }
+    // If a key-value store ID is provided, download from it
     if (zip) {
         await writeManyZips()
+        await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished zipping all key-value stores!' });
     }
 
     await Actor.exit({ exit: true, exitCode: 0, statusMessage: 'Finished downloading all items!' })
@@ -150,69 +56,33 @@ await Actor.main(async () => {
 
 /* Zip downloaded files in a store (local or remote) */
 async function writeManyZips() {
-    let stores: string[] = [];
-    let remoteStoresNamesOrIDs: string[] = (await getKeyValueStoreList(client).catch(e => {
+
+    const remoteStoresNamesOrIDs: string[] = (await getKeyValueStoreList(client).catch(e => {
         console.error(e);
         return []
-    })).map(s => s.name ?? s.title ?? s.id) ?? [];
+    })).map((s) => s.name ?? s.title ?? s.id) ?? [];
 
-    if (DOWNLOAD === false) {
-        let storeIDsFiltered = [];
+    let storeIDsFiltered = [];
 
-        // See if there are any store IDs provided and download it
-        if (ZIP_IncludedStores.length > 0) {
-            storeIDsFiltered = ZIP_IncludedStores;
-        }
-        else {
-            // Filter out any stores that are in the excluded list
-            if (DOWNLOAD && zip) {
-                log.info("Fetching all local key-value stores...");
-                // problem here
-                storeIDsFiltered = filterArrayByPartialMatch(getLocalFolderNames().map(s => path.basename(s)), ZIP_ExcludedStores);
-            } else {
-                log.info("Fetching all remote key-value stores...");
-
-                storeIDsFiltered = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
-            }
-        }
-
-        if (storeIDsFiltered.length > 0) {
-            await onlineKVS(storeIDsFiltered);
-        } else {
-            log.info("No KVS ID was provided...");
-            log.info("Fetching all remote key-value stores...");
-            remoteStoresNamesOrIDs = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
-            await onlineKVS(remoteStoresNamesOrIDs);
-        }
-
-        await printURLs({ excludedStores: ZIP_ExcludedStores ?? ['SDK', 'INPUT'] });
-        await saveURLsToDataset();
+    // See if there are any store IDs provided and download it
+    if (ZIP_IncludedStores.length > 0) {
+        storeIDsFiltered = ZIP_IncludedStores;
     } else {
-        // Locally
-        // Get items from the created stores
+        // Filter out any stores that are in the excluded list
 
-        if (ZIP_IncludedStores.length > 0) {
-            stores.push(...ZIP_IncludedStores);
-        } else {
-            log.info("No KVS ID was provided...");
-            log.info("Fetching all key-value stores...");
+        log.info("Fetching all remote key-value stores...");
 
-            stores = storesToZip
-            stores = filterArrayByPartialMatch(stores, ZIP_ExcludedStores);
-            // Filter duplicates
-            stores = stores.filter((item, index, self) =>
-                index === self.findIndex((t) => (t === item)))
-
-            await localKVS(stores);
-
-            printDirs(stores)
-        }
+        storeIDsFiltered = filterArrayByPartialMatch(remoteStoresNamesOrIDs, ZIP_ExcludedStores);
     }
 
-}
+    if (storeIDsFiltered.length > 0) {
+        await onlineKVS(storeIDsFiltered);
+    }
 
-function printDirs(stores: string[]) {
-    return stores.map((s: string) => `Access your data of ${s} from this directory: ${path.join(process.cwd(), 'storage', 'key_value_stores', s)}`)
+    ZIP_ExcludedStores.concat(['SDK', 'INPUT'])
+
+    await printURLs({ excludedStores: ZIP_ExcludedStores });
+    await saveURLsToDataset();
 }
 
 export async function getKeyValueStores() {
@@ -240,19 +110,6 @@ async function printURLs({ excludedStores = [] }: { excludedStores?: string[] } 
 
     console.log('Download your data from:');
     kvsURLs.map((key: string, ind) => console.log(`#${++ind} ⫸ ${key}: ${(kvStores).getPublicUrl(key)}`));
-}
-
-async function localKVS(store: any[]) {
-
-    log.info(`Zipping ${store.length} key-value stores...`);
-
-    printNumberedList(store);
-
-    for (let index = 0; index < store.length; index++) {
-        const element = store[index];
-        console.log("Fetching local items...");
-        await zipKVS(element, undefined, FILES_PER_ZIP, MAX_SIZE_MB, isAtHome);
-    }
 }
 
 async function onlineKVS(stores: any[]) {
@@ -283,38 +140,18 @@ async function getKeyValueStoreList(client: ApifyClient) {
     return filteredActorKVSItem;
 }
 
-export async function getImageset(dataSetName: string = dataSetToDownload): Promise<PinData[]> {
-    console.log(`Getting data for dataset ${dataSetName}`);
-    let result: PinData[] = []
-    try {
-        if (isAtHome) {
-
-            result = [...await client.dataset(dataSetName).listItems()
-                .then((data) => data?.items ?? [])] as unknown as PinData[];
-
-        } else {
-            result = [...(await (await Actor.openDataset(dataSetName)).getData()).items] as PinData[];
-        }
-    } catch (e: any) {
-        console.error(`Could not get data from dataset ${dataSetName}: ${e}`);
-
-        return result;
-    }
-    return result
-}
-
 export interface KeyValueListItemType {
     key: string;
     size: number;
 }
 
-export async function getImageKVSKeys(kvsName: string = dataSetToDownload): Promise<KeyValueListItemType[]> {
+export async function getImageKVSKeys(kvsName: string): Promise<KeyValueListItemType[]> {
     console.log(`Getting data for key-value-store ${kvsName}`);
     let result = []
     try {
         if (isAtHome)
             result = await client.keyValueStore(kvsName).listKeys()
-                .then(items => items.items as unknown as PinData[] ?? [])
+                .then(items => items.items ?? [])
         else {
             let keys = []
             let kvs = (await Actor.openKeyValueStore(kvsName))
@@ -324,21 +161,22 @@ export async function getImageKVSKeys(kvsName: string = dataSetToDownload): Prom
             result = [...keys]
         }
     } catch (e: any) {
-        console.error(`Could not get data from key-value-store ${dataSetToDownload}: ${e}`);
+        console.error(`Could not get data from key-value-store ${kvsName}: ${e}`);
     }
     return result as KeyValueListItemType[]
 }
 async function saveURLsToDataset() {
-    let kvStores = await Actor.openKeyValueStore();
+    const defaultStore = await Actor.openKeyValueStore();
 
-    let kvsURLs = [];
-    log.info(kvsURLs.length > 0 ? `Access your data from this URL:` : `Access your data from these URLs:`);
+    let zippedKVSItems = [];
+    // log.info(zippedKVSItems.length > 0 ? `Access your data from this URL:` : `Access your data from these URLs:`);
 
-    await kvStores.forEachKey(async (key: string) => {
-        kvsURLs.push(key);
+    await defaultStore.forEachKey(async (key: string) => {
+        zippedKVSItems.push(key);
     });
-    kvsURLs = filterArrayByPartialMatch(kvsURLs, ZIP_ExcludedStores)
-    for await (const k of kvsURLs) {
-        Actor.pushData({ url: kvStores.getPublicUrl(k) })
+
+    zippedKVSItems = filterArrayByPartialMatch(zippedKVSItems, ZIP_ExcludedStores)
+    for await (const zippedItem of zippedKVSItems) {
+        Actor.pushData({ url: defaultStore.getPublicUrl(zippedItem) })
     }
 }

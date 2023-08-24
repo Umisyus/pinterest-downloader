@@ -7,7 +7,7 @@ import archiver from "archiver";
 import fs from "fs";
 import path from "path";
 import Promise, { is } from "bluebird";
-import { APIFY_TOKEN, DATASET_NAME, DOWNLOAD, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, FILES_PER_ZIP, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, tempFilePath } from "./main.js";
+import { APIFY_TOKEN, DOWNLOAD_CONCURRENCY, DOWNLOAD_DELAY, FILES_PER_ZIP, ZIP_ExcludedStores, ZIP_IncludedStores, filterArrayByPartialMatch, getKeyValueStores, tempFilePath } from "./main.js";
 import * as glob from "glob";
 
 let ZIP_FILE_NAME = "";
@@ -23,22 +23,9 @@ export async function zipKVS(
     FILES_PER_ZIP = (0 + FILES_PER_ZIP)
 
     log.info(`${isAtHome ? "On Apify" : "On local machine"}`);
-    if (!DOWNLOAD) {
-        await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
-    }
-    else {
-        await Actor.openKeyValueStore(KVS_ID)
-            .then(async kvs => {
-                const keys: string[] = [];
-                // Collect keys from the KVS
-                await kvs.forEachKey(async (key) => {
-                    keys.push(key)
-                });
-                // Zip the KVS
-                await createZipFileWithLocalData(keys, KVS_ID, KVS_ID)
-            })
-    }
+    await IteratorGetKVSValuesIterx(KVS_ID, _MAX_ZIP_SIZE_MB)
 }
+
 
 export function bufferToStream(data: Buffer | Uint8Array) {
     let readableStream = new Readable({ autoDestroy: true });
@@ -204,7 +191,7 @@ async function createZipFile(kvsItemKeys: KeyValueListItem[], KVS_ID: string, fi
     // Pipe archive data to the zip file
     zip.pipe(output);
     let downloadKey = (key: KeyValueListItem) => new Promise(async (res) => {
-        await delay(DOWNLOAD_DELAY ?? 5)
+        await delay(DOWNLOAD_DELAY ?? 2)
             .then(async () => {
                 console.log(`delayed for ${(DOWNLOAD_DELAY ?? 2)} second(s)`);
             })
