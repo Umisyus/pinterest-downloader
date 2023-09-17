@@ -19,13 +19,13 @@
       "editor": "textfield"
     },
     "ZIP_IncludedStores": {
-      "title": "Key Value Store IDs or names",
+      "title": "Key Value Store IDs or names to zip:",
       "type": "array",
       "description": "Any key-value store names to include in the zipping process. If empty, all stores will be included.",
       "editor": "stringList"
     },
     "ZIP_ExcludedStores": {
-      "title": "Key-Value Store name of IDs to exclude",
+      "title": "Key-Value Store name of IDs to not zip:",
       "type": "array",
       "description": "Any key-value store names to exlude from the zipping process. If empty, no stores will be excluded.",
       "editor": "stringList",
