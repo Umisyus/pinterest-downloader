@@ -41,7 +41,7 @@
     "FILES_PER_ZIP": {
       "title": "FILES_PER_ZIP",
       "type": "integer",
-      "description": "Number of items in each ZIP file",
+      "description": "Number of items in each ZIP file. Leave empty to add all items in a key-value store to the current zip file.",
       "editor": "number"
     },
     "MAX_SIZE_MB": {
