@@ -4,9 +4,11 @@
     "type": "module",
     "description": "This is an example of a Crawlee project.",
     "dependencies": {
-        "crawlee": "^3.0.0",
-        "playwright": "*",
-        "apify": "*"
+        "@types/cheerio": "^0.22.35",
+        "apify": "*",
+        "cheerio": "^1.1.2",
+        "crawlee": "^3.15.0",
+        "playwright": "*"
     },
     "devDependencies": {
         "@apify/tsconfig": "^0.1.0",

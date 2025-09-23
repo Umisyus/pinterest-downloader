@@ -1,9 +1,8 @@
 import { KeyValueStore } from 'apify';
 import { createPlaywrightRouter } from 'crawlee';
 import { randomUUID } from 'crypto'
-import { imageDownloadStatusKeyValueStore, getImageset, pin_items } from './main.js';
-import { PinData } from './Pinterest DataTypes.js';
-
+import { imageDownloadStatusKeyValueStore, getImageSet, pin_items } from './main.js';
+import { PinData } from './pin-data.js';
 export const router = createPlaywrightRouter();
 
 // let report = (await Dataset.open('completed-downloads'))
@@ -15,7 +14,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
     if (response && response?.ok()) {
 
         if (items.length === 0) {
-            items = (await getImageset() ?? [])
+            items = (await getImageSet() ?? [])
         }
         let body = await response.body();
 
@@ -26,7 +25,7 @@ router.addDefaultHandler(async ({ log, request, response }) => {
 
         let innerFolder = '';
         if (item) {
-            const { grid_title, board } = item as PinData;
+            const { board } = item as PinData;
             let boardName = board?.name ?? randomUUID().slice(0, 5);
             let boardUrl = board?.url ?? "";
             innerFolder = boardName + '/';
