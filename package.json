@@ -8,6 +8,7 @@
         "apify": "*",
         "cheerio": "^1.1.2",
         "crawlee": "^3.15.0",
+        "fflate": "^0.8.2",
         "playwright": "*"
     },
     "devDependencies": {
