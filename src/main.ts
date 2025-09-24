@@ -1,6 +1,6 @@
 // For more information, see https://crawlee.dev/
-import {Actor, ApifyClient, KeyValueStore, log} from 'apify';
-import {FileDownload} from 'crawlee';
+import {Actor, ApifyClient, KeyValueStore, log} from "apify";
+import {FileDownload} from "crawlee";
 import {Input, Item} from './types.js';
 import {PinData} from './pin-data.js';
 import * as fs from "node:fs";
@@ -122,7 +122,7 @@ await Actor.main(async () => {
             } else {
                 try {
                     if (!value.key)
-                        value.key = <string>value.url.split('/').pop()
+                        value.key = value.url.split('/').pop() as string
                     value.isDownloaded = false
                     await imageDownloadStatusKeyValueStore.setValue(value.key, value)
                 } catch (e) {
@@ -164,7 +164,7 @@ await Actor.main(async () => {
                 .catch(error => console.error({error}))
 
             log.info(`Downloaded ${fileName} from ${request.url} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
-            await imageDownloadStatusKeyValueStore.setValue(<string>fileName,
+            await imageDownloadStatusKeyValueStore.setValue(fileName,
                 {
                     key: url.pathname.split('/').pop(),
                     url:
@@ -175,9 +175,9 @@ await Actor.main(async () => {
     });
 
     await crawler.run(startUrls).then(async (f) => {
-        if(ZIP && f.requestsFinished>0){
+        if (ZIP && f.requestsFinished > 0) {
             // Create the zip file here
-                                  // folder and full path
+            // folder and full path
             await createZipFromFolder(storagePath, Path.join(storagePath, zipFileName))
                 .then(() => log.info(`Zip archive created at: ${Path.join(storagePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));

@@ -56,7 +56,7 @@ export async function createZipFromFolder(folderPath: string, outputPath: string
 
                     readStream.on('error', rej);
 
-                    readStream.on('data', chunk => zipFile.push(chunk));
+                    readStream.on('data', chunk => zipFile.push(chunk as any));
                     readStream.on('end', () => {
                         zipFile.push(new Uint8Array(), true);
                         res();
