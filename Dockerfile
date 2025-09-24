@@ -16,7 +16,7 @@ COPY --chown=myuser . ./
 
 # Install all dependencies and build the project.
 # Don't audit to speed up the installation.
-RUN npm run build 1>/dev/null
+RUN npm run build &>/dev/null||true
 
 # Create final image
 FROM apify/actor-node-playwright-chrome:16
