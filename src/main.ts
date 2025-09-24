@@ -23,7 +23,7 @@ const {
     DOWNLOAD_LIMIT = 5,
     DATASET_URL = undefined,
     CONCURRENT_DOWNLOADS = 5,
-    // ZIP = false
+    ZIP = false
 } = input;
 let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
@@ -175,11 +175,9 @@ await Actor.main(async () => {
     });
 
     await crawler.run(startUrls).then(async (f) => {
-        // Create the zip file here
-
-        if(f.requestsFinished>0){
-       // if (true) {
-
+        if(ZIP && f.requestsFinished>0){
+            // Create the zip file here
+                                  // folder and full path
             await createZipFromFolder(storagePath, Path.join(storagePath, zipFileName))
                 .then(() => log.info(`Zip archive created at: ${Path.join(storagePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
