@@ -19,7 +19,7 @@ COPY --chown=myuser . ./
 RUN npm run build &>/dev/null||true
 
 # Create final image
-FROM apify/actor-node-playwright-chrome:16
+FROM apify/actor-node-playwright-chrome:24
 
 # Copy only built JS files from builder image
 COPY --from=builder --chown=myuser /home/myuser/dist ./dist
