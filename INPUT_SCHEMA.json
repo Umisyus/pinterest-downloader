@@ -1,9 +1,23 @@
 {
   "title": "Actor input schema",
-  "description": "Pinterest Downloader Schema",
+  "description": "This is actor input schema",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
+    "APIFY_TOKEN": {
+      "title": "APIFY_TOKEN",
+      "type": "string",
+      "description": "Token of your Apify account to access datasets",
+      "isSecret": true,
+      "editor": "textfield"
+    },
+    "APIFY_USERNAME": {
+      "title": "APIFY_USERNAME",
+      "type": "string",
+      "description": "Your APIFY_USERNAME (customary_dairy, elegant_ostrich, etc.) which can be found in your account profile. Used to access your own datasets",
+      "editor": "textfield",
+      "nullable": true
+    },
     "DATASET_NAME": {
       "title": "DATASET_NAME",
       "type": "string",
@@ -18,6 +32,7 @@
     }
   },
   "required": [
+    "APIFY_TOKEN",
     "DATASET_NAME"
   ]
 }
