@@ -5,6 +5,7 @@ export interface Input {
     DOWNLOAD_LIMIT?: number | undefined,
     CONCURRENT_DOWNLOADS?: number | undefined,
     DATASET_URL?: string | undefined,
+    ZIP?: boolean | undefined
 }
 
 export interface Item {

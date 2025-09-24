@@ -5,12 +5,12 @@ import {Input, Item} from './types.js';
 import {PinData} from './pin-data.js';
 import * as fs from "node:fs";
 import * as Path from "node:path";
-import {createZipFromFolder} from "./archive-files";
+import {createZipFromFolder} from "./archive-files.js";
 
 await Actor.init()
 
 
-const input = await Actor.getInput<Input>();
+const input = await Actor.getInput<any>();
 console.log('Input:', {input});
 if (!(input && input satisfies Input)) {
     throw new Error(`Input is missing required fields!`);
@@ -22,7 +22,8 @@ const {
     DATASET_NAME_OR_ID,
     DOWNLOAD_LIMIT = 5,
     DATASET_URL = undefined,
-    CONCURRENT_DOWNLOADS = 5
+    CONCURRENT_DOWNLOADS = 5,
+    // ZIP = false
 } = input;
 let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
@@ -30,9 +31,9 @@ const client = new ApifyClient({token});
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
-const storagePath = Path.join(process.cwd(), 'storage', 'downloads')
+const storagePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'default', 'downloads')
 const zipFileName = 'pinterest-downloads.zip';
-
+let kvs = await Actor.openKeyValueStore()
 export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) => {
     if (dataseturl) {
         const url = new URL(dataseturl);
@@ -173,12 +174,18 @@ await Actor.main(async () => {
         }
     });
 
-    await crawler.run(startUrls).then(async () => {
+    await crawler.run(startUrls).then(async (f) => {
         // Create the zip file here
 
-        await createZipFromFolder(storagePath, Path.join(storagePath, zipFileName))
-            .then(() => log.info(`Zip archive created at: ${Path.join(storagePath, zipFileName)}`))
-            .catch(log.error);
+        if(f.requestsFinished>0){
+       // if (true) {
+
+            await createZipFromFolder(storagePath, Path.join(storagePath, zipFileName))
+                .then(() => log.info(`Zip archive created at: ${Path.join(storagePath, zipFileName)}`))
+                .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
+            log.info(`${kvs.getPublicUrl(zipFileName)}`)
+        }
+        log.info('Complete!')
     });
 
 })
