@@ -5,6 +5,8 @@
     "target": "ESNext",
     "outDir": "dist",
     "noUnusedLocals": false,
+    "noImplicitAny": false,
+    "types": [],
     "lib": [
       "DOM",
       "es2015"
@@ -15,7 +17,7 @@
     "./src/**/*"
   ],
   "exclude": [
-    "node_modules",
+    "./node_modules",
     "dist"
   ]
 }
