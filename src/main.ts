@@ -5,7 +5,7 @@ import {Input, Item} from './types.js';
 import {PinData} from './pin-data.js';
 import * as fs from "node:fs";
 import * as Path from "node:path";
-import * as fflate from 'fflate'
+import {createZipFromFolder} from "./archive-files";
 
 await Actor.init()
 
@@ -29,9 +29,9 @@ let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 const client = new ApifyClient({token});
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
-const kvs = await Actor.openKeyValueStore();
-const storagePath = Path.join(process.cwd(), 'storage', 'downloads')
 const completedDownloads = 'completed-downloads';
+const storagePath = Path.join(process.cwd(), 'storage', 'downloads')
+const zipFileName = 'pinterest-downloads.zip';
 
 export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) => {
     if (dataseturl) {
@@ -82,7 +82,6 @@ async function saveAsFile(filePath: string, fileName: string, body: string | Buf
     }
 
     await downloadFile();
-    // await writeFile(fileName, body, contentType)
 }
 
 function getPathForName(url: string) {
@@ -158,15 +157,10 @@ await Actor.main(async () => {
 
             let fileName = getFileName(url.href)
             let path = getPathForName(url.href)
-            // if (fileName != null) {
-            //     let bodyJSON = JSON.stringify(body)
-            //     if (bodyJSON !== undefined) {
-            // await kvs.setValue(fileName, body, {contentType: contentType.type});
+
             await saveAsFile(path, fileName, body)
                 .then(() => console.log(`Wrote file to path: ${Path.join(path, fileName)}`))
                 .catch(error => console.error({error}))
-            // } else throw new Error(`FAILED TO PARSE BODY! ${url}`)
-            // }
 
             log.info(`Downloaded ${fileName} from ${request.url} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
             await imageDownloadStatusKeyValueStore.setValue(<string>fileName,
@@ -179,12 +173,12 @@ await Actor.main(async () => {
         }
     });
 
-    // TEST
-    // startUrls.filter(o => o.includes('.mp4'))
-
     await crawler.run(startUrls).then(async () => {
-        // Create the zip file here!?
-        await createZipFile(storagePath).then(() => console.log(' TEST: Created!'))
+        // Create the zip file here
+
+        await createZipFromFolder(storagePath, Path.join(storagePath, zipFileName))
+            .then(() => log.info(`Zip archive created at: ${Path.join(storagePath, zipFileName)}`))
+            .catch(log.error);
     });
 
 })
@@ -230,7 +224,7 @@ function normalizePins(ALL_ITEMS: any[]) {
 
 function getFileName(url: string) {
     let fileName;
-    // if (!fileName) {
+
     let data = findData(url, pin_items)
     if (data) {
         fileName = `${[data.id].filter(Boolean).join('-')}.png`
@@ -240,15 +234,6 @@ function getFileName(url: string) {
         fileName = `unknown-${Date.now()}.png`
     }
 
-    // fileName = fileName.replaceAll(/[\s\W]+/g, '-');
-
-    // fileName=fileName.replaceAll(/^[a-zA-Z\d]|\s/g, '-');
-    // Filename becomes too long, only board,section,id
     return fileName
-
-}
-
-async function createZipFile(folderPath: string | Path.ParsedPath) {
-    // Use 'FFlate' library
 
 }

@@ -1,18 +1,21 @@
 {
-    "extends": "@apify/tsconfig",
-    "compilerOptions": {
-        "module": "ESNext",
-        "target": "ESNext",
-        "outDir": "dist",
-        "noUnusedLocals": false,
-        "lib": ["DOM"],
-        "skipDefaultLibCheck": true
-    },
-    "include": [
-        "./src/**/*"
+  "extends": "@apify/tsconfig",
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ESNext",
+    "outDir": "dist",
+    "noUnusedLocals": false,
+    "lib": [
+      "DOM",
+      "es2015"
     ],
-    "exclude": [
-        "node_modules",
-        "dist"
-    ]
+    "skipDefaultLibCheck": true
+  },
+  "include": [
+    "./src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }
