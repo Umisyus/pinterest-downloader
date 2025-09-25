@@ -5,10 +5,11 @@
     "description": "This is an example of a Crawlee project.",
     "dependencies": {
         "@types/cheerio": "^0.22.35",
-        "apify": "*",
+        "apify": "^3.4.5",
         "cheerio": "^1.1.2",
         "crawlee": "^3.15.0",
         "fflate": "^0.8.2",
+        "got-scraping": "^4.1.2",
         "playwright": "*",
         "tslib": "^2.8.1"
     },

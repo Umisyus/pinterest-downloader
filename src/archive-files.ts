@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import {Zip, AsyncZipDeflate} from 'fflate';
+import * as Path from "node:path";
 
 // Async function to recursively walk directory and yield file info
 async function* walkDir(dir, basePath = dir) {
@@ -18,9 +19,10 @@ async function* walkDir(dir, basePath = dir) {
     }
 }
 
-export async function createZipFromFolder(folderPath: string, outputPath: string) {
+export async function createZipFromFolder(folderPath: string, zipFilePath: string, fileName: string) {
     return new Promise<void>(async (resolve, reject) => {
-        const outputStream = fs.createWriteStream(outputPath);
+        const filePath = Path.join(zipFilePath, fileName)
+        const outputStream = fs.createWriteStream(filePath);
         const zip = new Zip();
 
         // Reject on any stream error
@@ -49,7 +51,7 @@ export async function createZipFromFolder(folderPath: string, outputPath: string
                 console.log(`Adding ${file.archivePath}`);
 
                 await new Promise<void>((res, rej) => {
-                    const zipFile = new AsyncZipDeflate(file.archivePath, {level: 6});
+                    const zipFile = new AsyncZipDeflate(file.archivePath, {level: 0, mem: 5});
                     zip.add(zipFile);
 
                     const readStream = fs.createReadStream(file.diskPath);

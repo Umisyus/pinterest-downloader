@@ -9,7 +9,6 @@ import {createZipFromFolder} from "./archive-files.js";
 
 await Actor.init()
 
-
 const input = await Actor.getInput<any>();
 console.log('Input:', {input});
 if (!(input && input satisfies Input)) {
@@ -17,9 +16,9 @@ if (!(input && input satisfies Input)) {
 }
 
 const {
-    APIFY_TOKEN,
-    APIFY_USERNAME,
-    DATASET_NAME_OR_ID,
+    APIFY_TOKEN = undefined,
+    APIFY_USERNAME = undefined,
+    DATASET_NAME_OR_ID = undefined,
     DOWNLOAD_LIMIT = 5,
     DATASET_URL = undefined,
     CONCURRENT_DOWNLOADS = 5,
@@ -32,6 +31,8 @@ const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
 const storagePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'default', 'downloads')
+const zipStoragePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'default')
+
 const zipFileName = 'pinterest-downloads.zip';
 let kvs = await Actor.openKeyValueStore()
 export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) => {
@@ -58,9 +59,8 @@ function findData(url: string, pin_items: PinData[]) {
     return pin_items.find((item: PinData) => item.url === url) ?? null;
 }
 
-async function saveAsFile(filePath: string, fileName: string, body: string | Buffer) {
+async function saveAsFile(folderPath: string, fileName: string, body: string | Buffer) {
     // Create the folder path
-    let folderPath = Path.join(storagePath, filePath)
     const file_path = Path.join(folderPath, fileName)
 
     async function downloadFile() {
@@ -159,11 +159,11 @@ await Actor.main(async () => {
             let fileName = getFileName(url.href)
             let path = getPathForName(url.href)
 
-            await saveAsFile(path, fileName, body)
-                .then(() => console.log(`Wrote file to path: ${Path.join(path, fileName)}`))
+            await saveAsFile(Path.join(storagePath, path), fileName, body)
+                .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
                 .catch(error => console.error({error}))
 
-            log.info(`Downloaded ${fileName} from ${request.url} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
+            log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
             await imageDownloadStatusKeyValueStore.setValue(fileName,
                 {
                     key: url.pathname.split('/').pop(),
@@ -174,12 +174,13 @@ await Actor.main(async () => {
         }
     });
 
-    await crawler.run(startUrls).then(async (f) => {
-        if (ZIP && f.requestsFinished > 0) {
+    await crawler.run(startUrls).then(async (stats) => {
+        // if (ZIP)
+        if (stats.requestsFinished > 0) {
             // Create the zip file here
             // folder and full path
-            await createZipFromFolder(storagePath, Path.join(storagePath, zipFileName))
-                .then(() => log.info(`Zip archive created at: ${Path.join(storagePath, zipFileName)}`))
+            await createZipFromFolder(storagePath, zipStoragePath, zipFileName)
+                .then(() => log.info(`Zip archive created at: ${Path.join(zipStoragePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
             log.info(`${kvs.getPublicUrl(zipFileName)}`)
         }
@@ -228,7 +229,7 @@ function normalizePins(ALL_ITEMS: any[]) {
 }
 
 function getFileName(url: string) {
-    let fileName;
+    let fileName: string;
 
     let data = findData(url, pin_items)
     if (data) {
