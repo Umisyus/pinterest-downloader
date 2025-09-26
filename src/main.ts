@@ -1,16 +1,16 @@
 // For more information, see https://crawlee.dev/
-import {Actor, ApifyClient, KeyValueStore, Log, log, RecordOptions} from "apify";
-import {FileDownload} from "crawlee";
-import {Input, Item} from './types.js';
-import {PinData} from './pin-data.js';
+import { Actor, ApifyClient, KeyValueStore, Log, log, RecordOptions } from "apify";
+import { FileDownload } from "crawlee";
+import { Input, Item } from './types.js';
+import { PinData } from './pin-data.js';
 import * as fs from "node:fs";
 import * as Path from "node:path";
-import {createZipFromFolder} from "./archive-files.js";
+import { createZipFromFolder } from "./archive-files.js";
 
 await Actor.init()
 
 const input = await Actor.getInput<any>();
-console.log('Input:', {input});
+console.log('Input:', { input });
 if (!(input && input satisfies Input)) {
     throw new Error(`Input is missing required fields!`);
 }
@@ -26,12 +26,12 @@ const {
 } = input;
 let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
-const client = new ApifyClient({token});
+const client = new ApifyClient({ token });
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
-const storagePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'downloads-files')
-const zipStoragePath = Path.join('.', 'storage', 'key_value_stores', 'default')
+const storagePath = Path.join('.', 'storage', 'key_value_stores', 'downloads-files')
+const zipStoragePath = Path.join('.')
 const zipFileName = 'pinterest-downloads.zip';
 
 const dlkvs = await Actor.openKeyValueStore('downloads-files')
@@ -51,7 +51,7 @@ export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) =
         }
     }
 
-    return await client.dataset(dataSetNameOrID).listItems({limit: DOWNLOAD_LIMIT})
+    return await client.dataset(dataSetNameOrID).listItems({ limit: DOWNLOAD_LIMIT })
         .then((data) => data?.items as unknown as PinData[] ?? [])
         .catch(console.error);
 }
@@ -83,7 +83,7 @@ async function saveAsFile(folderPath: string, fileName: string, body: string | B
     }
 
     if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, {recursive: true})
+        fs.mkdirSync(folderPath, { recursive: true })
     }
 
     await downloadFile();
@@ -107,12 +107,12 @@ await Actor.main(async () => {
 
     if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
         console.log('No APIFY_TOKEN provided!');
-        await Actor.exit({exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!'});
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
     }
 
     if ((!DATASET_NAME_OR_ID && !process.env.DATASET_NAME_OR_ID) && !DATASET_URL) {
         console.log('No DATASET_NAME_OR_ID provided!');
-        await Actor.exit({exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!'});
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
     }
 
     let vals: string[] = []
@@ -157,7 +157,7 @@ await Actor.main(async () => {
         maxConcurrency: CONCURRENT_DOWNLOADS ?? 10,
         minConcurrency: 2,
         maxRequestRetries: 5,
-        requestHandler: async function ({body, request, contentType}) {
+        requestHandler: async function ({ body, request, contentType }) {
             const url = new URL(request.url);
 
             let fileName = getFileName(url.href)
@@ -167,31 +167,31 @@ await Actor.main(async () => {
             //     .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
             //     .catch(error => console.error({error}))
 
-            await dlkvs.setValue(fileName, body, {contentType: 'image/jpeg'})
+            await dlkvs.setValue(fileName, body, { contentType: 'image/jpeg' })
                 .then(_ => log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`))
 
             await imageDownloadStatusKeyValueStore.setValue(fileName,
                 {
                     key: url.pathname.split('/').pop(),
                     url:
-                    request.url,
+                        request.url,
                     isDownloaded: true
                 })
         }
     });
 
     await crawler.run(startUrls).then(async (stats) => {
-        if (ZIP || stats.requestsFinished > 0) {
+        if (ZIP && stats.requestsFinished > 0) {
             // Create the zip file here
             // folder and full path
-        log.info("creating zip...")
+            log.info("creating zip...")
             await createZipFromFolder(storagePath, zipStoragePath, zipFileName)
                 .then(() => log.info(`Zip archive created at: ${Path.join(zipStoragePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
 
-            await saveToKVS(zipStoragePath, zipFileName, zipkvs, {contentType: 'application/zip'})
+            await saveToKVS(zipStoragePath, zipFileName, zipkvs, { contentType: 'application/zip' })
 
-            log.info(`${kvs.getPublicUrl(zipFileName)}`)
+            log.info(`You can find your zip file here: ${kvs.getPublicUrl(zipFileName)}`)
         } else log.info('No files were downloaded...')
 
         log.info('Complete!')
@@ -254,11 +254,11 @@ function getFileName(url: string) {
 
 }
 
-async function saveToKVS(zipStoragePath: string, zipFileName: string, _kvs: KeyValueStore, contentType) {
+async function saveToKVS(zipStoragePath: string, zipFileName: string, _kvs: KeyValueStore, contentType: { contentType: string; type?: any; }) {
     let fileStream = await fs.promises.readFile(Path.join(zipStoragePath, zipFileName))
         .catch(_ => log.error('Could not open ' + Path.join(zipStoragePath, zipFileName)))
 
-    await _kvs.setValue(zipFileName, fileStream, contentType?.type)
-        .then(_ => log.info('Saved successfully!'))
+    await _kvs.setValue(zipFileName, fileStream, contentType)
+        .then(_ => log.info(`Saved ${zipFileName} to ${zipkvs.name} successfully!`))
         .catch(_ => log.error("Failed to store into Key-Value-Store!"))
 }
