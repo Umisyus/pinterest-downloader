@@ -1,5 +1,5 @@
 // For more information, see https://crawlee.dev/
-import {Actor, ApifyClient, KeyValueStore, log} from "apify";
+import {Actor, ApifyClient, KeyValueStore, log, RecordOptions} from "apify";
 import {FileDownload} from "crawlee";
 import {Input, Item} from './types.js';
 import {PinData} from './pin-data.js';
@@ -30,11 +30,15 @@ const client = new ApifyClient({token});
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
-const storagePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'default', 'downloads')
-const zipStoragePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'default')
-
+const storagePath = Path.join(process.cwd(), 'storage', 'key_value_stores', 'downloads-files')
+const zipStoragePath = Path.join('.', 'storage', 'key_value_stores', 'default')
 const zipFileName = 'pinterest-downloads.zip';
+
+const dlkvs = await Actor.openKeyValueStore('downloads-files')
+const zipkvs = await Actor.openKeyValueStore('downloads-zip')
+
 let kvs = await Actor.openKeyValueStore()
+
 export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) => {
     if (dataseturl) {
         const url = new URL(dataseturl);
@@ -86,7 +90,7 @@ async function saveAsFile(folderPath: string, fileName: string, body: string | B
 }
 
 function getPathForName(url: string) {
-    let fileName;
+    let fileName: string;
     let data = findData(url, pin_items)
     if (data) {
         fileName = `${[data.board, data.section].filter(Boolean).map((s: string) => s.substring(0, 15)).join('/')}`
@@ -163,7 +167,10 @@ await Actor.main(async () => {
                 .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
                 .catch(error => console.error({error}))
 
-            log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
+            await dlkvs.setValue(fileName, body, {contentType: 'image/jpeg'})
+                .then(_ => {
+                    log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
+                })
             await imageDownloadStatusKeyValueStore.setValue(fileName,
                 {
                     key: url.pathname.split('/').pop(),
@@ -182,8 +189,12 @@ await Actor.main(async () => {
             await createZipFromFolder(storagePath, zipStoragePath, zipFileName)
                 .then(() => log.info(`Zip archive created at: ${Path.join(zipStoragePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
+
+            await saveToKVS(zipStoragePath, zipFileName, zipkvs, {contentType: 'application/zip'})
+
             log.info(`${kvs.getPublicUrl(zipFileName)}`)
-        }
+        } else log.info('No files were downloaded...')
+
         log.info('Complete!')
     });
 
@@ -242,4 +253,13 @@ function getFileName(url: string) {
 
     return fileName
 
+}
+
+async function saveToKVS(zipStoragePath: string, zipFileName: string, _kvs: KeyValueStore, contentType) {
+    let fileStream = await fs.promises.readFile(Path.join(zipStoragePath, zipFileName))
+        .catch(_ => log.error('Could not open ' + Path.join(zipStoragePath, zipFileName)))
+
+    await _kvs.setValue(zipFileName, fileStream, contentType?.type)
+        .then(_ => log.info('Saved successfully!'))
+        .catch(_ => log.error("Failed to store into Key-Value-Store!"))
 }
