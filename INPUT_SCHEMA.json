@@ -18,7 +18,7 @@
       "editor": "textfield",
       "nullable": true
     },
-    "DATASET_NAME": {
+    "DATASET_NAME_OR_ID": {
       "title": "DATASET_NAME",
       "type": "string",
       "description": "Name of your dataset can be a random ID as show on the dataset page or a named dataset (which has a name you set)",

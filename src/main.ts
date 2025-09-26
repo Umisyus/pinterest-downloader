@@ -10,7 +10,7 @@ import { createZipFromFolder } from "./archive-files.js";
 await Actor.init()
 
 const input = await Actor.getInput<any>();
-console.log('Input:', { input });
+
 if (!(input && input satisfies Input)) {
     throw new Error(`Input is missing required fields!`);
 }
