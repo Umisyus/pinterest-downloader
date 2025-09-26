@@ -1,5 +1,5 @@
 // For more information, see https://crawlee.dev/
-import {Actor, ApifyClient, KeyValueStore, log, RecordOptions} from "apify";
+import {Actor, ApifyClient, KeyValueStore, Log, log, RecordOptions} from "apify";
 import {FileDownload} from "crawlee";
 import {Input, Item} from './types.js';
 import {PinData} from './pin-data.js';
@@ -163,14 +163,13 @@ await Actor.main(async () => {
             let fileName = getFileName(url.href)
             let path = getPathForName(url.href)
 
-            await saveAsFile(Path.join(storagePath, path), fileName, body)
-                .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
-                .catch(error => console.error({error}))
+            // await saveAsFile(Path.join(storagePath, path), fileName, body)
+            //     .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
+            //     .catch(error => console.error({error}))
 
             await dlkvs.setValue(fileName, body, {contentType: 'image/jpeg'})
-                .then(_ => {
-                    log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`);
-                })
+                .then(_ => log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`))
+
             await imageDownloadStatusKeyValueStore.setValue(fileName,
                 {
                     key: url.pathname.split('/').pop(),
@@ -182,10 +181,10 @@ await Actor.main(async () => {
     });
 
     await crawler.run(startUrls).then(async (stats) => {
-        // if (ZIP)
-        if (stats.requestsFinished > 0) {
+        if (ZIP || stats.requestsFinished > 0) {
             // Create the zip file here
             // folder and full path
+        log.info("creating zip...")
             await createZipFromFolder(storagePath, zipStoragePath, zipFileName)
                 .then(() => log.info(`Zip archive created at: ${Path.join(zipStoragePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
