@@ -56,7 +56,7 @@ try {
 } catch (error) {
     log.error(`Failed to open dataset with name or ID of '${dataSetNameOrID}'! \n${error}`)
 }
-
+return []
 }
 
 export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
@@ -64,32 +64,6 @@ export let pin_items: PinData[] = await getImageSet(dataSetToDownload) ?? [];
 
 function findData(url: string, pin_items: PinData[]) {
     return pin_items.find((item: PinData) => item.url === url) ?? null;
-}
-
-async function saveAsFile(folderPath: string, fileName: string, body: string | Buffer) {
-    // Create the folder path
-    const file_path = Path.join(folderPath, fileName)
-
-    async function downloadFile() {
-
-        return await new Promise((resolve, reject) => {
-            // get a path for the file
-            // save the file to disk
-            const fileWriter = fs.createWriteStream(file_path).on("finish", () => {
-                resolve({});
-            });
-            fileWriter.on('error', (error) => reject(error))
-            fileWriter.write(body)
-            fileWriter.end();
-        })
-
-    }
-
-    if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true })
-    }
-
-    await downloadFile();
 }
 
 function getPathForName(url: string) {
