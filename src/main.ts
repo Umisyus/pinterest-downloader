@@ -50,10 +50,13 @@ export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) =
             throw new Error(`Invalid DATASET_URL format. Expected format: https://api.apify.com/v2/datasets/{DATASET_ID}`);
         }
     }
-
-    return await client.dataset(dataSetNameOrID).listItems({ limit: DOWNLOAD_LIMIT })
+try {
+        return await client.dataset(dataSetNameOrID).listItems({ limit: DOWNLOAD_LIMIT })
         .then((data) => data?.items as unknown as PinData[] ?? [])
-        .catch(console.error);
+} catch (error) {
+    log.error(`Failed to open dataset with name or ID of '${dataSetNameOrID}'! \n${error}`)
+}
+
 }
 
 export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
