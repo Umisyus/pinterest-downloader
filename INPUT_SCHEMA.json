@@ -42,7 +42,7 @@
       "title": "Zip downloads?",
       "type": "boolean",
       "description": "Sets whether or not to zip all downloaded files",
-      "editor": "boolean",
+      "editor": "checkbox",
       "nullable": true
     },
     "required": []
