@@ -27,8 +27,8 @@ const {
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
-const storagePath = Path.join('.', 'downloads')
-const zipStoragePath = Path.join('.')
+const storagePath = Path.join('./downloads/')
+const zipStoragePath = Path.join('./')
 const zipFileName = 'pinterest-downloads.zip';
 
 const dlkvs = await Actor.openKeyValueStore('downloads-files')
