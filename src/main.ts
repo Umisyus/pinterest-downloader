@@ -193,10 +193,10 @@ await Actor.main(async () => {
         } else log.info('No files were downloaded...')
 
 
-        for await (let dir of walkDir('storage')) {
-            if ((dir.archivePath.includes('/')))
+        for await (let dir of walkDir('.')) {
                 log.info(`DIR: ${JSON.stringify(dir)}}`)
         }
+        
         await Actor.exit()
 
         log.info('Complete!')
