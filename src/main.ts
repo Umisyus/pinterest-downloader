@@ -40,11 +40,11 @@ const zipkvs = await Actor.openKeyValueStore('downloads-zip')
 let kvs = await Actor.openKeyValueStore()
 let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
- if (token){
-     const client = new ApifyClient({token});
-    }
-    const client = new ApifyClient();
-    let pin_items: PinData[] = await getImageSet(dataSetToDownload) ?? [];
+if (token) {
+    const client = new ApifyClient({ token });
+}
+const client = new ApifyClient();
+let pin_items: PinData[] = await getImageSet(dataSetToDownload) ?? [];
 
 async function getImageSet(dataSetNameOrID: string) {
 
@@ -90,25 +90,20 @@ await Actor.main(async () => {
 
     // TEST WALKDIR, FOR STORAGE FOLDER
     async function* walkDir(dir, basePath = dir) {
-    const dirents = await fs.promises.readdir(dir, {withFileTypes: true});
-    for (const dirent of dirents) {
-        const res = path.resolve(dir, dirent.name);
-        if (dirent.isDirectory()) {
-            yield* walkDir(res, basePath);
-        } 
-         if (dirent.isDirectory()) {
-            yield {
-                diskPath: res,
-                archivePath: path.relative(basePath, res).replace(/\\/g, '/'), // normalize
-            };
+        const dirents = await fs.promises.readdir(dir, { withFileTypes: true });
+        for (const dirent of dirents) {
+            const res = path.resolve(dir, dirent.name);
+            if (dirent.isDirectory()) {
+                yield* walkDir(res, basePath);
+            }
+            if (dirent.isDirectory()) {
+                yield {
+                    diskPath: res,
+                    archivePath: path.relative(basePath, res).replace(/\\/g, '/'), // normalize
+                };
+            }
         }
     }
-}
-for await (let dir of walkDir('storage')){
-    if( (dir.archivePath.includes('/')))
-log.info(`DIR: ${JSON.stringify(dir)}}`)
-}
-await Actor.exit()
 
     // if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     //     console.log('No APIFY_TOKEN provided!');
@@ -196,6 +191,13 @@ await Actor.exit()
 
             log.info(`You can find your zip file here: ${kvs.getPublicUrl(zipFileName)}`)
         } else log.info('No files were downloaded...')
+
+
+        for await (let dir of walkDir('storage')) {
+            if ((dir.archivePath.includes('/')))
+                log.info(`DIR: ${JSON.stringify(dir)}}`)
+        }
+        await Actor.exit()
 
         log.info('Complete!')
     });
