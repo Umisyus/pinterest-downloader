@@ -4,8 +4,9 @@ import { FileDownload } from "crawlee";
 import { Input, Item } from './types.js';
 import { PinData } from './pin-data.js';
 import * as fs from "node:fs";
-import * as Path from "node:path";
+import path, * as Path from "node:path";
 import { createZipFromFolder } from "./archive-files.js";
+import { info } from "node:console";
 
 await Actor.init()
 
@@ -24,12 +25,11 @@ const {
     CONCURRENT_DOWNLOADS = 5,
     ZIP = false
 } = input;
-let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
-const client = new ApifyClient({ token });
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
+// WHERE THE FLOCK IS THIS STORAGE FOLDER, YOU POS!?>!?!?!?!!?!?
 const storagePath = Path.join('.', 'storage', 'key_value_stores', 'downloads-files')
 const zipStoragePath = Path.join('.')
 const zipFileName = 'pinterest-downloads.zip';
@@ -38,8 +38,16 @@ const dlkvs = await Actor.openKeyValueStore('downloads-files')
 const zipkvs = await Actor.openKeyValueStore('downloads-zip')
 
 let kvs = await Actor.openKeyValueStore()
+let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
-export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) => {
+ if (token){
+     const client = new ApifyClient({token});
+    }
+    const client = new ApifyClient();
+    let pin_items: PinData[] = await getImageSet(dataSetToDownload) ?? [];
+
+async function getImageSet(dataSetNameOrID: string) {
+
     if (dataseturl) {
         const url = new URL(dataseturl);
         const pathParts = url.pathname.split('/').filter(Boolean);
@@ -50,17 +58,14 @@ export const getImageSet = async (dataSetNameOrID: string = dataSetToDownload) =
             throw new Error(`Invalid DATASET_URL format. Expected format: https://api.apify.com/v2/datasets/{DATASET_ID}`);
         }
     }
-try {
+    try {
         return await client.dataset(dataSetNameOrID).listItems({ limit: DOWNLOAD_LIMIT })
-        .then((data) => data?.items as unknown as PinData[] ?? [])
-} catch (error) {
-    log.error(`Failed to open dataset with name or ID of '${dataSetNameOrID}'! \n${error}`)
+            .then((data) => data?.items as unknown as PinData[] ?? [])
+    } catch (error) {
+        log.error(`Failed to open dataset with name or ID of '${dataSetNameOrID}'! \n${error}`)
+    }
+    return []
 }
-return []
-}
-
-export let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
-export let pin_items: PinData[] = await getImageSet(dataSetToDownload) ?? [];
 
 function findData(url: string, pin_items: PinData[]) {
     return pin_items.find((item: PinData) => item.url === url) ?? null;
@@ -79,17 +84,39 @@ function getPathForName(url: string) {
     fileName = fileName.replaceAll(/[^a-zA-Z\d]|\s/g, '-');
     return fileName;
 }
+let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
 
 await Actor.main(async () => {
 
-    if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
-        console.log('No APIFY_TOKEN provided!');
-        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
+    // TEST WALKDIR, FOR STORAGE FOLDER
+    async function* walkDir(dir, basePath = dir) {
+    const dirents = await fs.promises.readdir(dir, {withFileTypes: true});
+    for (const dirent of dirents) {
+        const res = path.resolve(dir, dirent.name);
+        if (dirent.isDirectory()) {
+            yield* walkDir(res, basePath);
+        } 
+         if (dirent.isDirectory()) {
+            yield {
+                diskPath: res,
+                archivePath: path.relative(basePath, res).replace(/\\/g, '/'), // normalize
+            };
+        }
     }
+}
+for await (let dir of walkDir('storage')){
+    if( (dir.archivePath.includes('/')))
+log.info(`DIR: ${JSON.stringify(dir)}}`)
+}
+await Actor.exit()
 
-    if ((!DATASET_NAME_OR_ID && !process.env.DATASET_NAME_OR_ID) && !DATASET_URL) {
-        console.log('No DATASET_NAME_OR_ID provided!');
-        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME provided!' });
+    // if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
+    //     console.log('No APIFY_TOKEN provided!');
+    //     await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No APIFY_TOKEN provided!' });
+    // }
+
+    if (!DATASET_NAME_OR_ID && !DATASET_URL) {
+        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME_OR_ID provided!' });
     }
 
     let vals: string[] = []
@@ -97,7 +124,6 @@ await Actor.main(async () => {
     await imageDownloadStatusKeyValueStore
         .forEachKey(async (key) => {
             let value = await imageDownloadStatusKeyValueStore.getValue(key) as Item
-            // if (!(value?.isDownloaded) === true) {
             if ((value?.isDownloaded)) {
                 vals.push(value?.url)
             } else {
@@ -133,7 +159,7 @@ await Actor.main(async () => {
     const crawler = new FileDownload({
         maxConcurrency: CONCURRENT_DOWNLOADS ?? 10,
         minConcurrency: 2,
-        maxRequestRetries: 5,
+        maxRequestRetries: 2,
         requestHandler: async function ({ body, request, contentType }) {
             const url = new URL(request.url);
 
