@@ -29,7 +29,6 @@ const {
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
-// WHERE THE FLOCK IS THIS STORAGE FOLDER, YOU POS!?>!?!?!?!!?!?
 const storagePath = Path.join('.', 'storage', 'key_value_stores', 'downloads-files')
 const zipStoragePath = Path.join('.')
 const zipFileName = 'pinterest-downloads.zip';
@@ -145,9 +144,9 @@ await Actor.main(async () => {
             let fileName = getFileName(url.href)
             let path = getPathForName(url.href)
 
-            // await saveAsFile(Path.join(storagePath, path), fileName, body)
-            //     .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
-            //     .catch(error => console.error({error}))
+            await saveAsFile(Path.join(storagePath, path), fileName, body)
+                .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
+                .catch(error => console.error({error}))
 
             await dlkvs.setValue(fileName, body, { contentType: 'image/jpeg' })
                 .then(_ => log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`))
@@ -246,4 +245,30 @@ async function saveToKVS(zipStoragePath: string, zipFileName: string, _kvs: KeyV
     await _kvs.setValue(zipFileName, fileStream, contentType)
         .then(_ => log.info(`Saved ${zipFileName} to ${zipkvs.name} successfully!`))
         .catch(_ => log.error("Failed to store into Key-Value-Store!"))
+}
+
+async function saveAsFile(folderPath: string, fileName: string, body: string | Buffer) {
+    // Create the folder path
+    const file_path = Path.join(folderPath, fileName)
+
+    async function downloadFile() {
+
+        return await new Promise((resolve, reject) => {
+            // get a path for the file
+            // save the file to disk
+            const fileWriter = fs.createWriteStream(file_path).on("finish", () => {
+                resolve({});
+            });
+            fileWriter.on('error', (error) => reject(error))
+            fileWriter.write(body)
+            fileWriter.end();
+        })
+
+    }
+
+    if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true })
+    }
+
+    await downloadFile();
 }
