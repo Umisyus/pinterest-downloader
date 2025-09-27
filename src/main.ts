@@ -1,12 +1,10 @@
-// For more information, see https://crawlee.dev/
-import { Actor, ApifyClient, KeyValueStore, Log, log, RecordOptions } from "apify";
-import { FileDownload } from "crawlee";
-import { Input, Item } from './types.js';
-import { PinData } from './pin-data.js';
+import {Actor, ApifyClient, KeyValueStore, log} from "apify";
+import {FileDownload} from "crawlee";
+import {Input, Item} from './types.js';
+import {PinData} from './pin-data.js';
 import * as fs from "node:fs";
-import path, * as Path from "node:path";
-import { createZipFromFolder } from "./archive-files.js";
-import { info } from "node:console";
+import * as Path from "node:path";
+import {createZipFromFolder} from "./archive-files.js";
 
 await Actor.init()
 
@@ -29,23 +27,30 @@ const {
 const dataSetToDownload = APIFY_USERNAME ? `${APIFY_USERNAME}/${DATASET_NAME_OR_ID}` : DATASET_NAME_OR_ID;
 const dataseturl = DATASET_URL
 const completedDownloads = 'completed-downloads';
-const storagePath = Path.join('.', 'storage', 'key_value_stores', 'downloads-files')
+const storagePath = Path.join('.', 'downloads')
 const zipStoragePath = Path.join('.')
 const zipFileName = 'pinterest-downloads.zip';
 
 const dlkvs = await Actor.openKeyValueStore('downloads-files')
 const zipkvs = await Actor.openKeyValueStore('downloads-zip')
 
-let kvs = await Actor.openKeyValueStore()
 let token = [APIFY_TOKEN, process.env.APIFY_TOKEN].filter(Boolean).pop()
 
+let client: ApifyClient;
 if (token) {
-    const client = new ApifyClient({ token });
+    client = new ApifyClient({token});
+} else {
+    client = new ApifyClient();
 }
-const client = new ApifyClient();
-let pin_items: PinData[] = await getImageSet(dataSetToDownload) ?? [];
 
-async function getImageSet(dataSetNameOrID: string) {
+let pin_items: PinData[] = [];
+for await (const pinItem of getImageSet(dataSetToDownload)) {
+    pin_items.push(...pinItem)
+}
+
+async function* getImageSet(dataSetNameOrID: string, limit = 0, offset = 0) {
+    let currentLimit = limit;
+    let currentOffset = offset;
 
     if (dataseturl) {
         const url = new URL(dataseturl);
@@ -58,8 +63,14 @@ async function getImageSet(dataSetNameOrID: string) {
         }
     }
     try {
-        return await client.dataset(dataSetNameOrID).listItems({ limit: DOWNLOAD_LIMIT })
+        let i = await client.dataset(dataSetNameOrID).listItems({limit: DOWNLOAD_LIMIT})
             .then((data) => data?.items as unknown as PinData[] ?? [])
+        yield i
+        if (i.length >= limit || i.length === 0) {
+            // End
+            return null
+
+        } else getImageSet(dataSetNameOrID, currentLimit, currentOffset++)
     } catch (error) {
         log.error(`Failed to open dataset with name or ID of '${dataSetNameOrID}'! \n${error}`)
     }
@@ -83,6 +94,7 @@ function getPathForName(url: string) {
     fileName = fileName.replaceAll(/[^a-zA-Z\d]|\s/g, '-');
     return fileName;
 }
+
 let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloads);
 
 await Actor.main(async () => {
@@ -94,7 +106,7 @@ await Actor.main(async () => {
     // }
 
     if (!DATASET_NAME_OR_ID && !DATASET_URL) {
-        await Actor.exit({ exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME_OR_ID provided!' });
+        await Actor.exit({exit: true, exitCode: 1, statusMessage: 'No DATASET_NAME_OR_ID provided!'});
     }
 
     let vals: string[] = []
@@ -138,7 +150,8 @@ await Actor.main(async () => {
         maxConcurrency: CONCURRENT_DOWNLOADS ?? 10,
         minConcurrency: 2,
         maxRequestRetries: 2,
-        requestHandler: async function ({ body, request, contentType }) {
+        requestHandler: async function ({body, request, contentType}) {
+            log.info('Downloading ' + request.url)
             const url = new URL(request.url);
 
             let fileName = getFileName(url.href)
@@ -148,14 +161,14 @@ await Actor.main(async () => {
                 .then(() => console.log(`Wrote file to path: ${Path.join(storagePath, path)}`))
                 .catch(error => console.error({error}))
 
-            await dlkvs.setValue(fileName, body, { contentType: 'image/jpeg' })
+            await dlkvs.setValue(fileName, body, {contentType: contentType.type})
                 .then(_ => log.info(`Downloaded ${fileName} with content type: ${contentType.type}. Size: ${body?.length} bytes`))
 
             await imageDownloadStatusKeyValueStore.setValue(fileName,
                 {
                     key: url.pathname.split('/').pop(),
                     url:
-                        request.url,
+                    request.url,
                     isDownloaded: true
                 })
         }
@@ -170,9 +183,9 @@ await Actor.main(async () => {
                 .then(() => log.info(`Zip archive created at: ${Path.join(zipStoragePath, zipFileName)}`))
                 .catch(e => log.error(`An error occurred! The file(s) or folder(s) do not exist ` + e));
 
-            await saveToKVS(zipStoragePath, zipFileName, zipkvs, { contentType: 'application/zip' })
+            await saveToKVS(zipStoragePath, zipFileName, zipkvs, {contentType: 'application/zip'})
 
-            log.info(`You can find your zip file here: ${kvs.getPublicUrl(zipFileName)}`)
+            log.info(`You can find your zip file here: ${zipkvs.getPublicUrl(zipFileName)}`)
         } else log.info('No files were downloaded...')
 
 
@@ -238,7 +251,10 @@ function getFileName(url: string) {
 
 }
 
-async function saveToKVS(zipStoragePath: string, zipFileName: string, _kvs: KeyValueStore, contentType: { contentType: string; type?: any; }) {
+async function saveToKVS(zipStoragePath: string, zipFileName: string, _kvs: KeyValueStore, contentType: {
+    contentType: string;
+    type?: any;
+}) {
     let fileStream = await fs.promises.readFile(Path.join(zipStoragePath, zipFileName))
         .catch(_ => log.error('Could not open ' + Path.join(zipStoragePath, zipFileName)))
 
@@ -267,7 +283,7 @@ async function saveAsFile(folderPath: string, fileName: string, body: string | B
     }
 
     if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true })
+        fs.mkdirSync(folderPath, {recursive: true})
     }
 
     await downloadFile();
