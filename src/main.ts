@@ -88,22 +88,6 @@ let imageDownloadStatusKeyValueStore = await KeyValueStore.open(completedDownloa
 
 await Actor.main(async () => {
 
-    // TEST WALKDIR, FOR STORAGE FOLDER
-    async function* walkDir(dir, basePath = dir) {
-        const dirents = await fs.promises.readdir(dir, { withFileTypes: true });
-        for (const dirent of dirents) {
-            const res = path.resolve(dir, dirent.name);
-            if (dirent.isDirectory()) {
-                yield* walkDir(res, basePath);
-            }
-            if (dirent.isDirectory()) {
-                yield {
-                    diskPath: res,
-                    archivePath: path.relative(basePath, res).replace(/\\/g, '/'), // normalize
-                };
-            }
-        }
-    }
 
     // if (!APIFY_TOKEN && !process.env.APIFY_TOKEN) {
     //     console.log('No APIFY_TOKEN provided!');
@@ -193,10 +177,6 @@ await Actor.main(async () => {
         } else log.info('No files were downloaded...')
 
 
-        for await (let dir of walkDir('.')) {
-                log.info(`DIR: ${JSON.stringify(dir)}}`)
-        }
-        
         await Actor.exit()
 
         log.info('Complete!')
